@@ -1,57 +1,17 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
 <body>
-<nav th:fragment="navbar" class="bg-gray-800 border-b border-gray-700">
-    <div class="container mx-auto px-4">
-        <div class="flex items-center justify-between h-16">
-            <div class="flex items-center space-x-4">
-                <a th:href="@{/}" class="text-xl font-bold text-white hover:text-gray-300">
-                    Finance
-                </a>
-            </div>
-
-            <div class="hidden md:flex items-center space-x-6">
-                <a th:href="@{/dashboard}" class="text-gray-300 hover:text-white transition-colors">
-                    Dashboard
-                </a>
-                <a th:href="@{/transactions}" class="text-gray-300 hover:text-white transition-colors">
-                    Transactions
-                </a>
-                <a th:href="@{/accounts}" class="text-gray-300 hover:text-white transition-colors">
-                    Accounts
-                </a>
-                <a th:href="@{/reports}" class="text-gray-300 hover:text-white transition-colors">
-                    Reports
-                </a>
-            </div>
-
-            <div class="flex items-center space-x-4">
-                <a th:href="@{/profile}" class="text-gray-300 hover:text-white transition-colors">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                    </svg>
-                </a>
-            </div>
-        </div>
-
-        <div class="md:hidden pb-4">
-            <div class="flex flex-col space-y-2">
-                <a th:href="@{/dashboard}" class="text-gray-300 hover:text-white transition-colors py-2">
-                    Dashboard
-                </a>
-                <a th:href="@{/transactions}" class="text-gray-300 hover:text-white transition-colors py-2">
-                    Transactions
-                </a>
-                <a th:href="@{/accounts}" class="text-gray-300 hover:text-white transition-colors py-2">
-                    Accounts
-                </a>
-                <a th:href="@{/reports}" class="text-gray-300 hover:text-white transition-colors py-2">
-                    Reports
-                </a>
-            </div>
-        </div>
-    </div>
+<nav th:fragment="navbar" class="container">
+    <ul>
+        <li><a th:href="@{/}" class="contrast"><strong>Finance</strong></a></li>
+    </ul>
+    <ul>
+        <li><a th:href="@{/dashboard}">Dashboard</a></li>
+        <li><a th:href="@{/transactions}">Transações</a></li>
+        <li><a th:href="@{/accounts}">Contas</a></li>
+        <li><a th:href="@{/reports}">Relatórios</a></li>
+        <li><a th:href="@{/profile}" role="button" class="outline">Perfil</a></li>
+    </ul>
 </nav>
 </body>
 </html>

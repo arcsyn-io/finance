@@ -1,21 +1,16 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="pt-BR" data-theme="dark" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${title} ?: 'Finance App'">Finance App</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class'
-        }
-    </script>
 </head>
-<body class="dark bg-gray-900 text-gray-100 min-h-screen">
+<body>
     <th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
 
-    <main class="container mx-auto px-4 py-6">
+    <main class="container">
         <th:block th:replace="~{fragments/flash :: flash}"></th:block>
         <th:block th:replace="${content}"></th:block>
     </main>
@@ -24,23 +19,18 @@
 
 <th:block th:fragment="layout(content)">
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="pt-BR" data-theme="dark" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${title} ?: 'Finance App'">Finance App</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class'
-        }
-    </script>
 </head>
-<body class="dark bg-gray-900 text-gray-100 min-h-screen">
+<body>
     <th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
 
-    <main class="container mx-auto px-4 py-6">
+    <main class="container">
         <th:block th:replace="~{fragments/flash :: flash}"></th:block>
         <th:block th:replace="${content}"></th:block>
     </main>

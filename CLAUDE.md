@@ -11,7 +11,7 @@ Spring Boot application for personal finance management using server-side render
 - **Database**: SQLite with JOOQ (type-safe SQL)
 - **Migrations**: Flyway (`src/main/resources/db/migration`)
 - **Templates**: Thymeleaf + HTMX 1.9.10
-- **Styling**: Tailwind CSS (CDN, dark mode only)
+- **Styling**: Pico CSS v2 (CDN, dark mode only)
 - **Security**: Spring Security with session-based auth
 
 ## Commands
@@ -54,6 +54,43 @@ src/main/resources/
 
 ## Conventions
 
+### Java (21+)
+
+- Use `var` para variáveis locais com tipo inferido
+- Preferir Streams e lambda expressions
+- Usar `Optional` para retornos que podem ser nulos
+- Records para DTOs imutáveis
+- Pattern matching com `instanceof` e `switch`
+- Text blocks para strings multiline
+- Usar `List.of()`, `Map.of()`, `Set.of()` para coleções imutáveis
+
+```java
+// var
+var account = accountRepository.findById(id);
+var users = List.of("alice", "bob");
+
+// Streams
+var activeUsers = accounts.stream()
+    .filter(Account::isEnabled)
+    .map(Account::getUsername)
+    .toList();
+
+// Pattern matching
+if (obj instanceof Account account) {
+    return account.getUsername();
+}
+
+// Switch expressions
+var status = switch (account.getStatus()) {
+    case ACTIVE -> "Ativo";
+    case DISABLED -> "Desativado";
+    default -> "Desconhecido";
+};
+
+// Records
+public record CreateAccountRequest(String username, String password) {}
+```
+
 ### Controllers
 
 - Return view names as strings
@@ -64,7 +101,8 @@ src/main/resources/
 ### Templates
 
 - Extend base layout: `th:replace="~{layout/base :: layout(~{::content})}"`
-- Dark mode only with Tailwind classes
+- Dark mode via `data-theme="dark"` on `<html>`
+- Use semantic HTML (Pico CSS styles automatically)
 - Mobile-first responsive design
 - Flash messages via `successMessage` and `errorMessage` model attributes
 

@@ -1,0 +1,2 @@
+-- Add enabled column to account
+ALTER TABLE account ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1;
