@@ -3,14 +3,18 @@
 <body>
 <nav th:fragment="navbar" class="container">
     <ul>
-        <li><a th:href="@{/}" class="contrast"><strong>Finance</strong></a></li>
+        <li><a th:href="@{/dashboard}" class="contrast"><strong>Finance</strong></a></li>
     </ul>
     <ul>
         <li><a th:href="@{/dashboard}">Dashboard</a></li>
-        <li><a th:href="@{/transactions}">Transações</a></li>
-        <li><a th:href="@{/accounts}">Contas</a></li>
-        <li><a th:href="@{/reports}">Relatórios</a></li>
-        <li><a th:href="@{/profile}" role="button" class="outline">Perfil</a></li>
+        <li><a th:href="@{/contas}">Contas</a></li>
+        <li><a th:href="@{/transacoes}">Transações</a></li>
+        <li><a th:href="@{/configuracoes}">Configurações</a></li>
+        <li>
+            <form th:action="@{/logout}" method="post" style="margin: 0;">
+                <button type="submit" class="outline secondary" style="margin: 0; padding: 0.5rem 1rem;">Logout</button>
+            </form>
+        </li>
     </ul>
 </nav>
 </body>

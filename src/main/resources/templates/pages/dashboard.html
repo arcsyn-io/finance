@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::content})}">
+<body>
+<div th:fragment="content">
+    <header>
+        <h1>Dashboard</h1>
+        <p>Bem-vindo ao seu painel financeiro</p>
+    </header>
+
+    <div class="grid">
+        <article>
+            <header>Saldo Total</header>
+            <p><strong style="font-size: 2rem;">R$ 0,00</strong></p>
+            <footer><small>Atualizado agora</small></footer>
+        </article>
+
+        <article>
+            <header>Receitas do Mês</header>
+            <p><strong style="font-size: 2rem; color: var(--pico-ins-color);">R$ 0,00</strong></p>
+            <footer><small>Janeiro 2026</small></footer>
+        </article>
+
+        <article>
+            <header>Despesas do Mês</header>
+            <p><strong style="font-size: 2rem; color: var(--pico-del-color);">R$ 0,00</strong></p>
+            <footer><small>Janeiro 2026</small></footer>
+        </article>
+    </div>
+
+    <section>
+        <h2>Últimas Transações</h2>
+        <figure>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Descrição</th>
+                        <th>Categoria</th>
+                        <th>Valor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="4" style="text-align: center;">
+                            <em>Nenhuma transação encontrada</em>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </figure>
+    </section>
+</div>
+</body>
+</html>
