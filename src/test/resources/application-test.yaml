@@ -1,0 +1,18 @@
+spring:
+  datasource:
+    url: jdbc:sqlite:data/finance-test.db
+    driver-class-name: org.sqlite.JDBC
+
+  jooq:
+    sql-dialect: SQLITE
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  thymeleaf:
+    cache: false
+
+logging:
+  level:
+    org.jooq.tools.LoggerListener: DEBUG

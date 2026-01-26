@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="flash" class="space-y-2 mb-4">
+    <div th:if="${successMessage}"
+         class="bg-green-900 border border-green-700 text-green-100 px-4 py-3 rounded-lg flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span th:text="${successMessage}">Success message</span>
+        </div>
+    </div>
+
+    <div th:if="${errorMessage}"
+         class="bg-red-900 border border-red-700 text-red-100 px-4 py-3 rounded-lg flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span th:text="${errorMessage}">Error message</span>
+        </div>
+    </div>
+
+    <th:block th:if="${errors}">
+        <div th:each="error : ${errors}"
+             class="bg-red-900 border border-red-700 text-red-100 px-4 py-3 rounded-lg flex items-center space-x-2">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span th:text="${error}">Error</span>
+        </div>
+    </th:block>
+</div>
+</body>
+</html>
