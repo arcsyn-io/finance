@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::content})}">
+<body>
+<div th:fragment="content">
+    <style>
+        .badge-income {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #10b98133;
+            color: #34d399;
+        }
+        .badge-expense {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #ef444433;
+            color: #f87171;
+        }
+    </style>
+
+    <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <div>
+            <h1 style="margin-bottom: 0;">Categorias</h1>
+            <p style="margin: 0;"><small>Gerencie as categorias de receitas e despesas</small></p>
+        </div>
+        <a th:href="@{/categories/new}" role="button">+ Nova Categoria</a>
+    </header>
+
+    <div style="margin-bottom: 1rem;">
+        <label style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="checkbox"
+                   th:checked="${showInactive}"
+                   onchange="window.location.href = this.checked ? '/categories?showInactive=true' : '/categories'"
+                   style="width: auto; margin: 0;">
+            Mostrar inativas
+        </label>
+    </div>
+
+    <figure>
+        <table>
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Tipo</th>
+                    <th>Status</th>
+                    <th style="text-align: right;">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="categories-table">
+                <th:block th:each="category : ${categories}">
+                    <tr th:replace="~{fragments/category-row :: row(category=${category})}"></tr>
+                </th:block>
+                <tr th:if="${#lists.isEmpty(categories)}">
+                    <td colspan="4" style="text-align: center; padding: 2rem;">
+                        Nenhuma categoria encontrada.
+                        <a th:href="@{/categories/new}">Criar primeira categoria</a>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </figure>
+</div>
+</body>
+</html>

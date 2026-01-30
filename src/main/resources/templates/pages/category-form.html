@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::content})}">
+<body>
+<div th:fragment="content">
+    <header style="margin-bottom: 1.5rem;">
+        <h1 th:text="${isEdit} ? 'Editar Categoria' : 'Nova Categoria'">Nova Categoria</h1>
+        <p><small>
+            <a th:href="@{/categories}">&larr; Voltar para lista</a>
+        </small></p>
+    </header>
+
+    <article style="max-width: 500px;">
+        <form th:action="${isEdit} ? @{/categories/{id}(id=${category.id})} : @{/categories}"
+              method="post">
+
+            <label for="name">
+                Nome
+                <input type="text"
+                       id="name"
+                       name="name"
+                       th:value="${category?.name}"
+                       placeholder="Ex: Alimentação, Salário..."
+                       required
+                       autofocus>
+            </label>
+
+            <label for="type">
+                Tipo
+                <select id="type" name="type" required>
+                    <option value="">Selecione o tipo...</option>
+                    <option th:each="t : ${categoryTypes}"
+                            th:value="${t.name()}"
+                            th:text="${t.name() == 'INCOME' ? 'Receita' : 'Despesa'}"
+                            th:selected="${category?.type == t}">
+                    </option>
+                </select>
+            </label>
+
+            <label th:if="${isEdit}" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                <input type="checkbox"
+                       id="active"
+                       name="active"
+                       value="true"
+                       th:checked="${category?.active}"
+                       style="width: auto; margin: 0;">
+                Categoria ativa
+            </label>
+
+            <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
+                <a th:href="@{/categories}" role="button" class="outline secondary" style="flex: 1; text-align: center;">
+                    Cancelar
+                </a>
+                <button type="submit" style="flex: 1;">
+                    <span th:text="${isEdit} ? 'Salvar' : 'Criar'">Criar</span>
+                </button>
+            </div>
+        </form>
+    </article>
+</div>
+</body>
+</html>
