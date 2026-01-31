@@ -88,6 +88,42 @@
         .batch-actions.hidden {
             display: none;
         }
+        .action-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .action-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 0.25rem;
+            background: var(--pico-card-background-color);
+            border: 1px solid var(--pico-muted-border-color);
+            border-radius: 0.5rem;
+            padding: 0.5rem 0;
+            min-width: 200px;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        .action-dropdown-menu.open {
+            display: block;
+        }
+        .action-dropdown-menu a {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 1rem;
+            color: var(--pico-color);
+            text-decoration: none;
+        }
+        .action-dropdown-menu a:hover {
+            background: var(--pico-primary-background);
+        }
+        .action-dropdown-menu a i {
+            width: 1rem;
+            text-align: center;
+        }
     </style>
 
     <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
@@ -95,11 +131,26 @@
             <h1 style="margin-bottom: 0;">Lançamentos</h1>
             <p style="margin: 0;"><small>Registre e visualize seus lançamentos financeiros</small></p>
         </div>
-        <button hx-get="/entries/new"
-                hx-target="#sidebarContent"
-                hx-swap="innerHTML">
-            + Novo Lançamento
-        </button>
+        <div class="action-dropdown">
+            <button type="button" onclick="toggleActionDropdown()">
+                + Novo Lançamento
+                <i class="fa-solid fa-caret-down" style="margin-left: 0.5rem;"></i>
+            </button>
+            <div id="actionDropdownMenu" class="action-dropdown-menu">
+                <a href="#"
+                   hx-get="/entries/new"
+                   hx-target="#sidebarContent"
+                   hx-swap="innerHTML"
+                   onclick="closeActionDropdown()">
+                    <i class="fa-solid fa-pen"></i>
+                    Inserir manualmente
+                </a>
+                <a href="/imports/new">
+                    <i class="fa-solid fa-file-import"></i>
+                    Importar arquivo
+                </a>
+            </div>
+        </div>
     </header>
 
     <form method="get" action="/entries" id="filtersForm">
@@ -308,6 +359,20 @@
             });
             clearSelection();
         }
+        function toggleActionDropdown() {
+            var menu = document.getElementById('actionDropdownMenu');
+            menu.classList.toggle('open');
+        }
+        function closeActionDropdown() {
+            var menu = document.getElementById('actionDropdownMenu');
+            menu.classList.remove('open');
+        }
+        document.addEventListener('click', function(e) {
+            var dropdown = document.querySelector('.action-dropdown');
+            if (dropdown && !dropdown.contains(e.target)) {
+                closeActionDropdown();
+            }
+        });
     </script>
 
     <div class="batch-actions hidden" id="batchActions">

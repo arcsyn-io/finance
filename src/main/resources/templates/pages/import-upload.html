@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::content})}">
+<body>
+<div th:fragment="content">
+    <header style="margin-bottom: 1.5rem;">
+        <h1 style="margin-bottom: 0;">Importar Lançamentos</h1>
+        <p style="margin: 0;"><small>Faça upload de um arquivo CSV para importar lançamentos</small></p>
+    </header>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start;">
+        <article style="margin: 0;">
+            <form action="/imports"
+                  method="post"
+                  enctype="multipart/form-data"
+                  hx-post="/imports"
+                  hx-encoding="multipart/form-data">
+
+                <div th:if="${errorMessage}" class="form-error">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <span th:text="${errorMessage}">Erro</span>
+                </div>
+
+                <label for="file">
+                    Arquivo de Importação
+                    <input type="file"
+                           id="file"
+                           name="file"
+                           accept=".csv"
+                           required>
+                </label>
+
+                <label for="source">
+                    Fonte do arquivo
+                    <select id="source" name="source" required>
+                        <option value="">Selecione a fonte...</option>
+                        <option th:each="s : ${sources}"
+                                th:value="${s.name()}"
+                                th:text="${s.name() == 'NUBANK_CSV' ? 'Nubank (CSV)' : s.name()}"
+                                th:selected="${formSource == s}">
+                        </option>
+                    </select>
+                </label>
+
+                <label for="walletId">
+                    Carteira padrão
+                    <select id="walletId" name="walletId">
+                        <option value="">Nenhuma</option>
+                        <option th:each="w : ${wallets}"
+                                th:value="${w.id}"
+                                th:text="${w.name}"
+                                th:selected="${formWalletId == w.id}">
+                        </option>
+                    </select>
+                </label>
+
+                <label for="categoryId">
+                    Categoria padrão
+                    <select id="categoryId" name="categoryId">
+                        <option value="">Nenhuma</option>
+                        <option th:each="c : ${categories}"
+                                th:value="${c.id}"
+                                th:text="${c.name + ' (' + (c.type.name() == 'INCOME' ? 'Receita' : 'Despesa') + ')'}"
+                                th:selected="${formCategoryId == c.id}">
+                        </option>
+                    </select>
+                </label>
+
+                <label for="nature">
+                    Natureza padrão
+                    <select id="nature" name="nature">
+                        <option value="">Nenhuma</option>
+                        <option th:each="n : ${natures}"
+                                th:value="${n.name()}"
+                                th:text="${n.name() == 'OPERATIONAL' ? 'Operacional' : 'Patrimonial'}"
+                                th:selected="${formNature == n}">
+                        </option>
+                    </select>
+                </label>
+
+                <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
+                    <a href="/entries" class="outline secondary" role="button" style="flex: 1; display: inline-flex; align-items: center; justify-content: center;">
+                        Cancelar
+                    </a>
+                    <button type="submit" style="flex: 1;">
+                        <i class="fa-solid fa-upload"></i>
+                        Processar CSV
+                    </button>
+                </div>
+            </form>
+        </article>
+
+        <article style="margin: 0;">
+            <h3 style="margin-top: 0;">Formato esperado (Nubank)</h3>
+            <p>O arquivo CSV do Nubank deve ter a seguinte estrutura:</p>
+            <pre style="background: var(--pico-card-background-color); padding: 1rem; border-radius: 0.5rem; overflow-x: auto;"><code>date,title,amount
+2025-12-29,Cooper Filial Jaragua,613.02
+2025-12-08,Pagamento recebido,-5895.74</code></pre>
+            <ul>
+                <li><strong>date:</strong> formato YYYY-MM-DD</li>
+                <li><strong>title:</strong> descricao do lancamento</li>
+                <li><strong>amount:</strong> positivo = despesa, negativo = entrada/estorno</li>
+            </ul>
+        </article>
+    </div>
+</div>
+</body>
+</html>

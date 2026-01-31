@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<body>
+<tr th:fragment="row(row, importRequest, wallets, categories, natures)"
+    th:id="${'row-' + row.id}">
+    <td><input type="checkbox" class="row-checkbox"></td>
+    <td th:text="${#temporals.format(row.occurredAt, 'dd/MM/yyyy')}">01/01/2024</td>
+    <td>
+        <input type="text"
+                              name="value"
+               th:value="${row.description}"
+               th:hx-post="@{/imports/{id}/rows/{rowId}/field(id=${importRequest.id}, rowId=${row.id})}"
+               hx-trigger="change"
+               hx-vals='{"field":"description"}'
+               hx-swap="none">
+    </td>
+    <td>
+        <select                 name="value"
+                th:hx-post="@{/imports/{id}/rows/{rowId}/field(id=${importRequest.id}, rowId=${row.id})}"
+                hx-trigger="change"
+                hx-vals='{"field":"walletId"}'
+                hx-swap="none">
+            <option value=""
+                    th:if="${importRequest.walletName != null}"
+                    th:selected="${row.walletId == null}"
+                    th:text="${importRequest.walletName + ' (padrao)'}">Padrao</option>
+            <option value=""
+                    th:if="${importRequest.walletName == null}"
+                    th:selected="${row.walletId == null}">Selecione...</option>
+            <option th:each="w : ${wallets}"
+                    th:value="${w.id}"
+                    th:text="${w.name}"
+                    th:selected="${row.walletId == w.id}">
+            </option>
+        </select>
+    </td>
+    <td>
+        <select                 name="value"
+                th:hx-post="@{/imports/{id}/rows/{rowId}/field(id=${importRequest.id}, rowId=${row.id})}"
+                hx-trigger="change"
+                hx-vals='{"field":"categoryId"}'
+                hx-swap="none">
+            <option value=""
+                    th:if="${importRequest.categoryName != null}"
+                    th:selected="${row.categoryId == null}"
+                    th:text="${importRequest.categoryName + ' (padrao)'}">Padrao</option>
+            <option value=""
+                    th:if="${importRequest.categoryName == null}"
+                    th:selected="${row.categoryId == null}">Selecione...</option>
+            <option th:each="c : ${categories}"
+                    th:value="${c.id}"
+                    th:text="${c.name}"
+                    th:selected="${row.categoryId == c.id}">
+            </option>
+        </select>
+    </td>
+    <td>
+        <select                 name="value"
+                th:hx-post="@{/imports/{id}/rows/{rowId}/field(id=${importRequest.id}, rowId=${row.id})}"
+                hx-trigger="change"
+                hx-vals='{"field":"nature"}'
+                hx-swap="none">
+            <option value=""
+                    th:if="${importRequest.nature != null}"
+                    th:selected="${row.nature == null}"
+                    th:text="${(importRequest.nature.name() == 'OPERATIONAL' ? 'Oper.' : 'Patrim.') + ' (padrao)'}">Padrao</option>
+            <option value=""
+                    th:if="${importRequest.nature == null}"
+                    th:selected="${row.nature == null}">Selecione...</option>
+            <option th:each="n : ${natures}"
+                    th:value="${n.name()}"
+                    th:text="${n.name() == 'OPERATIONAL' ? 'Operacional' : 'Patrimonial'}"
+                    th:selected="${row.nature == n}">
+            </option>
+        </select>
+    </td>
+    <td style="text-align: right; white-space: nowrap;">
+        <span th:class="${row.direction.name() == 'IN' ? 'amount-in' : 'amount-out'}">
+            <span th:text="${row.direction.name() == 'IN' ? '+' : '-'}"></span>
+            R$ <span th:text="${#numbers.formatDecimal(row.amount / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+        </span>
+    </td>
+    <td style="text-align: right;">
+        <button class="icon-btn icon-btn-danger"
+                title="Remover"
+                th:hx-delete="@{/imports/{id}/rows/{rowId}(id=${importRequest.id}, rowId=${row.id})}"
+                hx-target="closest tr"
+                hx-swap="outerHTML"
+                hx-confirm="Remover este lancamento da importacao?">
+            <i class="fa-solid fa-trash"></i>
+        </button>
+    </td>
+</tr>
+
+<tr th:fragment="empty" style="display: none;"></tr>
+</body>
+</html>

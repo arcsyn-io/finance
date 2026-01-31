@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::content})}">
+<body>
+<div th:fragment="content">
+    <style>
+        .badge-in {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #10b98133;
+            color: #34d399;
+        }
+        .badge-out {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #ef444433;
+            color: #f87171;
+        }
+        .amount-in {
+            color: #34d399;
+            font-weight: 600;
+        }
+        .amount-out {
+            color: #f87171;
+            font-weight: 600;
+        }
+        .import-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--pico-card-background-color);
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .import-info dt {
+            font-size: 0.75rem;
+            color: var(--pico-muted-color);
+            margin-bottom: 0.25rem;
+        }
+        .import-info dd {
+            margin: 0;
+            font-weight: 600;
+        }
+        #import-rows td {
+            vertical-align: middle;
+        }
+        #import-rows input,
+        #import-rows select {
+            margin: 0;
+        }
+        #import-rows tr.selected {
+            background: var(--pico-primary-background);
+        }
+        .batch-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 1rem;
+            background: var(--pico-primary-background);
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        .batch-actions.hidden {
+            display: none;
+        }
+        .batch-actions select {
+            margin: 0;
+            width: auto;
+            min-width: 150px;
+        }
+        .batch-actions label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0;
+            font-size: 0.875rem;
+        }
+        .row-checkbox {
+            width: 1.25rem;
+            height: 1.25rem;
+            margin: 0;
+        }
+    </style>
+
+    <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <div>
+            <h1 style="margin-bottom: 0;">Revisar Importacao</h1>
+            <p style="margin: 0;"><small>Revise e edite os lancamentos antes de confirmar</small></p>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+            <button class="outline secondary"
+                    hx-delete="/imports/{id}(id=${importRequest.id})"
+                    th:attr="hx-delete=@{/imports/{id}(id=${importRequest.id})}"
+                    hx-confirm="Tem certeza que deseja cancelar esta importacao?">
+                Cancelar
+            </button>
+            <button hx-post="/imports/{id}/confirm(id=${importRequest.id})"
+                    th:attr="hx-post=@{/imports/{id}/confirm(id=${importRequest.id})}">
+                <i class="fa-solid fa-check"></i>
+                Confirmar Importacao
+            </button>
+        </div>
+    </header>
+
+    <dl class="import-info">
+        <div>
+            <dt>Carteira padrao</dt>
+            <dd th:text="${importRequest.walletName != null ? importRequest.walletName : 'Nenhuma'}">Nubank</dd>
+        </div>
+        <div>
+            <dt>Categoria padrao</dt>
+            <dd th:text="${importRequest.categoryName != null ? importRequest.categoryName : 'Nenhuma'}">Alimentacao</dd>
+        </div>
+        <div>
+            <dt>Natureza padrao</dt>
+            <dd th:text="${importRequest.nature != null ? (importRequest.nature.name() == 'OPERATIONAL' ? 'Operacional' : 'Patrimonial') : 'Nenhuma'}">Operacional</dd>
+        </div>
+        <div>
+            <dt>Total de lancamentos</dt>
+            <dd th:text="${#lists.size(importRequest.rows)}">0</dd>
+        </div>
+    </dl>
+
+    <div class="batch-actions hidden" id="batchActions">
+        <span id="selectedCount">0 selecionados</span>
+        <label>
+            Carteira:
+            <select id="batchWallet">
+                <option value="">-- Manter --</option>
+                <option value="__clear__">Usar padrao</option>
+                <option th:each="w : ${wallets}" th:value="${w.id}" th:text="${w.name}"></option>
+            </select>
+        </label>
+        <label>
+            Categoria:
+            <select id="batchCategory">
+                <option value="">-- Manter --</option>
+                <option value="__clear__">Usar padrao</option>
+                <option th:each="c : ${categories}" th:value="${c.id}" th:text="${c.name}"></option>
+            </select>
+        </label>
+        <label>
+            Natureza:
+            <select id="batchNature">
+                <option value="">-- Manter --</option>
+                <option value="__clear__">Usar padrao</option>
+                <option th:each="n : ${natures}" th:value="${n.name()}" th:text="${n.name() == 'OPERATIONAL' ? 'Operacional' : 'Patrimonial'}"></option>
+            </select>
+        </label>
+        <button type="button" onclick="applyBatchChanges()">Aplicar</button>
+        <button type="button" class="outline" onclick="clearSelection()">Limpar</button>
+    </div>
+
+    <figure>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 2.5rem;"><input type="checkbox" class="row-checkbox" id="selectAll" onchange="toggleSelectAll(this.checked)"></th>
+                    <th>Data</th>
+                    <th>Descricao</th>
+                    <th>Carteira</th>
+                    <th>Categoria</th>
+                    <th>Natureza</th>
+                    <th style="text-align: right;">Valor</th>
+                    <th style="text-align: right;">Acoes</th>
+                </tr>
+            </thead>
+            <tbody id="import-rows">
+                <th:block th:each="row : ${importRequest.rows}">
+                    <tr th:replace="~{fragments/import-row :: row(row=${row}, importRequest=${importRequest}, wallets=${wallets}, categories=${categories}, natures=${natures})}"></tr>
+                </th:block>
+                <tr th:if="${#lists.isEmpty(importRequest.rows)}">
+                    <td colspan="8" style="text-align: center; padding: 2rem;">
+                        Nenhum lancamento para importar.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </figure>
+
+    <script th:inline="javascript">
+        var importId = [[${importRequest.id}]];
+
+        function updateBatchActions() {
+            var selected = document.querySelectorAll('#import-rows tr input.row-checkbox:checked');
+            var batchActions = document.getElementById('batchActions');
+            var countSpan = document.getElementById('selectedCount');
+            if (selected.length > 0) {
+                batchActions.classList.remove('hidden');
+                countSpan.textContent = selected.length + ' selecionado' + (selected.length > 1 ? 's' : '');
+            } else {
+                batchActions.classList.add('hidden');
+            }
+            document.getElementById('selectAll').checked =
+                selected.length === document.querySelectorAll('#import-rows tr input.row-checkbox').length && selected.length > 0;
+        }
+
+        function toggleSelectAll(checked) {
+            document.querySelectorAll('#import-rows tr input.row-checkbox').forEach(function(cb) {
+                cb.checked = checked;
+                cb.closest('tr').classList.toggle('selected', checked);
+            });
+            updateBatchActions();
+        }
+
+        function clearSelection() {
+            document.querySelectorAll('#import-rows tr input.row-checkbox').forEach(function(cb) {
+                cb.checked = false;
+                cb.closest('tr').classList.remove('selected');
+            });
+            document.getElementById('selectAll').checked = false;
+            document.getElementById('batchWallet').value = '';
+            document.getElementById('batchCategory').value = '';
+            document.getElementById('batchNature').value = '';
+            updateBatchActions();
+        }
+
+        function applyBatchChanges() {
+            var selected = document.querySelectorAll('#import-rows tr input.row-checkbox:checked');
+            if (selected.length === 0) return;
+
+            var walletValue = document.getElementById('batchWallet').value;
+            var categoryValue = document.getElementById('batchCategory').value;
+            var natureValue = document.getElementById('batchNature').value;
+
+            if (!walletValue && !categoryValue && !natureValue) {
+                alert('Selecione pelo menos um campo para alterar');
+                return;
+            }
+
+            var rowIds = [];
+            selected.forEach(function(cb) {
+                rowIds.push(cb.closest('tr').id.replace('row-', ''));
+            });
+
+            var data = {
+                rowIds: rowIds,
+                walletId: walletValue === '__clear__' ? '' : walletValue,
+                categoryId: categoryValue === '__clear__' ? '' : categoryValue,
+                nature: natureValue === '__clear__' ? '' : natureValue
+            };
+
+            fetch('/imports/' + importId + '/rows/batch', {
+                method: 'POST',
+                body: JSON.stringify(data),
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]').content
+                }
+            }).then(function(response) {
+                if (response.ok) {
+                    // Atualizar os selects nas linhas
+                    selected.forEach(function(cb) {
+                        var row = cb.closest('tr');
+                        var selects = row.querySelectorAll('select');
+                        if (walletValue) selects[0].value = walletValue === '__clear__' ? '' : walletValue;
+                        if (categoryValue) selects[1].value = categoryValue === '__clear__' ? '' : categoryValue;
+                        if (natureValue) selects[2].value = natureValue === '__clear__' ? '' : natureValue;
+                    });
+                    clearSelection();
+                }
+            });
+        }
+
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('row-checkbox') && e.target.id !== 'selectAll') {
+                e.target.closest('tr').classList.toggle('selected', e.target.checked);
+                updateBatchActions();
+            }
+        });
+    </script>
+</div>
+</body>
+</html>
