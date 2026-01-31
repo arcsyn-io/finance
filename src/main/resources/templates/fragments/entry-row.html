@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<body>
+<tr th:fragment="row(entry)" th:id="'entry-row-' + ${entry.id}"
+    th:style="${entry.deleted ? 'opacity: 0.5;' : ''}">
+    <td th:text="${#temporals.format(entry.occurredAt, 'dd/MM/yyyy')}"
+        th:style="${entry.deleted ? 'text-decoration: line-through;' : ''}">01/01/2024</td>
+    <td th:text="${entry.description ?: '-'}"
+        th:style="${entry.deleted ? 'text-decoration: line-through;' : ''}">Descrição</td>
+    <td th:text="${entry.walletName}"
+        th:style="${entry.deleted ? 'text-decoration: line-through;' : ''}">Nubank</td>
+    <td th:text="${entry.categoryName}"
+        th:style="${entry.deleted ? 'text-decoration: line-through;' : ''}">Alimentação</td>
+    <td>
+        <span th:class="${entry.nature.name() == 'OPERATIONAL' ? 'badge-operational' : 'badge-patrimonial'}"
+              th:text="${entry.nature.name() == 'OPERATIONAL' ? 'Operacional' : 'Patrimonial'}">Natureza</span>
+    </td>
+    <td style="text-align: right;">
+        <span th:class="${entry.direction.name() == 'IN' ? 'amount-in' : 'amount-out'}"
+              th:style="${entry.deleted ? 'text-decoration: line-through;' : ''}"
+              th:text="${(entry.direction.name() == 'IN' ? '+' : '-') + 'R$ ' + #numbers.formatDecimal(entry.amount / 100.0, 1, 'POINT', 2, 'COMMA')}">
+            R$ 100,00
+        </span>
+    </td>
+    <td style="text-align: right;">
+        <div style="display: flex; gap: 0.25rem; justify-content: flex-end;">
+            <button th:unless="${entry.deleted}"
+                    class="icon-btn"
+                    title="Editar"
+                    th:attr="hx-get=@{/entries/{id}/edit(id=${entry.id})}"
+                    hx-target="#sidebarContent"
+                    hx-swap="innerHTML">
+                <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+            <button th:unless="${entry.deleted}"
+                    class="icon-btn icon-btn-danger"
+                    title="Excluir"
+                    th:attr="hx-post=@{/entries/{id}/delete(id=${entry.id})}"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML">
+                <i class="fa-solid fa-trash"></i>
+            </button>
+            <button th:if="${entry.deleted}"
+                    class="icon-btn icon-btn-success"
+                    title="Restaurar"
+                    th:attr="hx-post=@{/entries/{id}/restore(id=${entry.id})}"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML">
+                <i class="fa-solid fa-rotate-left"></i>
+            </button>
+        </div>
+    </td>
+</tr>
+
+<tr th:fragment="empty">
+    <td colspan="7" style="text-align: center;">Erro ao processar lançamento</td>
+</tr>
+</body>
+</html>

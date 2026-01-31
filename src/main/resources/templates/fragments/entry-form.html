@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="form(entry, wallets, categories, natures, isEdit)">
+    <div class="sidebar-header">
+        <h2 th:text="${isEdit} ? 'Editar Lançamento' : 'Novo Lançamento'">Novo Lançamento</h2>
+        <button class="sidebar-close" onclick="closeSidebar()" type="button">&times;</button>
+    </div>
+
+    <form th:action="${isEdit} ? @{/entries/{id}(id=${entry.id})} : @{/entries}"
+          method="post"
+          hx-post=""
+          th:attr="hx-post=${isEdit} ? @{/entries/{id}(id=${entry.id})} : @{/entries}"
+          hx-target="#sidebarContent"
+          hx-swap="innerHTML">
+
+        <div th:if="${errorMessage}" class="form-error">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span th:text="${errorMessage}">Erro</span>
+        </div>
+
+        <label for="occurredAt">
+            Data
+            <input type="date"
+                   id="occurredAt"
+                   name="occurredAt"
+                   th:value="${formOccurredAt != null ? formOccurredAt : (entry?.occurredAt != null ? #temporals.format(entry.occurredAt, 'yyyy-MM-dd') : #temporals.format(#temporals.createNow(), 'yyyy-MM-dd'))}"
+                   required
+                   autofocus>
+        </label>
+
+        <label for="walletId">
+            Carteira
+            <select id="walletId" name="walletId" required>
+                <option value="">Selecione a carteira...</option>
+                <option th:each="w : ${wallets}"
+                        th:value="${w.id}"
+                        th:text="${w.name}"
+                        th:selected="${formWalletId != null ? formWalletId == w.id : entry?.walletId == w.id}">
+                </option>
+            </select>
+        </label>
+
+        <label for="categoryId">
+            Categoria
+            <select id="categoryId" name="categoryId" required>
+                <option value="">Selecione a categoria...</option>
+                <option th:each="c : ${categories}"
+                        th:value="${c.id}"
+                        th:text="${c.name + ' (' + (c.type.name() == 'INCOME' ? 'Receita' : 'Despesa') + ')'}"
+                        th:selected="${formCategoryId != null ? formCategoryId == c.id : entry?.categoryId == c.id}">
+                </option>
+            </select>
+        </label>
+
+        <label for="nature">
+            Natureza
+            <select id="nature" name="nature" required>
+                <option value="">Selecione a natureza...</option>
+                <option th:each="n : ${natures}"
+                        th:value="${n.name()}"
+                        th:text="${n.name() == 'OPERATIONAL' ? 'Operacional' : 'Patrimonial'}"
+                        th:selected="${formNature != null ? formNature == n : entry?.nature == n}">
+                </option>
+            </select>
+        </label>
+
+        <label for="amount">
+            Valor (R$)
+            <input type="text"
+                   id="amount"
+                   name="amount"
+                   th:value="${formAmount != null ? formAmount : entryAmount}"
+                   placeholder="Ex: 150,00"
+                   required
+                   inputmode="decimal">
+        </label>
+
+        <label for="description">
+            Descrição (opcional)
+            <input type="text"
+                   id="description"
+                   name="description"
+                   th:value="${formDescription != null ? formDescription : entry?.description}"
+                   placeholder="Ex: Supermercado, Salário mensal...">
+        </label>
+
+        <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
+            <button type="button" class="outline secondary" onclick="closeSidebar()" style="flex: 1;">
+                Cancelar
+            </button>
+            <button type="submit" style="flex: 1;">
+                <span th:text="${isEdit} ? 'Salvar' : 'Criar'">Criar</span>
+            </button>
+        </div>
+    </form>
+</div>
+</body>
+</html>

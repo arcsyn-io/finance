@@ -40,6 +40,11 @@ O sistema separa claramente três dimensões que NÃO se misturam:
 
 **Entry (Lançamento)** - fato financeiro imutável:
 - nature: `OPERATIONAL` ou `PATRIMONIAL` (sempre explícita)
+- direction: `IN` ou `OUT` (inferida da categoria: INCOME→IN, EXPENSE→OUT)
+- amount: valor em **centavos** (INTEGER, nunca decimal/float)
+- Conversão real ↔ centavos apenas na borda (controller/view)
+- Soft delete via `deleted_at` (sem delete físico)
+- Restauração de lançamentos excluídos permitida
 - Pode aparecer em várias visões ou em nenhuma
 
 ### Regras de Ouro (não violar)

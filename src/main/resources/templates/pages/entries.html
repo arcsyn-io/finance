@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::content})}">
+<body>
+<div th:fragment="content">
+    <style>
+        .badge-in {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #10b98133;
+            color: #34d399;
+        }
+        .badge-out {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #ef444433;
+            color: #f87171;
+        }
+        .badge-operational {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: var(--pico-primary-background);
+            color: var(--pico-primary);
+        }
+        .badge-patrimonial {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #7c3aed33;
+            color: #a78bfa;
+        }
+        .filters-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: var(--pico-card-background-color);
+            border-radius: 0.5rem;
+        }
+        .filters-form label {
+            margin-bottom: 0;
+        }
+        .filters-form input, .filters-form select {
+            margin-bottom: 0;
+        }
+        .amount-in {
+            color: #34d399;
+            font-weight: 600;
+        }
+        .amount-out {
+            color: #f87171;
+            font-weight: 600;
+        }
+    </style>
+
+    <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <div>
+            <h1 style="margin-bottom: 0;">Lançamentos</h1>
+            <p style="margin: 0;"><small>Registre e visualize seus lançamentos financeiros</small></p>
+        </div>
+        <button hx-get="/entries/new"
+                hx-target="#sidebarContent"
+                hx-swap="innerHTML">
+            + Novo Lançamento
+        </button>
+    </header>
+
+    <form method="get" action="/entries" id="filtersForm">
+        <input type="hidden" name="offset" id="offsetInput" th:value="${offset}">
+        <input type="hidden" name="period" id="periodInput" th:value="${selectedPeriod.name()}">
+        <input type="hidden" name="walletId" id="walletIdInput" th:value="${selectedWalletId}">
+        <input type="hidden" name="categoryId" id="categoryIdInput" th:value="${selectedCategoryId}">
+        <input type="hidden" name="nature" id="natureInput" th:value="${selectedNature?.name()}">
+        <input type="hidden" name="showDeleted" id="showDeletedInput" th:value="${showDeleted}">
+    </form>
+
+    <div class="filters-form">
+        <label>
+            Carteira
+            <select onchange="document.getElementById('walletIdInput').value = this.value; document.getElementById('filtersForm').submit();">
+                <option value="">Todas</option>
+                <option th:each="w : ${wallets}"
+                        th:value="${w.id}"
+                        th:text="${w.name}"
+                        th:selected="${selectedWalletId == w.id}">
+                </option>
+            </select>
+        </label>
+        <label>
+            Categoria
+            <select onchange="document.getElementById('categoryIdInput').value = this.value; document.getElementById('filtersForm').submit();">
+                <option value="">Todas</option>
+                <option th:each="c : ${categories}"
+                        th:value="${c.id}"
+                        th:text="${c.name}"
+                        th:selected="${selectedCategoryId == c.id}">
+                </option>
+            </select>
+        </label>
+        <label>
+            Natureza
+            <select onchange="document.getElementById('natureInput').value = this.value; document.getElementById('filtersForm').submit();">
+                <option value="">Todas</option>
+                <option th:each="n : ${natures}"
+                        th:value="${n.name()}"
+                        th:text="${n.name() == 'OPERATIONAL' ? 'Operacional' : 'Patrimonial'}"
+                        th:selected="${selectedNature == n}">
+                </option>
+            </select>
+        </label>
+        <label>
+            Mostrar
+            <label class="toggle" style="margin-top: 0.5rem;">
+                <input type="checkbox" th:checked="${showDeleted}"
+                       onchange="document.getElementById('showDeletedInput').value = this.checked; document.getElementById('filtersForm').submit();">
+                <span class="toggle-switch"></span>
+                <span class="toggle-label">Excluídos</span>
+            </label>
+        </label>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 0.75rem; margin: 1.5rem 0;">
+        <button type="button" class="outline nav-prev" style="padding: 0.5rem 0.75rem; margin: 0;"
+                th:data-offset="${offset - 1}">
+            <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <div class="period-dropdown" style="position: relative;">
+            <span class="period-label" onclick="togglePeriodDropdown()"
+                  style="font-size: 1.25rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+                <span th:text="${periodLabel}">Janeiro 2024</span>
+                <i class="fa-solid fa-caret-down" style="font-size: 0.875rem;"></i>
+            </span>
+            <div id="periodDropdownMenu" class="period-dropdown-menu" style="display: none; position: absolute; top: 100%; left: 0; margin-top: 0.5rem; background: var(--pico-card-background-color); border: 1px solid var(--pico-muted-border-color); border-radius: 0.5rem; padding: 0.5rem 0; min-width: 180px; z-index: 100; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); white-space: nowrap;">
+                <a th:each="p : ${periods}"
+                   href="#"
+                   th:text="${p.label}"
+                   th:data-period="${p.name()}"
+                   onclick="selectPeriod(this.dataset.period); return false;"
+                   style="display: block; padding: 0.5rem 1rem; color: var(--pico-color); text-decoration: none;"
+                   onmouseover="this.style.background='var(--pico-primary-background)'"
+                   onmouseout="this.style.background='transparent'">
+                </a>
+            </div>
+        </div>
+        <button type="button" class="outline nav-next" style="padding: 0.5rem 0.75rem; margin: 0;"
+                th:data-offset="${offset + 1}">
+            <i class="fa-solid fa-chevron-right"></i>
+        </button>
+    </div>
+
+    <script>
+        function togglePeriodDropdown() {
+            var menu = document.getElementById('periodDropdownMenu');
+            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        }
+        function selectPeriod(period) {
+            document.getElementById('periodInput').value = period;
+            document.getElementById('offsetInput').value = 0;
+            document.getElementById('filtersForm').submit();
+        }
+        function navigateOffset(offset) {
+            document.getElementById('offsetInput').value = offset;
+            document.getElementById('filtersForm').submit();
+        }
+        document.querySelector('.nav-prev').addEventListener('click', function() {
+            navigateOffset(this.dataset.offset);
+        });
+        document.querySelector('.nav-next').addEventListener('click', function() {
+            navigateOffset(this.dataset.offset);
+        });
+        document.addEventListener('click', function(e) {
+            var dropdown = document.querySelector('.period-dropdown');
+            if (dropdown && !dropdown.contains(e.target)) {
+                document.getElementById('periodDropdownMenu').style.display = 'none';
+            }
+        });
+    </script>
+
+    <figure>
+        <table>
+            <thead>
+                <tr>
+                    <th>Ocorrido Em</th>
+                    <th>Descrição</th>
+                    <th>Carteira</th>
+                    <th>Categoria</th>
+                    <th>Natureza</th>
+                    <th style="text-align: right;">Valor</th>
+                    <th style="text-align: right;">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="entries-table">
+                <th:block th:each="entry : ${entries}">
+                    <tr th:replace="~{fragments/entry-row :: row(entry=${entry})}"></tr>
+                </th:block>
+                <tr th:if="${#lists.isEmpty(entries)}">
+                    <td colspan="7" style="text-align: center; padding: 2rem;">
+                        Nenhum lançamento encontrado.
+                        <a href="#"
+                           hx-get="/entries/new"
+                           hx-target="#sidebarContent"
+                           hx-swap="innerHTML">Criar primeiro lançamento</a>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </figure>
+</div>
+</body>
+</html>
