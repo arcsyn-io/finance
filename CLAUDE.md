@@ -138,9 +138,11 @@ public record CreateAccountRequest(String username, String password) {}
 
 ### Controllers
 
+- **HTMX é premissa**: todas as chamadas são HTMX, não há fallback para requisições tradicionais
+- Não usar sufixo `-htmx` nos endpoints (tecnologia não deve estar no nome do endpoint)
 - Return view names as strings
 - Use `Model` for passing data to templates
-- HTMX endpoints return fragments, not full pages
+- Endpoints de formulário retornam fragments, não páginas completas
 - Use `@GetMapping` / `@PostMapping` annotations
 
 ### Services
@@ -179,7 +181,70 @@ public record UpdateWalletCommand(long id, String name, WalletType type, boolean
 - Dark mode via `data-theme="dark"` on `<html>`
 - Use semantic HTML (Pico CSS styles automatically)
 - Mobile-first responsive design
-- Flash messages via `successMessage` and `errorMessage` model attributes
+- Ícones: Font Awesome 6 via CDN
+
+### UI Components
+
+**Sidebar (formulários criar/editar)**:
+- Abre à direita via HTMX (`hx-get` carrega fragment no `#sidebarContent`)
+- Formulário usa `hx-post` para submit assíncrono
+- Sucesso: `response.setHeader("HX-Redirect", "/path?success=created")`
+- Erro: retorna fragment com `errorMessage` e valores (`formName`, `formType`)
+- Sidebar permanece aberto em caso de erro
+
+**Toast (notificações)**:
+- Flutuante no canto superior direito
+- Fecha automaticamente após 4 segundos
+- Tipos: `toast-success` (verde), `toast-error` (vermelho)
+- Pode ser fechado clicando
+
+**Tabelas com ações**:
+- Ações via ícones (`icon-btn`) com Font Awesome
+- Editar: `fa-pen-to-square` (abre sidebar)
+- Desativar: `fa-trash` (vermelho no hover)
+- Ativar: `fa-rotate-left` (verde no hover)
+- HTMX para ativar/desativar inline (`hx-target="closest tr"`)
+
+### HTMX Patterns
+
+Neste projeto, todas as chamadas são HTMX. Não usar sufixo `-htmx` nos endpoints.
+
+```java
+// Endpoint para fragment (sidebar form)
+@GetMapping("/new")
+public String newForm(Model model) {
+    model.addAttribute("walletTypes", WalletType.values());
+    model.addAttribute("isEdit", false);
+    return "fragments/wallet-form :: form";
+}
+
+// Submit com sucesso -> redirect via header
+@PostMapping
+public String create(..., HttpServletResponse response) {
+    try {
+        // ... create
+        response.setHeader("HX-Redirect", "/wallets?success=created");
+        return null;
+    } catch (Exception e) {
+        model.addAttribute("errorMessage", e.getMessage());
+        model.addAttribute("formName", name);
+        model.addAttribute("formType", type);
+        return "fragments/wallet-form :: form";
+    }
+}
+
+// Update com path variable
+@PostMapping("/{id}")
+public String update(@PathVariable long id, ..., HttpServletResponse response) {
+    try {
+        // ... update
+        response.setHeader("HX-Redirect", "/wallets?success=updated");
+        return null;
+    } catch (Exception e) {
+        // ... return fragment with error
+    }
+}
+```
 
 ### Database
 

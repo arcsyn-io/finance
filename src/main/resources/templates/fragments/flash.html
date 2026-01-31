@@ -2,19 +2,36 @@
 <html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
 <body>
 <div th:fragment="flash">
-    <article th:if="${successMessage}" style="border-left: 4px solid var(--pico-ins-color);">
-        <p th:text="${successMessage}">Success message</p>
-    </article>
+    <div class="toast-container" id="toastContainer">
+        <div th:if="${successMessage}" class="toast toast-success" onclick="this.remove()">
+            <i class="fa-solid fa-circle-check"></i>
+            <span th:text="${successMessage}">Success message</span>
+        </div>
 
-    <article th:if="${errorMessage}" style="border-left: 4px solid var(--pico-del-color);">
-        <p th:text="${errorMessage}">Error message</p>
-    </article>
+        <div th:if="${errorMessage}" class="toast toast-error" onclick="this.remove()">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span th:text="${errorMessage}">Error message</span>
+        </div>
 
-    <th:block th:if="${errors}">
-        <article th:each="error : ${errors}" style="border-left: 4px solid var(--pico-del-color);">
-            <p th:text="${error}">Error</p>
-        </article>
-    </th:block>
+        <th:block th:if="${errors}">
+            <div th:each="error : ${errors}" class="toast toast-error" onclick="this.remove()">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <span th:text="${error}">Error</span>
+            </div>
+        </th:block>
+    </div>
+
+    <script th:if="${successMessage} or ${errorMessage} or ${errors}">
+        (function() {
+            var toasts = document.querySelectorAll('.toast');
+            toasts.forEach(function(toast) {
+                setTimeout(function() {
+                    toast.classList.add('toast-fade-out');
+                    setTimeout(function() { toast.remove(); }, 300);
+                }, 4000);
+            });
+        })();
+    </script>
 </div>
 </body>
 </html>

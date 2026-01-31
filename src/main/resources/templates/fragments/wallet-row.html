@@ -17,15 +17,17 @@
     </td>
     <td style="text-align: right;">
         <div style="display: flex; gap: 0.25rem; justify-content: flex-end;">
-            <a th:href="@{/wallets/{id}(id=${wallet.id})}"
-               class="icon-btn"
-               title="Editar">
+            <button class="icon-btn"
+                    title="Editar"
+                    th:attr="hx-get=@{/wallets/{id}/edit(id=${wallet.id})}"
+                    hx-target="#sidebarContent"
+                    hx-swap="innerHTML">
                 <i class="fa-solid fa-pen-to-square"></i>
-            </a>
+            </button>
             <button th:if="${wallet.active}"
                     class="icon-btn icon-btn-danger"
                     title="Desativar"
-                    th:attr="hx-post=@{/wallets/{id}/deactivate-htmx(id=${wallet.id})}"
+                    th:attr="hx-post=@{/wallets/{id}/deactivate(id=${wallet.id})}"
                     hx-target="closest tr"
                     hx-swap="outerHTML">
                 <i class="fa-solid fa-trash"></i>
@@ -33,7 +35,7 @@
             <button th:unless="${wallet.active}"
                     class="icon-btn icon-btn-success"
                     title="Ativar"
-                    th:attr="hx-post=@{/wallets/{id}/activate-htmx(id=${wallet.id})}"
+                    th:attr="hx-post=@{/wallets/{id}/activate(id=${wallet.id})}"
                     hx-target="closest tr"
                     hx-swap="outerHTML">
                 <i class="fa-solid fa-rotate-left"></i>

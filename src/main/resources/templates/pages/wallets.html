@@ -22,7 +22,11 @@
             <h1 style="margin-bottom: 0;">Carteiras</h1>
             <p style="margin: 0;"><small>Gerencie suas carteiras e contas</small></p>
         </div>
-        <a th:href="@{/wallets/new}" role="button">+ Nova Carteira</a>
+        <button hx-get="/wallets/new"
+                hx-target="#sidebarContent"
+                hx-swap="innerHTML">
+            + Nova Carteira
+        </button>
     </header>
 
     <div style="margin-bottom: 1rem;">
@@ -52,7 +56,10 @@
                 <tr th:if="${#lists.isEmpty(wallets)}">
                     <td colspan="4" style="text-align: center; padding: 2rem;">
                         Nenhuma carteira encontrada.
-                        <a th:href="@{/wallets/new}">Criar primeira carteira</a>
+                        <a href="#"
+                           hx-get="/wallets/new"
+                           hx-target="#sidebarContent"
+                           hx-swap="innerHTML">Criar primeira carteira</a>
                     </td>
                 </tr>
             </tbody>

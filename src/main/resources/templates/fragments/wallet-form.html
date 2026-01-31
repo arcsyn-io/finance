@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="form(wallet, walletTypes, isEdit)">
+    <div class="sidebar-header">
+        <h2 th:text="${isEdit} ? 'Editar Carteira' : 'Nova Carteira'">Nova Carteira</h2>
+        <button class="sidebar-close" onclick="closeSidebar()" type="button">&times;</button>
+    </div>
+
+    <form th:action="${isEdit} ? @{/wallets/{id}(id=${wallet.id})} : @{/wallets}"
+          method="post"
+          hx-post=""
+          th:attr="hx-post=${isEdit} ? @{/wallets/{id}(id=${wallet.id})} : @{/wallets}"
+          hx-target="#sidebarContent"
+          hx-swap="innerHTML">
+
+        <div th:if="${errorMessage}" class="form-error">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span th:text="${errorMessage}">Erro</span>
+        </div>
+
+        <label for="name">
+            Nome
+            <input type="text"
+                   id="name"
+                   name="name"
+                   th:value="${formName != null ? formName : wallet?.name}"
+                   placeholder="Ex: Nubank, Bitcoin, Previdência..."
+                   required
+                   autofocus>
+        </label>
+
+        <label for="type">
+            Tipo
+            <select id="type" name="type" required>
+                <option value="">Selecione o tipo...</option>
+                <option th:each="t : ${walletTypes}"
+                        th:value="${t.name()}"
+                        th:text="${t.name() == 'CASH' ? 'Caixa' :
+                                   t.name() == 'NEGOTIABLE_SECURITY' ? 'Título Negociável' :
+                                   t.name() == 'LONG_TERM' ? 'Longo Prazo' : 'Bem Patrimonial'}"
+                        th:selected="${formType != null ? formType == t : wallet?.type == t}">
+                </option>
+            </select>
+        </label>
+
+        <label th:if="${isEdit}" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="checkbox"
+                   id="active"
+                   name="active"
+                   value="true"
+                   th:checked="${wallet?.active}"
+                   style="width: auto; margin: 0;">
+            Carteira ativa
+        </label>
+
+        <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
+            <button type="button" class="outline secondary" onclick="closeSidebar()" style="flex: 1;">
+                Cancelar
+            </button>
+            <button type="submit" style="flex: 1;">
+                <span th:text="${isEdit} ? 'Salvar' : 'Criar'">Criar</span>
+            </button>
+        </div>
+    </form>
+</div>
+</body>
+</html>

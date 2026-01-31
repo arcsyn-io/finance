@@ -15,15 +15,17 @@
     </td>
     <td style="text-align: right;">
         <div style="display: flex; gap: 0.25rem; justify-content: flex-end;">
-            <a th:href="@{/categories/{id}(id=${category.id})}"
-               class="icon-btn"
-               title="Editar">
+            <button class="icon-btn"
+                    title="Editar"
+                    th:attr="hx-get=@{/categories/{id}/edit(id=${category.id})}"
+                    hx-target="#sidebarContent"
+                    hx-swap="innerHTML">
                 <i class="fa-solid fa-pen-to-square"></i>
-            </a>
+            </button>
             <button th:if="${category.active}"
                     class="icon-btn icon-btn-danger"
                     title="Desativar"
-                    th:attr="hx-post=@{/categories/{id}/deactivate-htmx(id=${category.id})}"
+                    th:attr="hx-post=@{/categories/{id}/deactivate(id=${category.id})}"
                     hx-target="closest tr"
                     hx-swap="outerHTML">
                 <i class="fa-solid fa-trash"></i>
@@ -31,7 +33,7 @@
             <button th:unless="${category.active}"
                     class="icon-btn icon-btn-success"
                     title="Ativar"
-                    th:attr="hx-post=@{/categories/{id}/activate-htmx(id=${category.id})}"
+                    th:attr="hx-post=@{/categories/{id}/activate(id=${category.id})}"
                     hx-target="closest tr"
                     hx-swap="outerHTML">
                 <i class="fa-solid fa-rotate-left"></i>

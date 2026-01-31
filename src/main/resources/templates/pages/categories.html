@@ -29,7 +29,11 @@
             <h1 style="margin-bottom: 0;">Categorias</h1>
             <p style="margin: 0;"><small>Gerencie as categorias de receitas e despesas</small></p>
         </div>
-        <a th:href="@{/categories/new}" role="button">+ Nova Categoria</a>
+        <button hx-get="/categories/new"
+                hx-target="#sidebarContent"
+                hx-swap="innerHTML">
+            + Nova Categoria
+        </button>
     </header>
 
     <div style="margin-bottom: 1rem;">
@@ -59,7 +63,10 @@
                 <tr th:if="${#lists.isEmpty(categories)}">
                     <td colspan="4" style="text-align: center; padding: 2rem;">
                         Nenhuma categoria encontrada.
-                        <a th:href="@{/categories/new}">Criar primeira categoria</a>
+                        <a href="#"
+                           hx-get="/categories/new"
+                           hx-target="#sidebarContent"
+                           hx-swap="innerHTML">Criar primeira categoria</a>
                     </td>
                 </tr>
             </tbody>
