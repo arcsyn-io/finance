@@ -42,14 +42,14 @@
             </select>
         </label>
 
-        <label th:if="${isEdit}" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+        <label th:if="${isEdit}" class="toggle">
             <input type="checkbox"
                    id="active"
                    name="active"
                    value="true"
-                   th:checked="${category?.active}"
-                   style="width: auto; margin: 0;">
-            Categoria ativa
+                   th:checked="${category?.active}">
+            <span class="toggle-switch"></span>
+            <span class="toggle-label">Categoria ativa</span>
         </label>
 
         <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">

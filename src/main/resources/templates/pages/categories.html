@@ -37,12 +37,12 @@
     </header>
 
     <div style="margin-bottom: 1rem;">
-        <label style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+        <label class="toggle">
             <input type="checkbox"
                    th:checked="${showInactive}"
-                   onchange="window.location.href = this.checked ? '/categories?showInactive=true' : '/categories'"
-                   style="width: auto; margin: 0;">
-            Mostrar inativas
+                   onchange="window.location.href = this.checked ? '/categories?showInactive=true' : '/categories'">
+            <span class="toggle-switch"></span>
+            <span class="toggle-label">Mostrar inativas</span>
         </label>
     </div>
 
