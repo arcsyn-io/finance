@@ -13,6 +13,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import java.util.Map;
 
@@ -26,8 +27,8 @@ public class CategoryController {
     @GetMapping
     public String list(
             @RequestParam(name = "showInactive", defaultValue = "false") boolean showInactive,
-            @RequestParam(name = "success", required = false) String success,
-            Model model
+            Model model,
+            HttpSession session
     ) {
         var categories = showInactive
                 ? categoryService.listAll()
@@ -38,10 +39,10 @@ public class CategoryController {
         model.addAttribute("showInactive", showInactive);
         model.addAttribute("categoryTypes", CategoryType.values());
 
-        if ("created".equals(success)) {
-            model.addAttribute("successMessage", "Categoria criada com sucesso");
-        } else if ("updated".equals(success)) {
-            model.addAttribute("successMessage", "Categoria atualizada com sucesso");
+        var flashMessage = session.getAttribute("successMessage");
+        if (flashMessage != null) {
+            model.addAttribute("successMessage", flashMessage);
+            session.removeAttribute("successMessage");
         }
 
         return "pages/categories";
@@ -59,12 +60,14 @@ public class CategoryController {
             @RequestParam String name,
             @RequestParam CategoryType type,
             Model model,
-            HttpServletResponse response
+            HttpServletResponse response,
+            HttpSession session
     ) {
         try {
             var command = new CreateCategoryCommand(name, type);
             categoryService.create(command);
-            response.setHeader("HX-Redirect", "/categories?success=created");
+            session.setAttribute("successMessage", "Categoria criada com sucesso");
+            response.setHeader("HX-Redirect", "/categories");
             return null;
         } catch (InvalidCategoryException | DuplicateCategoryNameException e) {
             model.addAttribute("errorMessage", e.getMessage());
@@ -97,12 +100,14 @@ public class CategoryController {
             @RequestParam CategoryType type,
             @RequestParam(defaultValue = "false") boolean active,
             Model model,
-            HttpServletResponse response
+            HttpServletResponse response,
+            HttpSession session
     ) {
         try {
             var command = new UpdateCategoryCommand(id, name, type, active);
             categoryService.update(command);
-            response.setHeader("HX-Redirect", "/categories?success=updated");
+            session.setAttribute("successMessage", "Categoria atualizada com sucesso");
+            response.setHeader("HX-Redirect", "/categories");
             return null;
         } catch (InvalidCategoryException | DuplicateCategoryNameException e) {
             model.addAttribute("errorMessage", e.getMessage());

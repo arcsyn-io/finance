@@ -13,6 +13,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import java.util.Map;
 
@@ -26,8 +27,8 @@ public class WalletController {
     @GetMapping
     public String list(
             @RequestParam(name = "showInactive", defaultValue = "false") boolean showInactive,
-            @RequestParam(name = "success", required = false) String success,
-            Model model
+            Model model,
+            HttpSession session
     ) {
         var wallets = showInactive
                 ? walletService.listAll()
@@ -38,10 +39,10 @@ public class WalletController {
         model.addAttribute("showInactive", showInactive);
         model.addAttribute("walletTypes", WalletType.values());
 
-        if ("created".equals(success)) {
-            model.addAttribute("successMessage", "Carteira criada com sucesso");
-        } else if ("updated".equals(success)) {
-            model.addAttribute("successMessage", "Carteira atualizada com sucesso");
+        var flashMessage = session.getAttribute("successMessage");
+        if (flashMessage != null) {
+            model.addAttribute("successMessage", flashMessage);
+            session.removeAttribute("successMessage");
         }
 
         return "pages/wallets";
@@ -59,12 +60,14 @@ public class WalletController {
             @RequestParam String name,
             @RequestParam WalletType type,
             Model model,
-            HttpServletResponse response
+            HttpServletResponse response,
+            HttpSession session
     ) {
         try {
             var command = new CreateWalletCommand(name, type);
             walletService.create(command);
-            response.setHeader("HX-Redirect", "/wallets?success=created");
+            session.setAttribute("successMessage", "Carteira criada com sucesso");
+            response.setHeader("HX-Redirect", "/wallets");
             return null;
         } catch (InvalidWalletException | DuplicateWalletNameException e) {
             model.addAttribute("errorMessage", e.getMessage());
@@ -97,12 +100,14 @@ public class WalletController {
             @RequestParam WalletType type,
             @RequestParam(defaultValue = "false") boolean active,
             Model model,
-            HttpServletResponse response
+            HttpServletResponse response,
+            HttpSession session
     ) {
         try {
             var command = new UpdateWalletCommand(id, name, type, active);
             walletService.update(command);
-            response.setHeader("HX-Redirect", "/wallets?success=updated");
+            session.setAttribute("successMessage", "Carteira atualizada com sucesso");
+            response.setHeader("HX-Redirect", "/wallets");
             return null;
         } catch (InvalidWalletException | DuplicateWalletNameException e) {
             model.addAttribute("errorMessage", e.getMessage());

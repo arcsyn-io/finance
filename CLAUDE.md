@@ -197,6 +197,7 @@ public record UpdateWalletCommand(long id, String name, WalletType type, boolean
 - Fecha automaticamente após 4 segundos
 - Tipos: `toast-success` (verde), `toast-error` (vermelho)
 - Pode ser fechado clicando
+- Flash messages via `HttpSession` (não usar query params para evitar compartilhamento de URL com mensagem)
 
 **Tabelas com ações**:
 - Ações via ícones (`icon-btn`) com Font Awesome
@@ -218,12 +219,13 @@ public String newForm(Model model) {
     return "fragments/wallet-form :: form";
 }
 
-// Submit com sucesso -> redirect via header
+// Submit com sucesso -> flash message + redirect via header
 @PostMapping
-public String create(..., HttpServletResponse response) {
+public String create(..., HttpServletResponse response, HttpSession session) {
     try {
         // ... create
-        response.setHeader("HX-Redirect", "/wallets?success=created");
+        session.setAttribute("successMessage", "Carteira criada com sucesso");
+        response.setHeader("HX-Redirect", "/wallets");
         return null;
     } catch (Exception e) {
         model.addAttribute("errorMessage", e.getMessage());
@@ -231,6 +233,18 @@ public String create(..., HttpServletResponse response) {
         model.addAttribute("formType", type);
         return "fragments/wallet-form :: form";
     }
+}
+
+// List consome flash message da session
+@GetMapping
+public String list(..., Model model, HttpSession session) {
+    // ... list
+    var flashMessage = session.getAttribute("successMessage");
+    if (flashMessage != null) {
+        model.addAttribute("successMessage", flashMessage);
+        session.removeAttribute("successMessage");
+    }
+    return "pages/wallets";
 }
 
 // Update com path variable
