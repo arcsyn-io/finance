@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<body>
+<tr th:fragment="row(wallet)" th:id="'wallet-row-' + ${wallet.id}">
+    <td>
+        <strong th:text="${wallet.name}">Nubank</strong>
+    </td>
+    <td>
+        <span th:class="'badge badge-' + ${wallet.type.name().toLowerCase()}"
+              th:text="${wallet.type.name() == 'CASH' ? 'Caixa' :
+                         wallet.type.name() == 'NEGOTIABLE_SECURITY' ? 'Título Negociável' :
+                         wallet.type.name() == 'LONG_TERM' ? 'Longo Prazo' : 'Bem Patrimonial'}">Tipo</span>
+    </td>
+    <td>
+        <span th:if="${wallet.active}" style="color: var(--pico-ins-color);">Ativa</span>
+        <span th:unless="${wallet.active}" style="color: var(--pico-muted-color);">Inativa</span>
+    </td>
+    <td style="text-align: right;">
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+            <a th:href="@{/wallets/{id}(id=${wallet.id})}"
+               role="button"
+               class="outline secondary"
+               style="padding: 0.25rem 0.5rem; margin: 0;">
+                Editar
+            </a>
+            <button th:if="${wallet.active}"
+                    class="outline secondary"
+                    style="padding: 0.25rem 0.5rem; margin: 0;"
+                    th:attr="hx-post=@{/wallets/{id}/deactivate-htmx(id=${wallet.id})}"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML">
+                Desativar
+            </button>
+            <button th:unless="${wallet.active}"
+                    class="outline"
+                    style="padding: 0.25rem 0.5rem; margin: 0;"
+                    th:attr="hx-post=@{/wallets/{id}/activate-htmx(id=${wallet.id})}"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML">
+                Ativar
+            </button>
+        </div>
+    </td>
+</tr>
+
+<tr th:fragment="empty">
+    <td colspan="4" style="text-align: center;">Erro ao processar carteira</td>
+</tr>
+</body>
+</html>
