@@ -4,6 +4,51 @@
 
 Spring Boot application for personal finance management using server-side rendering with Thymeleaf and HTMX.
 
+## Domain Model (Conceptual)
+
+O sistema separa claramente três dimensões que NÃO se misturam:
+
+### 1. Fluxo de Caixa Operacional
+- Responde: "Minha renda operacional sustenta meu custo de vida?"
+- Considera apenas: carteiras CASH + lançamentos OPERATIONAL
+- Entradas: salário, pró-labore, bônus
+- Saídas: alimentação, moradia, transporte, saúde, lazer
+- NÃO inclui: investimentos, dividendos, rendimentos, compra/venda de ativos
+
+### 2. Liquidez Real (Circulante)
+- Responde: "Quanto dinheiro consigo mobilizar agora?"
+- Considera: carteiras CASH + NEGOTIABLE_SECURITY
+- É um snapshot, não um fluxo (não depende de período)
+
+### 3. Patrimônio
+- Responde: "Qual minha posição financeira total?"
+- Composição: circulante + imobilizado (imóveis, bens, investimentos LP)
+- Crescimento patrimonial NÃO mascara déficit operacional
+
+### Entidades Principais
+
+**Wallet (Carteira)** - onde o dinheiro/ativo está alocado:
+- `CASH`: contas bancárias, dinheiro (fluxo de caixa)
+- `NEGOTIABLE_SECURITY`: investimentos líquidos (ações, FIIs, CDI, BTC)
+- `LONG_TERM`: investimentos ilíquidos (previdência, financiamento)
+- `ASSET`: bens patrimoniais (imóveis, carro)
+
+**Category (Categoria)** - significado semântico:
+- type: `INCOME` ou `EXPENSE`
+- Exemplos: Alimentação, Moradia, Salário
+- NÃO define fluxo, liquidez ou patrimônio
+
+**Entry (Lançamento)** - fato financeiro imutável:
+- nature: `OPERATIONAL` ou `PATRIMONIAL` (sempre explícita)
+- Pode aparecer em várias visões ou em nenhuma
+
+### Regras de Ouro (não violar)
+1. Fluxo de caixa ≠ dinheiro em conta
+2. Investimento ≠ despesa operacional
+3. Dividendo ≠ renda operacional
+4. Patrimônio não corrige fluxo
+5. Lançamentos são fatos, visões filtram fatos
+
 ## Tech Stack
 
 - **Java**: 21
@@ -97,6 +142,36 @@ public record CreateAccountRequest(String username, String password) {}
 - Use `Model` for passing data to templates
 - HTMX endpoints return fragments, not full pages
 - Use `@GetMapping` / `@PostMapping` annotations
+
+### Services
+
+- `@Service` com `@RequiredArgsConstructor`
+- `@Transactional(readOnly = true)` para queries
+- `@Transactional` para mutações
+- Validações de domínio na camada de service
+- Lançar exceções customizadas para erros de negócio
+
+### Commands (DTOs)
+
+- Usar Java Records para commands imutáveis
+- Nomenclatura: `Create{Entity}Command`, `Update{Entity}Command`
+- Commands encapsulam dados de entrada para operações do service
+- Localização: `dto/` package
+
+```java
+// Create command - apenas campos necessários para criação
+public record CreateWalletCommand(String name, WalletType type) {}
+
+// Update command - inclui id e todos os campos editáveis
+public record UpdateWalletCommand(long id, String name, WalletType type, boolean active) {}
+```
+
+### Exceptions
+
+- Exceções customizadas estendem `RuntimeException`
+- Mensagens em português
+- Nomenclatura: `{Entity}NotFoundException`, `Duplicate{Entity}NameException`, `Invalid{Entity}Exception`
+- Localização: `exception/` package
 
 ### Templates
 
