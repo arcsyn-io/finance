@@ -14,28 +14,27 @@
         <span th:unless="${category.active}" style="color: var(--pico-muted-color);">Inativa</span>
     </td>
     <td style="text-align: right;">
-        <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+        <div style="display: flex; gap: 0.25rem; justify-content: flex-end;">
             <a th:href="@{/categories/{id}(id=${category.id})}"
-               role="button"
-               class="outline secondary"
-               style="padding: 0.25rem 0.5rem; margin: 0;">
-                Editar
+               class="icon-btn"
+               title="Editar">
+                <i class="fa-solid fa-pen-to-square"></i>
             </a>
             <button th:if="${category.active}"
-                    class="outline secondary"
-                    style="padding: 0.25rem 0.5rem; margin: 0;"
+                    class="icon-btn icon-btn-danger"
+                    title="Desativar"
                     th:attr="hx-post=@{/categories/{id}/deactivate-htmx(id=${category.id})}"
                     hx-target="closest tr"
                     hx-swap="outerHTML">
-                Desativar
+                <i class="fa-solid fa-trash"></i>
             </button>
             <button th:unless="${category.active}"
-                    class="outline"
-                    style="padding: 0.25rem 0.5rem; margin: 0;"
+                    class="icon-btn icon-btn-success"
+                    title="Ativar"
                     th:attr="hx-post=@{/categories/{id}/activate-htmx(id=${category.id})}"
                     hx-target="closest tr"
                     hx-swap="outerHTML">
-                Ativar
+                <i class="fa-solid fa-rotate-left"></i>
             </button>
         </div>
     </td>

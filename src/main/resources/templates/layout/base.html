@@ -5,7 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${title} ?: 'Finance App'">Finance App</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        .icon-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.5rem;
+            color: var(--pico-muted-color);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.25rem;
+            transition: color 0.2s, background 0.2s;
+        }
+        .icon-btn:hover {
+            color: var(--pico-primary);
+            background: var(--pico-primary-background);
+        }
+        .icon-btn-danger:hover {
+            color: var(--pico-del-color);
+            background: rgba(239, 68, 68, 0.1);
+        }
+        .icon-btn-success:hover {
+            color: var(--pico-ins-color);
+            background: rgba(46, 204, 113, 0.1);
+        }
+    </style>
 </head>
 <body>
     <th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
@@ -25,7 +52,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${title} ?: 'Finance App'">Finance App</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        .icon-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.5rem;
+            color: var(--pico-muted-color);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.25rem;
+            transition: color 0.2s, background 0.2s;
+        }
+        .icon-btn:hover {
+            color: var(--pico-primary);
+            background: var(--pico-primary-background);
+        }
+        .icon-btn-danger:hover {
+            color: var(--pico-del-color);
+            background: rgba(239, 68, 68, 0.1);
+        }
+        .icon-btn-success:hover {
+            color: var(--pico-ins-color);
+            background: rgba(46, 204, 113, 0.1);
+        }
+    </style>
 </head>
 <body>
     <th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
