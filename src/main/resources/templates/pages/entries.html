@@ -63,6 +63,31 @@
             color: #f87171;
             font-weight: 600;
         }
+        #entries-table tr.focused {
+            background: var(--pico-primary-background);
+            outline: 2px solid var(--pico-primary);
+            outline-offset: -2px;
+        }
+        #entries-table tr.selected {
+            background: var(--pico-primary-background);
+        }
+        #entries-table tr.selected td:first-child::before {
+            content: '✓ ';
+            color: var(--pico-primary);
+            font-weight: bold;
+        }
+        .batch-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 1rem;
+            background: var(--pico-primary-background);
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .batch-actions.hidden {
+            display: none;
+        }
     </style>
 
     <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
@@ -86,7 +111,42 @@
         <input type="hidden" name="showDeleted" id="showDeletedInput" th:value="${showDeleted}">
     </form>
 
-    <div class="filters-form">
+    <div style="display: flex; align-items: center; gap: 0.75rem; margin: 1.5rem 0;">
+        <button type="button" class="outline nav-prev" style="padding: 0.5rem 0.75rem; margin: 0;"
+                th:data-offset="${offset - 1}">
+            <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <div class="period-dropdown" style="position: relative;">
+            <span class="period-label" onclick="togglePeriodDropdown()"
+                  style="font-size: 1.25rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+                <span th:text="${periodLabel}">Janeiro 2024</span>
+                <i class="fa-solid fa-caret-down" style="font-size: 0.875rem;"></i>
+            </span>
+            <div id="periodDropdownMenu" class="period-dropdown-menu" style="display: none; position: absolute; top: 100%; left: 0; margin-top: 0.5rem; background: var(--pico-card-background-color); border: 1px solid var(--pico-muted-border-color); border-radius: 0.5rem; padding: 0.5rem 0; min-width: 180px; z-index: 100; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); white-space: nowrap;">
+                <a th:each="p : ${periods}"
+                   href="#"
+                   th:text="${p.label}"
+                   th:data-period="${p.name()}"
+                   onclick="selectPeriod(this.dataset.period); return false;"
+                   style="display: block; padding: 0.5rem 1rem; color: var(--pico-color); text-decoration: none;"
+                   onmouseover="this.style.background='var(--pico-primary-background)'"
+                   onmouseout="this.style.background='transparent'">
+                </a>
+            </div>
+        </div>
+        <button type="button" class="outline nav-next" style="padding: 0.5rem 0.75rem; margin: 0;"
+                th:data-offset="${offset + 1}">
+            <i class="fa-solid fa-chevron-right"></i>
+        </button>
+        <span id="toggleFiltersBtn" style="cursor: pointer; opacity: 0.6; display: flex; align-items: center; gap: 0.5rem;"
+              th:style="${selectedWalletId != null or selectedCategoryId != null or selectedNature != null or showDeleted} ? 'cursor: pointer; opacity: 1; color: var(--pico-primary); display: flex; align-items: center; gap: 0.5rem;' : 'cursor: pointer; opacity: 0.6; display: flex; align-items: center; gap: 0.5rem;'">
+            <i class="fa-solid fa-filter"></i>
+            <span style="font-size: 0.875rem;">Mais filtros</span>
+        </span>
+    </div>
+
+    <div class="filters-form" id="filtersSection" style="display: none;"
+         th:style="${selectedWalletId != null or selectedCategoryId != null or selectedNature != null or showDeleted} ? '' : 'display: none;'">
         <label>
             Carteira
             <select onchange="document.getElementById('walletIdInput').value = this.value; document.getElementById('filtersForm').submit();">
@@ -131,35 +191,6 @@
         </label>
     </div>
 
-    <div style="display: flex; align-items: center; gap: 0.75rem; margin: 1.5rem 0;">
-        <button type="button" class="outline nav-prev" style="padding: 0.5rem 0.75rem; margin: 0;"
-                th:data-offset="${offset - 1}">
-            <i class="fa-solid fa-chevron-left"></i>
-        </button>
-        <div class="period-dropdown" style="position: relative;">
-            <span class="period-label" onclick="togglePeriodDropdown()"
-                  style="font-size: 1.25rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
-                <span th:text="${periodLabel}">Janeiro 2024</span>
-                <i class="fa-solid fa-caret-down" style="font-size: 0.875rem;"></i>
-            </span>
-            <div id="periodDropdownMenu" class="period-dropdown-menu" style="display: none; position: absolute; top: 100%; left: 0; margin-top: 0.5rem; background: var(--pico-card-background-color); border: 1px solid var(--pico-muted-border-color); border-radius: 0.5rem; padding: 0.5rem 0; min-width: 180px; z-index: 100; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); white-space: nowrap;">
-                <a th:each="p : ${periods}"
-                   href="#"
-                   th:text="${p.label}"
-                   th:data-period="${p.name()}"
-                   onclick="selectPeriod(this.dataset.period); return false;"
-                   style="display: block; padding: 0.5rem 1rem; color: var(--pico-color); text-decoration: none;"
-                   onmouseover="this.style.background='var(--pico-primary-background)'"
-                   onmouseout="this.style.background='transparent'">
-                </a>
-            </div>
-        </div>
-        <button type="button" class="outline nav-next" style="padding: 0.5rem 0.75rem; margin: 0;"
-                th:data-offset="${offset + 1}">
-            <i class="fa-solid fa-chevron-right"></i>
-        </button>
-    </div>
-
     <script>
         function togglePeriodDropdown() {
             var menu = document.getElementById('periodDropdownMenu');
@@ -186,7 +217,104 @@
                 document.getElementById('periodDropdownMenu').style.display = 'none';
             }
         });
+        document.getElementById('toggleFiltersBtn').addEventListener('click', function() {
+            var filters = document.getElementById('filtersSection');
+            filters.style.display = filters.style.display === 'none' ? 'grid' : 'none';
+        });
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'ArrowLeft') {
+                e.preventDefault();
+                navigateOffset(document.querySelector('.nav-prev').dataset.offset);
+            } else if (e.ctrlKey && e.key === 'ArrowRight') {
+                e.preventDefault();
+                navigateOffset(document.querySelector('.nav-next').dataset.offset);
+            } else if (e.altKey && e.shiftKey && e.key === 'F') {
+                e.preventDefault();
+                var filters = document.getElementById('filtersSection');
+                filters.style.display = filters.style.display === 'none' ? 'grid' : 'none';
+                if (filters.style.display === 'grid') {
+                    filters.querySelector('select').focus();
+                }
+            } else if (e.altKey && e.shiftKey && e.key === 'P') {
+                e.preventDefault();
+                var menu = document.getElementById('periodDropdownMenu');
+                menu.style.display = 'block';
+                menu.querySelector('a').focus();
+            } else if (e.altKey && e.shiftKey && e.key === 'T') {
+                e.preventDefault();
+                selectPeriod('TODAY');
+            } else if (e.altKey && e.shiftKey && e.key === 'M') {
+                e.preventDefault();
+                selectPeriod('CURRENT_MONTH');
+            } else if (e.altKey && !e.shiftKey && e.key === 'h') {
+                e.preventDefault();
+                navigateOffset(document.querySelector('.nav-prev').dataset.offset);
+            } else if (e.altKey && !e.shiftKey && e.key === 'l') {
+                e.preventDefault();
+                navigateOffset(document.querySelector('.nav-next').dataset.offset);
+            } else if (e.altKey && !e.shiftKey && e.key === 'j') {
+                e.preventDefault();
+                var rows = document.querySelectorAll('#entries-table tr:not([style*="display: none"])');
+                var focused = document.querySelector('#entries-table tr.focused');
+                var idx = focused ? Array.from(rows).indexOf(focused) : -1;
+                if (idx < rows.length - 1) {
+                    if (focused) focused.classList.remove('focused');
+                    rows[idx + 1].classList.add('focused');
+                    rows[idx + 1].scrollIntoView({ block: 'nearest' });
+                }
+            } else if (e.altKey && !e.shiftKey && e.key === 'k') {
+                e.preventDefault();
+                var rows = document.querySelectorAll('#entries-table tr:not([style*="display: none"])');
+                var focused = document.querySelector('#entries-table tr.focused');
+                var idx = focused ? Array.from(rows).indexOf(focused) : rows.length;
+                if (idx > 0) {
+                    if (focused) focused.classList.remove('focused');
+                    rows[idx - 1].classList.add('focused');
+                    rows[idx - 1].scrollIntoView({ block: 'nearest' });
+                }
+            } else if (e.altKey && !e.shiftKey && e.key === 'm') {
+                e.preventDefault();
+                var focused = document.querySelector('#entries-table tr.focused');
+                if (focused) {
+                    focused.classList.toggle('selected');
+                    updateBatchActions();
+                }
+            }
+        });
+        function updateBatchActions() {
+            var selected = document.querySelectorAll('#entries-table tr.selected');
+            var batchActions = document.getElementById('batchActions');
+            var countSpan = document.getElementById('selectedCount');
+            if (selected.length > 0) {
+                batchActions.classList.remove('hidden');
+                countSpan.textContent = selected.length + ' selecionado' + (selected.length > 1 ? 's' : '');
+            } else {
+                batchActions.classList.add('hidden');
+            }
+        }
+        function clearSelection() {
+            document.querySelectorAll('#entries-table tr.selected').forEach(function(row) {
+                row.classList.remove('selected');
+            });
+            updateBatchActions();
+        }
+        function batchDelete() {
+            var selected = document.querySelectorAll('#entries-table tr.selected');
+            if (selected.length === 0) return;
+            if (!confirm('Excluir ' + selected.length + ' lançamento(s)?')) return;
+            selected.forEach(function(row) {
+                var deleteBtn = row.querySelector('button[hx-post*="/delete"]');
+                if (deleteBtn) deleteBtn.click();
+            });
+            clearSelection();
+        }
     </script>
+
+    <div class="batch-actions hidden" id="batchActions">
+        <span id="selectedCount">0 selecionados</span>
+        <button type="button" class="outline" onclick="clearSelection()">Limpar</button>
+        <button type="button" class="outline" onclick="batchDelete()">Excluir</button>
+    </div>
 
     <figure>
         <table>
