@@ -1,5 +1,6 @@
 package com.lucaskalb.finance.controller;
 
+import com.lucaskalb.finance.dto.BatchUpdateEntriesCommand;
 import com.lucaskalb.finance.dto.CreateEntryCommand;
 import com.lucaskalb.finance.dto.UpdateEntryCommand;
 import com.lucaskalb.finance.exception.CategoryNotFoundException;
@@ -12,6 +13,7 @@ import com.lucaskalb.finance.service.CategoryService;
 import com.lucaskalb.finance.service.EntryService;
 import com.lucaskalb.finance.service.WalletService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -249,6 +251,20 @@ public class EntryController {
         } catch (EntryNotFoundException e) {
             return "fragments/entry-row :: empty";
         }
+    }
+
+    @PostMapping("/batch")
+    @ResponseBody
+    public ResponseEntity<Void> batchUpdate(@RequestBody BatchUpdateEntriesCommand command) {
+        entryService.batchUpdate(command);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/batch/delete")
+    @ResponseBody
+    public ResponseEntity<Void> batchDelete(@RequestBody java.util.List<Long> entryIds) {
+        entryService.batchDelete(entryIds);
+        return ResponseEntity.ok().build();
     }
 
     private void addFormAttributes(Model model, long walletId, long categoryId, EntryNature nature,

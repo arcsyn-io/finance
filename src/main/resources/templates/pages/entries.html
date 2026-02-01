@@ -71,22 +71,38 @@
         #entries-table tr.selected {
             background: var(--pico-primary-background);
         }
-        #entries-table tr.selected td:first-child::before {
-            content: '✓ ';
-            color: var(--pico-primary);
-            font-weight: bold;
-        }
         .batch-actions {
             display: flex;
             align-items: center;
             gap: 1rem;
             padding: 0.75rem 1rem;
-            background: var(--pico-primary-background);
+            background: var(--pico-card-background-color);
             border-radius: 0.5rem;
             margin-bottom: 1rem;
+            flex-wrap: wrap;
         }
         .batch-actions.hidden {
             display: none;
+        }
+        .batch-actions select {
+            margin: 0;
+            width: auto;
+            min-width: 150px;
+        }
+        .batch-actions label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0;
+            font-size: 0.875rem;
+        }
+        .batch-actions button {
+            margin: 0;
+        }
+        .row-checkbox {
+            width: 1.25rem;
+            height: 1.25rem;
+            margin: 0;
         }
         .action-dropdown {
             position: relative;
@@ -143,11 +159,11 @@
                    hx-swap="innerHTML"
                    onclick="closeActionDropdown()">
                     <i class="fa-solid fa-pen"></i>
-                    Inserir manualmente
+                    Cadastrar
                 </a>
                 <a href="/imports/new">
                     <i class="fa-solid fa-file-import"></i>
-                    Importar arquivo
+                    Importar
                 </a>
             </div>
         </div>
@@ -327,13 +343,17 @@
                 e.preventDefault();
                 var focused = document.querySelector('#entries-table tr.focused');
                 if (focused) {
-                    focused.classList.toggle('selected');
-                    updateBatchActions();
+                    var checkbox = focused.querySelector('input.row-checkbox');
+                    if (checkbox) {
+                        checkbox.checked = !checkbox.checked;
+                        focused.classList.toggle('selected', checkbox.checked);
+                        updateBatchActions();
+                    }
                 }
             }
         });
         function updateBatchActions() {
-            var selected = document.querySelectorAll('#entries-table tr.selected');
+            var selected = document.querySelectorAll('#entries-table tr input.row-checkbox:checked');
             var batchActions = document.getElementById('batchActions');
             var countSpan = document.getElementById('selectedCount');
             if (selected.length > 0) {
@@ -342,23 +362,94 @@
             } else {
                 batchActions.classList.add('hidden');
             }
+            document.getElementById('selectAll').checked =
+                selected.length === document.querySelectorAll('#entries-table tr input.row-checkbox').length && selected.length > 0;
         }
-        function clearSelection() {
-            document.querySelectorAll('#entries-table tr.selected').forEach(function(row) {
-                row.classList.remove('selected');
+        function toggleSelectAll(checked) {
+            document.querySelectorAll('#entries-table tr input.row-checkbox').forEach(function(cb) {
+                cb.checked = checked;
+                cb.closest('tr').classList.toggle('selected', checked);
             });
             updateBatchActions();
         }
+        function clearSelection() {
+            document.querySelectorAll('#entries-table tr input.row-checkbox').forEach(function(cb) {
+                cb.checked = false;
+                cb.closest('tr').classList.remove('selected');
+            });
+            document.getElementById('selectAll').checked = false;
+            document.getElementById('batchWallet').value = '';
+            document.getElementById('batchCategory').value = '';
+            document.getElementById('batchNature').value = '';
+            updateBatchActions();
+        }
+        function applyBatchChanges() {
+            var selected = document.querySelectorAll('#entries-table tr input.row-checkbox:checked');
+            if (selected.length === 0) return;
+
+            var walletValue = document.getElementById('batchWallet').value;
+            var categoryValue = document.getElementById('batchCategory').value;
+            var natureValue = document.getElementById('batchNature').value;
+
+            if (!walletValue && !categoryValue && !natureValue) {
+                alert('Selecione pelo menos um campo para alterar');
+                return;
+            }
+
+            var entryIds = [];
+            selected.forEach(function(cb) {
+                entryIds.push(parseInt(cb.closest('tr').dataset.id));
+            });
+
+            var data = {
+                entryIds: entryIds,
+                walletId: walletValue ? parseInt(walletValue) : null,
+                categoryId: categoryValue ? parseInt(categoryValue) : null,
+                nature: natureValue || null
+            };
+
+            fetch('/entries/batch', {
+                method: 'POST',
+                body: JSON.stringify(data),
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]').content
+                }
+            }).then(function(response) {
+                if (response.ok) {
+                    window.location.reload();
+                }
+            });
+        }
         function batchDelete() {
-            var selected = document.querySelectorAll('#entries-table tr.selected');
+            var selected = document.querySelectorAll('#entries-table tr input.row-checkbox:checked');
             if (selected.length === 0) return;
             if (!confirm('Excluir ' + selected.length + ' lançamento(s)?')) return;
-            selected.forEach(function(row) {
-                var deleteBtn = row.querySelector('button[hx-post*="/delete"]');
-                if (deleteBtn) deleteBtn.click();
+
+            var entryIds = [];
+            selected.forEach(function(cb) {
+                entryIds.push(parseInt(cb.closest('tr').dataset.id));
             });
-            clearSelection();
+
+            fetch('/entries/batch/delete', {
+                method: 'POST',
+                body: JSON.stringify(entryIds),
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]').content
+                }
+            }).then(function(response) {
+                if (response.ok) {
+                    window.location.reload();
+                }
+            });
         }
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('row-checkbox') && e.target.id !== 'selectAll') {
+                e.target.closest('tr').classList.toggle('selected', e.target.checked);
+                updateBatchActions();
+            }
+        });
         function toggleActionDropdown() {
             var menu = document.getElementById('actionDropdownMenu');
             menu.classList.toggle('open');
@@ -377,6 +468,28 @@
 
     <div class="batch-actions hidden" id="batchActions">
         <span id="selectedCount">0 selecionados</span>
+        <label>
+            Carteira:
+            <select id="batchWallet">
+                <option value="">-- Manter --</option>
+                <option th:each="w : ${wallets}" th:value="${w.id}" th:text="${w.name}"></option>
+            </select>
+        </label>
+        <label>
+            Categoria:
+            <select id="batchCategory">
+                <option value="">-- Manter --</option>
+                <option th:each="c : ${categories}" th:value="${c.id}" th:text="${c.name}"></option>
+            </select>
+        </label>
+        <label>
+            Natureza:
+            <select id="batchNature">
+                <option value="">-- Manter --</option>
+                <option th:each="n : ${natures}" th:value="${n.name()}" th:text="${n.name() == 'OPERATIONAL' ? 'Operacional' : 'Patrimonial'}"></option>
+            </select>
+        </label>
+        <button type="button" onclick="applyBatchChanges()">Aplicar</button>
         <button type="button" class="outline" onclick="clearSelection()">Limpar</button>
         <button type="button" class="outline" onclick="batchDelete()">Excluir</button>
     </div>
@@ -385,6 +498,7 @@
         <table>
             <thead>
                 <tr>
+                    <th style="width: 2.5rem;"><input type="checkbox" class="row-checkbox" id="selectAll" onchange="toggleSelectAll(this.checked)"></th>
                     <th>Ocorrido Em</th>
                     <th>Descrição</th>
                     <th>Carteira</th>
@@ -399,7 +513,7 @@
                     <tr th:replace="~{fragments/entry-row :: row(entry=${entry})}"></tr>
                 </th:block>
                 <tr th:if="${#lists.isEmpty(entries)}">
-                    <td colspan="7" style="text-align: center; padding: 2rem;">
+                    <td colspan="8" style="text-align: center; padding: 2rem;">
                         Nenhum lançamento encontrado.
                         <a href="#"
                            hx-get="/entries/new"

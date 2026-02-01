@@ -2,7 +2,9 @@
 <html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
 <body>
 <tr th:fragment="row(entry)" th:id="'entry-row-' + ${entry.id}"
+    th:data-id="${entry.id}"
     th:style="${entry.deleted ? 'opacity: 0.5;' : ''}">
+    <td><input type="checkbox" class="row-checkbox" th:unless="${entry.deleted}"></td>
     <td th:text="${#temporals.format(entry.occurredAt, 'dd/MM/yyyy')}"
         th:style="${entry.deleted ? 'text-decoration: line-through;' : ''}">01/01/2024</td>
     <td th:text="${entry.description ?: '-'}"
@@ -53,7 +55,7 @@
 </tr>
 
 <tr th:fragment="empty">
-    <td colspan="7" style="text-align: center;">Erro ao processar lançamento</td>
+    <td colspan="8" style="text-align: center;">Erro ao processar lançamento</td>
 </tr>
 </body>
 </html>

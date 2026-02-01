@@ -1,5 +1,6 @@
 package com.lucaskalb.finance.service;
 
+import com.lucaskalb.finance.dto.BatchUpdateEntriesCommand;
 import com.lucaskalb.finance.dto.CreateEntryCommand;
 import com.lucaskalb.finance.dto.UpdateEntryCommand;
 import com.lucaskalb.finance.exception.CategoryNotFoundException;
@@ -129,6 +130,62 @@ public class EntryService {
         }
 
         entryRepository.restore(id);
+    }
+
+    @Transactional
+    public void batchUpdate(BatchUpdateEntriesCommand command) {
+        if (command.entryIds() == null || command.entryIds().isEmpty()) {
+            return;
+        }
+
+        if (command.walletId() != null) {
+            var wallet = walletRepository.findById(command.walletId())
+                    .orElseThrow(() -> new WalletNotFoundException(command.walletId()));
+            if (!wallet.isActive()) {
+                throw new InvalidEntryException("Carteira inativa não pode receber lançamentos");
+            }
+            entryRepository.batchUpdateWallet(command.entryIds(), command.walletId());
+        }
+
+        if (command.categoryId() != null) {
+            var category = categoryRepository.findById(command.categoryId())
+                    .orElseThrow(CategoryNotFoundException::new);
+            var direction = inferDirection(category.getType());
+            entryRepository.batchUpdateCategory(command.entryIds(), command.categoryId(), direction);
+        }
+
+        if (command.nature() != null && !command.nature().isBlank()) {
+            var nature = EntryNature.valueOf(command.nature());
+            entryRepository.batchUpdateNature(command.entryIds(), nature);
+        }
+    }
+
+    @Transactional
+    public void batchDelete(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+        entryRepository.batchSoftDelete(ids);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Entry> listLatest(int limit) {
+        return entryRepository.listLatest(limit);
+    }
+
+    @Transactional(readOnly = true)
+    public long calculateTotalBalance() {
+        return entryRepository.calculateTotalBalance();
+    }
+
+    @Transactional(readOnly = true)
+    public long calculatePeriodIncome(LocalDateTime startDate, LocalDateTime endDate) {
+        return entryRepository.calculatePeriodIncome(startDate, endDate);
+    }
+
+    @Transactional(readOnly = true)
+    public long calculatePeriodExpense(LocalDateTime startDate, LocalDateTime endDate) {
+        return entryRepository.calculatePeriodExpense(startDate, endDate);
     }
 
     private void validateAmount(long amount) {
