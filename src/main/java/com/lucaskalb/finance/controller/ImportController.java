@@ -33,11 +33,17 @@ public class ImportController {
 
     @GetMapping("/new")
     public String newForm(Model model) {
+        var pendingImports = importService.listPending();
+        pendingImports.forEach(imp -> imp.setRows(
+            java.util.Collections.nCopies(importService.countRows(imp.getId()), null)
+        ));
+
         model.addAttribute("title", "Importar Lançamentos - Finance");
         model.addAttribute("wallets", walletService.listActive());
         model.addAttribute("categories", categoryService.listActive());
         model.addAttribute("natures", EntryNature.values());
         model.addAttribute("sources", ImportSource.values());
+        model.addAttribute("pendingImports", pendingImports);
         return "pages/import-upload";
     }
 
@@ -240,18 +246,20 @@ public class ImportController {
     @DeleteMapping("/{id}")
     public String cancel(
             @PathVariable long id,
+            @RequestHeader(value = "Referer", required = false) String referer,
             HttpServletResponse response,
             HttpSession session
     ) {
+        var redirectUrl = referer != null && referer.contains("/imports/new") ? "/imports/new" : "/entries";
         try {
             importService.cancel(id);
             session.setAttribute("successMessage", "Importação cancelada");
-            response.setHeader("HX-Redirect", "/entries");
+            response.setHeader("HX-Redirect", redirectUrl);
             return null;
 
         } catch (ImportNotFoundException | InvalidImportException e) {
             session.setAttribute("errorMessage", e.getMessage());
-            response.setHeader("HX-Redirect", "/entries");
+            response.setHeader("HX-Redirect", redirectUrl);
             return null;
         }
     }

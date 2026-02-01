@@ -196,6 +196,34 @@ public class ImportRepository {
                 .execute();
     }
 
+    public List<ImportRequest> listPending() {
+        return dsl.select(
+                    field("ir.id"),
+                    field("ir.status"),
+                    field("ir.source"),
+                    field("ir.wallet_id"),
+                    field("ir.category_id"),
+                    field("ir.nature"),
+                    field("ir.created_at"),
+                    field("ir.confirmed_at"),
+                    field("w.name").as("wallet_name"),
+                    field("c.name").as("category_name")
+                )
+                .from(table("import_request").as("ir"))
+                .leftJoin(table("wallet").as("w")).on(field("ir.wallet_id").eq(field("w.id")))
+                .leftJoin(table("category").as("c")).on(field("ir.category_id").eq(field("c.id")))
+                .where(field("ir.status").eq(ImportStatus.PENDING_REVIEW.name()))
+                .orderBy(field("ir.created_at").desc())
+                .fetch(this::mapToImportRequest);
+    }
+
+    public int countRowsByRequestId(long requestId) {
+        return dsl.selectCount()
+                .from(table("import_row"))
+                .where(field("import_request_id").eq(requestId))
+                .fetchOne(0, Integer.class);
+    }
+
     private ImportRequest mapToImportRequest(Record record) {
         var walletId = record.get(field("ir.wallet_id", Integer.class));
         var categoryId = record.get(field("ir.category_id", Integer.class));

@@ -103,6 +103,48 @@
             </ul>
         </article>
     </div>
+
+    <section th:if="${!#lists.isEmpty(pendingImports)}" style="margin-top: 2rem;">
+        <h3>Importações pendentes</h3>
+        <figure>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Criado em</th>
+                        <th>Fonte</th>
+                        <th>Carteira</th>
+                        <th>Categoria</th>
+                        <th>Lançamentos</th>
+                        <th style="text-align: right;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="imp : ${pendingImports}">
+                        <td th:text="${#temporals.format(imp.createdAt, 'dd/MM/yyyy HH:mm')}">01/01/2024 10:00</td>
+                        <td th:text="${imp.source.name() == 'NUBANK_CSV' ? 'Nubank' : imp.source.name()}">Nubank</td>
+                        <td th:text="${imp.walletName ?: '-'}">Nubank</td>
+                        <td th:text="${imp.categoryName ?: '-'}">Alimentação</td>
+                        <td th:text="${#lists.size(imp.rows)}">10</td>
+                        <td style="text-align: right;">
+                            <div style="display: flex; gap: 0.25rem; justify-content: flex-end;">
+                                <a th:href="@{/imports/{id}/review(id=${imp.id})}"
+                                   class="icon-btn"
+                                   title="Continuar revisão">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </a>
+                                <button class="icon-btn icon-btn-danger"
+                                        title="Excluir"
+                                        th:attr="hx-delete=@{/imports/{id}(id=${imp.id})}"
+                                        hx-confirm="Excluir esta importação pendente?">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </figure>
+    </section>
 </div>
 </body>
 </html>

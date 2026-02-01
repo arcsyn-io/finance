@@ -94,6 +94,16 @@ public class ImportService {
     }
 
     @Transactional(readOnly = true)
+    public List<ImportRequest> listPending() {
+        return importRepository.listPending();
+    }
+
+    @Transactional(readOnly = true)
+    public int countRows(long requestId) {
+        return importRepository.countRowsByRequestId(requestId);
+    }
+
+    @Transactional(readOnly = true)
     public ImportRow findRowById(long id) {
         return importRepository.findRowById(id)
                 .orElseThrow(() -> new InvalidImportException("Linha não encontrada: " + id));
