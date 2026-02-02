@@ -179,6 +179,27 @@ public class EntryService {
     }
 
     @Transactional(readOnly = true)
+    public long calculateCashBalance() {
+        return entryRepository.calculateBalanceByWalletTypes(List.of("CASH"));
+    }
+
+    @Transactional(readOnly = true)
+    public long calculateLiquidBalance() {
+        return entryRepository.calculateBalanceByWalletTypes(List.of("CASH", "NEGOTIABLE_SECURITY"));
+    }
+
+    @Transactional(readOnly = true)
+    public long calculateFixedBalance() {
+        return entryRepository.calculateBalanceByWalletTypes(List.of("LONG_TERM", "ASSET"));
+    }
+
+    @Transactional(readOnly = true)
+    public long calculateNetWorth() {
+        return entryRepository.calculateBalanceByWalletTypes(
+                List.of("CASH", "NEGOTIABLE_SECURITY", "LONG_TERM", "ASSET"));
+    }
+
+    @Transactional(readOnly = true)
     public long calculatePeriodIncome(LocalDateTime startDate, LocalDateTime endDate) {
         return entryRepository.calculatePeriodIncome(startDate, endDate);
     }

@@ -189,6 +189,26 @@ public class EntryRepository {
         return inTotal - outTotal;
     }
 
+    public long calculateBalanceByWalletTypes(List<String> walletTypes) {
+        var inTotal = dsl.select(field("COALESCE(SUM(e.amount), 0)"))
+                .from(table("entry").as("e"))
+                .join(table("wallet").as("w")).on(field("e.wallet_id").eq(field("w.id")))
+                .where(field("e.deleted_at").isNull())
+                .and(field("e.direction").eq(EntryDirection.IN.name()))
+                .and(field("w.type").in(walletTypes))
+                .fetchOne(0, Long.class);
+
+        var outTotal = dsl.select(field("COALESCE(SUM(e.amount), 0)"))
+                .from(table("entry").as("e"))
+                .join(table("wallet").as("w")).on(field("e.wallet_id").eq(field("w.id")))
+                .where(field("e.deleted_at").isNull())
+                .and(field("e.direction").eq(EntryDirection.OUT.name()))
+                .and(field("w.type").in(walletTypes))
+                .fetchOne(0, Long.class);
+
+        return inTotal - outTotal;
+    }
+
     public long calculatePeriodIncome(LocalDateTime startDate, LocalDateTime endDate) {
         return dsl.select(field("COALESCE(SUM(amount), 0)"))
                 .from(table("entry"))

@@ -3,6 +3,15 @@
       th:replace="~{layout/base :: layout(~{::content})}">
 <body>
 <div th:fragment="content">
+    <style>
+        .amount-positive {
+            color: var(--pico-ins-color);
+        }
+        .amount-negative {
+            color: var(--pico-del-color);
+        }
+    </style>
+
     <header>
         <h1>Dashboard</h1>
         <p>Bem-vindo ao seu painel financeiro</p>
@@ -10,45 +19,111 @@
 
     <div class="grid">
         <article>
-            <header>Saldo Total</header>
-            <p><strong style="font-size: 2rem;">R$ 0,00</strong></p>
-            <footer><small>Atualizado agora</small></footer>
+            <header>Saldo de Caixa</header>
+            <p>
+                <strong style="font-size: 2rem;"
+                        th:classappend="${cashBalance >= 0 ? 'amount-positive' : 'amount-negative'}">
+                    <span th:text="${cashBalance < 0 ? '-' : ''}"></span>R$
+                    <span th:text="${#numbers.formatDecimal((cashBalance < 0 ? -cashBalance : cashBalance) / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+                </strong>
+            </p>
+            <footer><small>Caixa</small></footer>
         </article>
 
         <article>
+            <header>Liquidez Real</header>
+            <p>
+                <strong style="font-size: 2rem;"
+                        th:classappend="${liquidBalance >= 0 ? 'amount-positive' : 'amount-negative'}">
+                    <span th:text="${liquidBalance < 0 ? '-' : ''}"></span>R$
+                    <span th:text="${#numbers.formatDecimal((liquidBalance < 0 ? -liquidBalance : liquidBalance) / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+                </strong>
+            </p>
+            <footer><small>CASH + Títulos Negociáveis</small></footer>
+        </article>
+
+        <article>
+            <header>Saldo Imobilizado</header>
+            <p>
+                <strong style="font-size: 2rem;"
+                        th:classappend="${fixedBalance >= 0 ? 'amount-positive' : 'amount-negative'}">
+                    <span th:text="${fixedBalance < 0 ? '-' : ''}"></span>R$
+                    <span th:text="${#numbers.formatDecimal((fixedBalance < 0 ? -fixedBalance : fixedBalance) / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+                </strong>
+            </p>
+            <footer><small>Longo Prazo + Bens</small></footer>
+        </article>
+
+        <article>
+            <header>Patrimônio Total</header>
+            <p>
+                <strong style="font-size: 2rem;"
+                        th:classappend="${netWorth >= 0 ? 'amount-positive' : 'amount-negative'}">
+                    <span th:text="${netWorth < 0 ? '-' : ''}"></span>R$
+                    <span th:text="${#numbers.formatDecimal((netWorth < 0 ? -netWorth : netWorth) / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+                </strong>
+            </p>
+            <footer><small>Circulante + Imobilizado</small></footer>
+        </article>
+    </div>
+
+    <div class="grid" style="margin-top: 1rem;">
+        <article>
             <header>Receitas do Mês</header>
-            <p><strong style="font-size: 2rem; color: var(--pico-ins-color);">R$ 0,00</strong></p>
-            <footer><small>Janeiro 2026</small></footer>
+            <p>
+                <strong style="font-size: 2rem; color: var(--pico-ins-color);">
+                    R$ <span th:text="${#numbers.formatDecimal(monthIncome / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+                </strong>
+            </p>
+            <footer><small th:text="${currentMonth}">Janeiro 2026</small></footer>
         </article>
 
         <article>
             <header>Despesas do Mês</header>
-            <p><strong style="font-size: 2rem; color: var(--pico-del-color);">R$ 0,00</strong></p>
-            <footer><small>Janeiro 2026</small></footer>
+            <p>
+                <strong style="font-size: 2rem; color: var(--pico-del-color);">
+                    R$ <span th:text="${#numbers.formatDecimal(monthExpense / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+                </strong>
+            </p>
+            <footer><small th:text="${currentMonth}">Janeiro 2026</small></footer>
         </article>
     </div>
 
     <section>
-        <h2>Últimas Transações</h2>
+        <h2>Ultimas Transacoes</h2>
         <figure>
             <table>
                 <thead>
                     <tr>
                         <th>Data</th>
-                        <th>Descrição</th>
+                        <th>Descricao</th>
                         <th>Categoria</th>
-                        <th>Valor</th>
+                        <th style="text-align: right;">Valor</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
+                    <tr th:each="entry : ${latestEntries}">
+                        <td th:text="${#temporals.format(entry.occurredAt, 'dd/MM/yyyy')}">01/01/2024</td>
+                        <td th:text="${entry.description}">Descricao</td>
+                        <td th:text="${entry.categoryName}">Categoria</td>
+                        <td style="text-align: right;">
+                            <span th:classappend="${entry.direction.name() == 'IN' ? 'amount-positive' : 'amount-negative'}">
+                                <span th:text="${entry.direction.name() == 'IN' ? '+' : '-'}"></span>R$
+                                <span th:text="${#numbers.formatDecimal(entry.amount / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(latestEntries)}">
                         <td colspan="4" style="text-align: center;">
-                            <em>Nenhuma transação encontrada</em>
+                            <em>Nenhuma transacao encontrada</em>
                         </td>
                     </tr>
                 </tbody>
             </table>
         </figure>
+        <div style="text-align: center;">
+            <a th:href="@{/entries}">Ver todos os lancamentos &rarr;</a>
+        </div>
     </section>
 </div>
 </body>
