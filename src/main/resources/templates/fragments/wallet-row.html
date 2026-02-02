@@ -8,6 +8,7 @@
     <td>
         <span th:class="'badge badge-' + ${wallet.type.name().toLowerCase()}"
               th:text="${wallet.type.name() == 'CASH' ? 'Caixa' :
+                         wallet.type.name() == 'CREDIT_CARD' ? 'Cartão de Crédito' :
                          wallet.type.name() == 'NEGOTIABLE_SECURITY' ? 'Título Negociável' :
                          wallet.type.name() == 'LONG_TERM' ? 'Longo Prazo' : 'Bem Patrimonial'}">Tipo</span>
     </td>

@@ -37,6 +37,7 @@
                 <option th:each="t : ${walletTypes}"
                         th:value="${t.name()}"
                         th:text="${t.name() == 'CASH' ? 'Caixa' :
+                                   t.name() == 'CREDIT_CARD' ? 'Cartão de Crédito' :
                                    t.name() == 'NEGOTIABLE_SECURITY' ? 'Título Negociável' :
                                    t.name() == 'LONG_TERM' ? 'Longo Prazo' : 'Bem Patrimonial'}"
                         th:selected="${formType != null ? formType == t : wallet?.type == t}">
