@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::content})}">
+<body>
+<div th:fragment="content">
+    <style>
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .summary-card {
+            background: var(--pico-card-background-color);
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+        }
+        .summary-card h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 0.875rem;
+            color: var(--pico-muted-color);
+            font-weight: normal;
+        }
+        .summary-card .value {
+            font-size: 1.75rem;
+            font-weight: 600;
+        }
+        .progress-bar {
+            height: 0.5rem;
+            background: var(--pico-muted-border-color);
+            border-radius: 0.25rem;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--pico-primary);
+            transition: width 0.3s ease;
+        }
+        .percentage {
+            font-size: 0.875rem;
+            color: var(--pico-muted-color);
+        }
+        .period-selector {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .period-selector select {
+            margin: 0;
+            width: auto;
+            min-width: 180px;
+        }
+        .period-selector input[type="date"] {
+            margin: 0;
+            width: auto;
+        }
+        .month-header {
+            font-weight: 600;
+            background: var(--pico-card-background-color);
+        }
+        .category-row td:first-child {
+            padding-left: 2rem;
+        }
+    </style>
+
+    <header style="margin-bottom: 1.5rem;">
+        <h1 style="margin-bottom: 0;">Consumo por Categoria</h1>
+        <p style="margin: 0;"><small>Visao de consumo patrimonial por competencia</small></p>
+    </header>
+
+    <form method="get" action="/consumption" class="period-selector">
+        <label style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+            Periodo:
+            <select name="period" onchange="toggleCustomDates(this.value); if(this.value !== 'CUSTOM') this.form.submit();">
+                <option th:each="p : ${periods}"
+                        th:value="${p.name()}"
+                        th:text="${p.label}"
+                        th:selected="${selectedPeriod == p}">
+                </option>
+            </select>
+        </label>
+        <div id="customDates" th:style="${selectedPeriod.name() == 'CUSTOM' ? '' : 'display: none;'}" style="display: flex; align-items: center; gap: 0.5rem;">
+            <input type="date" name="startDate" th:value="${startDate}">
+            <span>ate</span>
+            <input type="date" name="endDate" th:value="${endDate}">
+            <button type="submit" style="margin: 0;">Aplicar</button>
+        </div>
+        <span style="color: var(--pico-muted-color);" th:text="${periodLabel}">Ago - Jan 2026</span>
+    </form>
+
+    <script>
+        function toggleCustomDates(value) {
+            document.getElementById('customDates').style.display = value === 'CUSTOM' ? 'flex' : 'none';
+        }
+    </script>
+
+    <div class="summary-cards">
+        <div class="summary-card">
+            <h3>Total Consumido</h3>
+            <div class="value" style="color: var(--pico-del-color);">
+                R$ <span th:text="${#numbers.formatDecimal(totalConsumption / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+            </div>
+        </div>
+        <div class="summary-card">
+            <h3>Categorias</h3>
+            <div class="value" th:text="${#lists.size(consumptionByCategory)}">0</div>
+        </div>
+        <div class="summary-card">
+            <h3>Meses</h3>
+            <div class="value" th:text="${#maps.size(monthlyTotals)}">0</div>
+        </div>
+    </div>
+
+    <section style="margin-bottom: 2rem;">
+        <h2>Resumo por Categoria</h2>
+        <figure>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Categoria</th>
+                        <th style="text-align: right;">Valor</th>
+                        <th style="text-align: right; width: 100px;">%</th>
+                        <th style="width: 200px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="c : ${consumptionByCategory}">
+                        <td th:text="${c.categoryName}">Categoria</td>
+                        <td style="text-align: right;">
+                            R$ <span th:text="${#numbers.formatDecimal(c.totalConsumed / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+                        </td>
+                        <td style="text-align: right;" class="percentage">
+                            <span th:text="${totalConsumption > 0 ? #numbers.formatDecimal(c.totalConsumed * 100.0 / totalConsumption, 1, 'POINT', 1, 'COMMA') : '0'}">0</span>%
+                        </td>
+                        <td>
+                            <div class="progress-bar">
+                                <div class="progress-bar-fill"
+                                     th:style="'width: ' + ${totalConsumption > 0 ? (c.totalConsumed * 100.0 / totalConsumption) : 0} + '%'"></div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(consumptionByCategory)}">
+                        <td colspan="4" style="text-align: center; padding: 2rem;">
+                            <em>Nenhum consumo encontrado no periodo</em>
+                        </td>
+                    </tr>
+                </tbody>
+                <tfoot th:if="${!#lists.isEmpty(consumptionByCategory)}">
+                    <tr style="font-weight: 600;">
+                        <td>Total</td>
+                        <td style="text-align: right;">
+                            R$ <span th:text="${#numbers.formatDecimal(totalConsumption / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+                        </td>
+                        <td style="text-align: right;">100%</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </figure>
+    </section>
+
+    <section>
+        <h2>Detalhamento Mensal</h2>
+        <figure style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Categoria</th>
+                        <th th:each="month : ${months}" style="text-align: right; white-space: nowrap;"
+                            th:text="${#temporals.format(month.atDay(1), 'MMM/yy')}">Jan/26</th>
+                        <th style="text-align: right;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="cat : ${consumptionByCategory}">
+                        <td th:text="${cat.categoryName}">Categoria</td>
+                        <td th:each="month : ${months}" style="text-align: right;"
+                            th:with="key=${cat.categoryId + '-' + month.toString()}, value=${monthlyMatrix.get(key)}">
+                            <span th:if="${value != null}"
+                                  th:text="'R$ ' + ${#numbers.formatDecimal(value / 100.0, 1, 'POINT', 2, 'COMMA')}">R$ 0,00</span>
+                            <span th:if="${value == null}"
+                                  style="color: var(--pico-muted-color);">-</span>
+                        </td>
+                        <td style="text-align: right; font-weight: 600;">
+                            R$ <span th:text="${#numbers.formatDecimal(cat.totalConsumed / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(consumptionByCategory)}">
+                        <td th:colspan="${#lists.size(months) + 2}" style="text-align: center; padding: 2rem;">
+                            <em>Nenhum consumo encontrado no periodo</em>
+                        </td>
+                    </tr>
+                </tbody>
+                <tfoot th:if="${!#lists.isEmpty(consumptionByCategory)}">
+                    <tr style="font-weight: 600;">
+                        <td>Total</td>
+                        <td th:each="month : ${months}" style="text-align: right;"
+                            th:with="value=${monthlyTotals.get(month)}">
+                            <span th:if="${value != null}"
+                                  th:text="'R$ ' + ${#numbers.formatDecimal(value / 100.0, 1, 'POINT', 2, 'COMMA')}">R$ 0,00</span>
+                            <span th:if="${value == null}">-</span>
+                        </td>
+                        <td style="text-align: right;">
+                            R$ <span th:text="${#numbers.formatDecimal(totalConsumption / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </figure>
+    </section>
+</div>
+</body>
+</html>

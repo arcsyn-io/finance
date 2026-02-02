@@ -1,5 +1,7 @@
 package com.lucaskalb.finance.repository;
 
+import com.lucaskalb.finance.dto.CategoryConsumption;
+import com.lucaskalb.finance.dto.MonthlyConsumption;
 import com.lucaskalb.finance.model.Entry;
 import com.lucaskalb.finance.model.EntryDirection;
 import com.lucaskalb.finance.model.EntryNature;
@@ -10,6 +12,7 @@ import org.jooq.Record;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
@@ -257,6 +260,63 @@ public class EntryRepository {
                 .where(field("id").in(ids))
                 .and(field("deleted_at").isNull())
                 .execute();
+    }
+
+    public List<CategoryConsumption> getConsumptionByCategory(LocalDateTime startDate, LocalDateTime endDate) {
+        return dsl.select(
+                    field("c.id"),
+                    field("c.name"),
+                    field("SUM(e.amount)").as("total")
+                )
+                .from(table("entry").as("e"))
+                .join(table("category").as("c")).on(field("e.category_id").eq(field("c.id")))
+                .where(field("e.deleted_at").isNull())
+                .and(field("e.nature").eq(EntryNature.PATRIMONIAL.name()))
+                .and(field("e.direction").eq(EntryDirection.OUT.name()))
+                .and(field("e.occurred_at").ge(startDate.format(SQLITE_DATETIME)))
+                .and(field("e.occurred_at").lt(endDate.format(SQLITE_DATETIME)))
+                .groupBy(field("c.id"), field("c.name"))
+                .orderBy(field("total").desc())
+                .fetch(r -> new CategoryConsumption(
+                        ((Number) r.get("c.id")).longValue(),
+                        (String) r.get("c.name"),
+                        ((Number) r.get("total")).longValue()
+                ));
+    }
+
+    public List<MonthlyConsumption> getMonthlyConsumptionByCategory(LocalDateTime startDate, LocalDateTime endDate) {
+        return dsl.select(
+                    field("strftime('%Y-%m', e.occurred_at)").as("month"),
+                    field("c.id"),
+                    field("c.name"),
+                    field("SUM(e.amount)").as("total")
+                )
+                .from(table("entry").as("e"))
+                .join(table("category").as("c")).on(field("e.category_id").eq(field("c.id")))
+                .where(field("e.deleted_at").isNull())
+                .and(field("e.nature").eq(EntryNature.PATRIMONIAL.name()))
+                .and(field("e.direction").eq(EntryDirection.OUT.name()))
+                .and(field("e.occurred_at").ge(startDate.format(SQLITE_DATETIME)))
+                .and(field("e.occurred_at").lt(endDate.format(SQLITE_DATETIME)))
+                .groupBy(field("strftime('%Y-%m', e.occurred_at)"), field("c.id"), field("c.name"))
+                .orderBy(field("month").asc(), field("total").desc())
+                .fetch(r -> new MonthlyConsumption(
+                        YearMonth.parse((String) r.get("month")),
+                        ((Number) r.get("c.id")).longValue(),
+                        (String) r.get("c.name"),
+                        ((Number) r.get("total")).longValue()
+                ));
+    }
+
+    public long getTotalConsumption(LocalDateTime startDate, LocalDateTime endDate) {
+        return dsl.select(field("COALESCE(SUM(e.amount), 0)"))
+                .from(table("entry").as("e"))
+                .where(field("e.deleted_at").isNull())
+                .and(field("e.nature").eq(EntryNature.PATRIMONIAL.name()))
+                .and(field("e.direction").eq(EntryDirection.OUT.name()))
+                .and(field("e.occurred_at").ge(startDate.format(SQLITE_DATETIME)))
+                .and(field("e.occurred_at").lt(endDate.format(SQLITE_DATETIME)))
+                .fetchOne(0, Long.class);
     }
 
     private Entry mapToEntry(Record record) {
