@@ -348,6 +348,42 @@ public class EntryRepository {
                 .fetchOne(0, Long.class);
     }
 
+    /**
+     * Calcula recebimentos mensais para fluxo de caixa.
+     * Considera apenas: wallet.type = CASH, nature = OPERATIONAL, transfer_id IS NULL
+     */
+    public long calculateMonthlyCashFlowReceipts(LocalDateTime startDate, LocalDateTime endDate) {
+        return dsl.select(field("COALESCE(SUM(e.amount), 0)"))
+                .from(table("entry").as("e"))
+                .join(table("wallet").as("w")).on(field("e.wallet_id").eq(field("w.id")))
+                .where(field("e.deleted_at").isNull())
+                .and(field("e.direction").eq(EntryDirection.IN.name()))
+                .and(field("e.nature").eq(EntryNature.OPERATIONAL.name()))
+                .and(field("w.type").eq("CASH"))
+                .and(field("e.transfer_id").isNull())
+                .and(field("e.occurred_at").ge(startDate.format(SQLITE_DATETIME)))
+                .and(field("e.occurred_at").lt(endDate.format(SQLITE_DATETIME)))
+                .fetchOne(0, Long.class);
+    }
+
+    /**
+     * Calcula despesas mensais para fluxo de caixa.
+     * Considera apenas: wallet.type = CASH, nature = OPERATIONAL, transfer_id IS NULL
+     */
+    public long calculateMonthlyCashFlowExpenses(LocalDateTime startDate, LocalDateTime endDate) {
+        return dsl.select(field("COALESCE(SUM(e.amount), 0)"))
+                .from(table("entry").as("e"))
+                .join(table("wallet").as("w")).on(field("e.wallet_id").eq(field("w.id")))
+                .where(field("e.deleted_at").isNull())
+                .and(field("e.direction").eq(EntryDirection.OUT.name()))
+                .and(field("e.nature").eq(EntryNature.OPERATIONAL.name()))
+                .and(field("w.type").eq("CASH"))
+                .and(field("e.transfer_id").isNull())
+                .and(field("e.occurred_at").ge(startDate.format(SQLITE_DATETIME)))
+                .and(field("e.occurred_at").lt(endDate.format(SQLITE_DATETIME)))
+                .fetchOne(0, Long.class);
+    }
+
     private Entry mapToEntry(Record record) {
         return Entry.builder()
                 .id(record.get(field("e.id", Integer.class)).longValue())

@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::content})}">
+<body>
+<div th:fragment="content">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        @media (max-width: 1200px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .chart-card {
+            background: var(--pico-card-background-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+        .chart-card h3 {
+            margin: 0 0 1rem 0;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-align: center;
+        }
+        .chart-container {
+            position: relative;
+            height: 200px;
+        }
+        .cash-flow-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        .cash-flow-table th,
+        .cash-flow-table td {
+            padding: 0.5rem 0.75rem;
+            text-align: right;
+            white-space: nowrap;
+        }
+        .cash-flow-table th:first-child,
+        .cash-flow-table td:first-child {
+            text-align: left;
+            position: sticky;
+            left: 0;
+            background: var(--pico-card-background-color);
+            z-index: 1;
+        }
+        .cash-flow-table thead th {
+            background: var(--pico-card-background-color);
+            font-weight: 600;
+            border-bottom: 2px solid var(--pico-muted-border-color);
+        }
+        .cash-flow-table tbody tr:hover {
+            background: var(--pico-primary-background);
+        }
+        .cash-flow-table .row-label {
+            font-weight: 500;
+        }
+        .cash-flow-table .row-highlight {
+            background: rgba(99, 102, 241, 0.15);
+            font-weight: bold;
+        }
+        .cash-flow-table .row-highlight td:first-child {
+            border-left: 3px solid var(--pico-primary);
+        }
+        .cash-flow-table .row-result {
+            background: rgba(99, 102, 241, 0.25);
+            font-weight: bold;
+        }
+        .cash-flow-table .row-result td:first-child {
+            border-left: 4px solid var(--pico-primary);
+        }
+        .cash-flow-table .row-config {
+            background: rgba(59, 130, 246, 0.05);
+        }
+        .cash-flow-table .row-separator {
+            border-top: 2px solid var(--pico-muted-border-color);
+        }
+        .cash-flow-table .positive {
+            color: #34d399;
+        }
+        .cash-flow-table .negative {
+            color: #f87171;
+        }
+        .cash-flow-table .editable {
+            cursor: pointer;
+            text-decoration: underline dotted;
+        }
+        .cash-flow-table .editable:hover {
+            color: var(--pico-primary);
+        }
+        .table-wrapper {
+            overflow-x: auto;
+            margin-top: 1.5rem;
+        }
+        .year-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+        }
+        .year-nav span {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+    </style>
+
+    <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <div>
+            <h1 style="margin-bottom: 0;">Fluxo de Caixa</h1>
+            <p style="margin: 0;"><small>Visão anual do caixa operacional (carteiras CASH, excluindo transferências)</small></p>
+        </div>
+    </header>
+
+    <div class="year-nav">
+        <a th:href="@{/cash-flow(year=${prevYear})}" class="outline" style="padding: 0.5rem 0.75rem;">
+            <i class="fa-solid fa-chevron-left"></i>
+        </a>
+        <span th:text="${selectedYear}">2024</span>
+        <a th:href="@{/cash-flow(year=${nextYear})}" class="outline" style="padding: 0.5rem 0.75rem;">
+            <i class="fa-solid fa-chevron-right"></i>
+        </a>
+    </div>
+
+    <!-- Gráficos -->
+    <div class="charts-grid">
+        <div class="chart-card">
+            <h3>Receitas x Despesas</h3>
+            <div class="chart-container">
+                <canvas id="balanceChart"></canvas>
+            </div>
+        </div>
+        <div class="chart-card">
+            <h3>Fluxo de Caixa Líquido</h3>
+            <div class="chart-container">
+                <canvas id="netCashFlowChart"></canvas>
+            </div>
+        </div>
+        <div class="chart-card">
+            <h3>Excedente / Resgate</h3>
+            <div class="chart-container">
+                <canvas id="surplusChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <figure>
+            <table class="cash-flow-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Jan</th>
+                        <th>Fev</th>
+                        <th>Mar</th>
+                        <th>Abr</th>
+                        <th>Mai</th>
+                        <th>Jun</th>
+                        <th>Jul</th>
+                        <th>Ago</th>
+                        <th>Set</th>
+                        <th>Out</th>
+                        <th>Nov</th>
+                        <th>Dez</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Recebimentos Totais -->
+                    <tr>
+                        <td class="row-label">Recebimentos</td>
+                        <td th:each="m : ${annualCashFlow.months}"
+                            class="positive"
+                            th:text="${#numbers.formatDecimal(m.totalReceipts / 100.0, 1, 'POINT', 2, 'COMMA')}">
+                            0,00
+                        </td>
+                    </tr>
+
+                    <!-- Despesas Totais -->
+                    <tr>
+                        <td class="row-label">Despesas</td>
+                        <td th:each="m : ${annualCashFlow.months}"
+                            class="negative"
+                            th:text="${#numbers.formatDecimal(m.totalExpenses / 100.0, 1, 'POINT', 2, 'COMMA')}">
+                            0,00
+                        </td>
+                    </tr>
+
+                    <!-- Fluxo de Caixa Líquido -->
+                    <tr class="row-highlight row-separator">
+                        <td class="row-label">Fluxo Líquido</td>
+                        <td th:each="m : ${annualCashFlow.months}"
+                            th:classappend="${m.netCashFlow >= 0} ? 'positive' : 'negative'"
+                            th:text="${#numbers.formatDecimal(m.netCashFlow / 100.0, 1, 'POINT', 2, 'COMMA')}">
+                            0,00
+                        </td>
+                    </tr>
+
+                    <!-- Saldo de Caixa Inicial (configurável) -->
+                    <tr class="row-config">
+                        <td class="row-label">Saldo Inicial</td>
+                        <td th:each="m : ${annualCashFlow.months}"
+                            class="editable"
+                            th:attr="hx-get=@{/cash-flow/edit(month=${m.referenceMonth})}"
+                            hx-target="#sidebarContent"
+                            hx-swap="innerHTML"
+                            th:text="${#numbers.formatDecimal(m.openingBalance / 100.0, 1, 'POINT', 2, 'COMMA')}">
+                            0,00
+                        </td>
+                    </tr>
+
+                    <!-- Saldo de Caixa Final -->
+                    <tr class="row-highlight row-separator">
+                        <td class="row-label">Saldo Final</td>
+                        <td th:each="m : ${annualCashFlow.months}"
+                            th:classappend="${m.closingBalance >= 0} ? 'positive' : 'negative'"
+                            th:text="${#numbers.formatDecimal(m.closingBalance / 100.0, 1, 'POINT', 2, 'COMMA')}">
+                            0,00
+                        </td>
+                    </tr>
+
+                    <!-- Caixa Mínimo (configurável) -->
+                    <tr class="row-config">
+                        <td class="row-label">Caixa Mínimo</td>
+                        <td th:each="m : ${annualCashFlow.months}"
+                            class="editable"
+                            th:attr="hx-get=@{/cash-flow/edit(month=${m.referenceMonth})}"
+                            hx-target="#sidebarContent"
+                            hx-swap="innerHTML"
+                            th:text="${#numbers.formatDecimal(m.minimumCash / 100.0, 1, 'POINT', 2, 'COMMA')}">
+                            0,00
+                        </td>
+                    </tr>
+
+                    <!-- Excedente / Resgate -->
+                    <tr class="row-result row-separator">
+                        <td class="row-label">Excedente / Resgate</td>
+                        <td th:each="m : ${annualCashFlow.months}"
+                            th:classappend="${m.surplusOrDeficit >= 0} ? 'positive' : 'negative'"
+                            th:text="${#numbers.formatDecimal(m.surplusOrDeficit / 100.0, 1, 'POINT', 2, 'COMMA')}">
+                            0,00
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </figure>
+    </div>
+
+    <div style="margin-top: 1rem; font-size: 0.875rem; opacity: 0.7;">
+        <i class="fa-solid fa-info-circle"></i>
+        Clique nos valores de <strong>Saldo Inicial</strong> ou <strong>Caixa Mínimo</strong> para editar.
+    </div>
+
+    <script th:inline="javascript">
+        const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const receipts = /*[[${chartReceipts}]]*/ [];
+        const expenses = /*[[${chartExpenses}]]*/ [];
+        const netCashFlow = /*[[${chartNetCashFlow}]]*/ [];
+        const surplus = /*[[${chartSurplus}]]*/ [];
+
+        const chartDefaults = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom',
+                    labels: {
+                        color: '#94a3b8',
+                        boxWidth: 12,
+                        padding: 15
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                    ticks: { color: '#94a3b8' }
+                },
+                y: {
+                    grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                    ticks: {
+                        color: '#94a3b8',
+                        callback: function(value) {
+                            return value.toLocaleString('pt-BR');
+                        }
+                    }
+                }
+            }
+        };
+
+        // Gráfico 1: Receitas x Despesas (área)
+        new Chart(document.getElementById('balanceChart'), {
+            type: 'line',
+            data: {
+                labels: months,
+                datasets: [
+                    {
+                        label: 'Receitas',
+                        data: receipts,
+                        borderColor: '#34d399',
+                        backgroundColor: 'rgba(52, 211, 153, 0.2)',
+                        fill: true,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'Despesas',
+                        data: expenses,
+                        borderColor: '#f87171',
+                        backgroundColor: 'rgba(248, 113, 113, 0.2)',
+                        fill: true,
+                        tension: 0.3
+                    }
+                ]
+            },
+            options: chartDefaults
+        });
+
+        // Gráfico 2: Fluxo de Caixa Líquido
+        new Chart(document.getElementById('netCashFlowChart'), {
+            type: 'line',
+            data: {
+                labels: months,
+                datasets: [{
+                    label: 'Fluxo Líquido',
+                    data: netCashFlow,
+                    borderColor: '#818cf8',
+                    backgroundColor: 'rgba(129, 140, 248, 0.2)',
+                    fill: true,
+                    tension: 0.3,
+                    segment: {
+                        borderColor: ctx => ctx.p1.parsed.y < 0 ? '#f87171' : '#34d399',
+                        backgroundColor: ctx => ctx.p1.parsed.y < 0 ? 'rgba(248, 113, 113, 0.2)' : 'rgba(52, 211, 153, 0.2)'
+                    }
+                }]
+            },
+            options: {
+                ...chartDefaults,
+                plugins: {
+                    ...chartDefaults.plugins,
+                    legend: { display: false }
+                }
+            }
+        });
+
+        // Gráfico 3: Excedente / Resgate
+        new Chart(document.getElementById('surplusChart'), {
+            type: 'line',
+            data: {
+                labels: months,
+                datasets: [{
+                    label: 'Excedente/Resgate',
+                    data: surplus,
+                    borderColor: '#fbbf24',
+                    backgroundColor: 'rgba(251, 191, 36, 0.2)',
+                    fill: true,
+                    tension: 0.3,
+                    segment: {
+                        borderColor: ctx => ctx.p1.parsed.y < 0 ? '#f87171' : '#34d399',
+                        backgroundColor: ctx => ctx.p1.parsed.y < 0 ? 'rgba(248, 113, 113, 0.2)' : 'rgba(52, 211, 153, 0.2)'
+                    }
+                }]
+            },
+            options: {
+                ...chartDefaults,
+                plugins: {
+                    ...chartDefaults.plugins,
+                    legend: { display: false }
+                }
+            }
+        });
+    </script>
+</div>
+</body>
+</html>
