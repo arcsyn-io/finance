@@ -36,6 +36,14 @@ public class CategoryRepository {
                 .fetch(this::mapToCategory);
     }
 
+    public List<Category> listActiveByType(CategoryType type) {
+        return dsl.selectFrom(table("category"))
+                .where(field("active").eq(1))
+                .and(field("type").eq(type.name()))
+                .orderBy(field("name"))
+                .fetch(this::mapToCategory);
+    }
+
     public Optional<Category> findById(long id) {
         return dsl.selectFrom(table("category"))
                 .where(field("id").eq(id))

@@ -138,6 +138,35 @@ public class EntryRepository {
                 .fetchOne(0, Long.class);
     }
 
+    public long insertWithTransfer(long walletId, long categoryId, EntryNature nature, EntryDirection direction,
+                                   long amount, LocalDateTime occurredAt, String description, long transferId) {
+        dsl.insertInto(table("entry"))
+                .columns(
+                    field("wallet_id"),
+                    field("category_id"),
+                    field("nature"),
+                    field("direction"),
+                    field("amount"),
+                    field("occurred_at"),
+                    field("description"),
+                    field("transfer_id")
+                )
+                .values(
+                    walletId,
+                    categoryId,
+                    nature.name(),
+                    direction.name(),
+                    amount,
+                    occurredAt.format(SQLITE_DATETIME),
+                    description,
+                    transferId
+                )
+                .execute();
+
+        return dsl.select(field("last_insert_rowid()"))
+                .fetchOne(0, Long.class);
+    }
+
     public void update(long id, long walletId, long categoryId, EntryNature nature, EntryDirection direction,
                        long amount, LocalDateTime occurredAt, String description) {
         dsl.update(table("entry"))

@@ -31,6 +31,11 @@ public class CategoryService {
     }
 
     @Transactional(readOnly = true)
+    public List<Category> listActiveByType(String type) {
+        return categoryRepository.listActiveByType(CategoryType.valueOf(type));
+    }
+
+    @Transactional(readOnly = true)
     public Category findById(long id) {
         return categoryRepository.findById(id)
                 .orElseThrow(CategoryNotFoundException::new);
