@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.TextStyle;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -24,6 +25,8 @@ public class ConsumptionController {
     private final ConsumptionService consumptionService;
 
     public enum ConsumptionPeriod {
+        CURRENT_MONTH("Mês atual"),
+        CURRENT_QUARTER("Trimestre atual"),
         LAST_6_MONTHS("Último Semestre"),
         LAST_12_MONTHS("Último Ano"),
         CURRENT_YEAR("Ano Atual"),
@@ -42,12 +45,13 @@ public class ConsumptionController {
 
     @GetMapping
     public String index(
-            @RequestParam(required = false, defaultValue = "LAST_6_MONTHS") ConsumptionPeriod period,
+            @RequestParam(required = false, defaultValue = "CURRENT_MONTH") ConsumptionPeriod period,
+            @RequestParam(required = false, defaultValue = "0") int offset,
             @RequestParam(required = false) LocalDate startDate,
             @RequestParam(required = false) LocalDate endDate,
             Model model
     ) {
-        var dateRange = calculateDateRange(period, startDate, endDate);
+        var dateRange = calculateDateRange(period, offset, startDate, endDate);
 
         var consumptionByCategory = consumptionService.getConsumptionByCategory(dateRange.start(), dateRange.end());
         var totalConsumption = consumptionService.getTotalConsumption(dateRange.start(), dateRange.end());
@@ -68,9 +72,10 @@ public class ConsumptionController {
         model.addAttribute("title", "Consumo por Categoria - Finance");
         model.addAttribute("periods", ConsumptionPeriod.values());
         model.addAttribute("selectedPeriod", period);
+        model.addAttribute("offset", offset);
         model.addAttribute("startDate", dateRange.start().toLocalDate());
         model.addAttribute("endDate", dateRange.end().toLocalDate().minusDays(1));
-        model.addAttribute("periodLabel", formatPeriodLabel(dateRange.start().toLocalDate(), dateRange.end().toLocalDate().minusDays(1)));
+        model.addAttribute("periodLabel", formatPeriodLabel(period, offset, dateRange.start().toLocalDate(), dateRange.end().toLocalDate().minusDays(1)));
 
         model.addAttribute("consumptionByCategory", consumptionByCategory);
         model.addAttribute("totalConsumption", totalConsumption);
@@ -83,23 +88,39 @@ public class ConsumptionController {
 
     private record DateRange(java.time.LocalDateTime start, java.time.LocalDateTime end) {}
 
-    private DateRange calculateDateRange(ConsumptionPeriod period, LocalDate customStart, LocalDate customEnd) {
+    private DateRange calculateDateRange(ConsumptionPeriod period, int offset, LocalDate customStart, LocalDate customEnd) {
         var today = LocalDate.now();
 
         return switch (period) {
-            case LAST_6_MONTHS -> {
-                var start = today.minusMonths(5).withDayOfMonth(1);
-                var end = today.plusMonths(1).withDayOfMonth(1);
+            case CURRENT_MONTH -> {
+                var targetMonth = today.plusMonths(offset);
+                var start = targetMonth.with(TemporalAdjusters.firstDayOfMonth());
+                var end = targetMonth.with(TemporalAdjusters.lastDayOfMonth()).plusDays(1);
                 yield new DateRange(start.atStartOfDay(), end.atStartOfDay());
+            }
+            case CURRENT_QUARTER -> {
+                var baseQuarterStart = today.withMonth(((today.getMonthValue() - 1) / 3) * 3 + 1).withDayOfMonth(1);
+                var targetQuarterStart = baseQuarterStart.plusMonths(offset * 3L);
+                var targetQuarterEnd = targetQuarterStart.plusMonths(3);
+                yield new DateRange(targetQuarterStart.atStartOfDay(), targetQuarterEnd.atStartOfDay());
+            }
+            case LAST_6_MONTHS -> {
+                var baseStart = today.minusMonths(5).withDayOfMonth(1);
+                var targetStart = baseStart.plusMonths(offset * 6L);
+                var targetEnd = targetStart.plusMonths(6);
+                yield new DateRange(targetStart.atStartOfDay(), targetEnd.atStartOfDay());
             }
             case LAST_12_MONTHS -> {
-                var start = today.minusMonths(11).withDayOfMonth(1);
-                var end = today.plusMonths(1).withDayOfMonth(1);
-                yield new DateRange(start.atStartOfDay(), end.atStartOfDay());
+                var baseStart = today.minusMonths(11).withDayOfMonth(1);
+                var targetStart = baseStart.plusMonths(offset * 12L);
+                var targetEnd = targetStart.plusMonths(12);
+                yield new DateRange(targetStart.atStartOfDay(), targetEnd.atStartOfDay());
             }
             case CURRENT_YEAR -> {
-                var start = today.withMonth(1).withDayOfMonth(1);
-                var end = today.plusMonths(1).withDayOfMonth(1);
+                var baseYear = today.getYear();
+                var targetYear = baseYear + offset;
+                var start = LocalDate.of(targetYear, 1, 1);
+                var end = LocalDate.of(targetYear + 1, 1, 1);
                 yield new DateRange(start.atStartOfDay(), end.atStartOfDay());
             }
             case CUSTOM -> {
@@ -110,16 +131,29 @@ public class ConsumptionController {
         };
     }
 
-    private String formatPeriodLabel(LocalDate start, LocalDate end) {
+    private String formatPeriodLabel(ConsumptionPeriod period, int offset, LocalDate start, LocalDate end) {
         var locale = new Locale("pt", "BR");
-        var startMonth = start.getMonth().getDisplayName(TextStyle.SHORT, locale);
-        var endMonth = end.getMonth().getDisplayName(TextStyle.SHORT, locale);
 
-        if (start.getYear() == end.getYear()) {
-            return capitalize(startMonth) + " - " + capitalize(endMonth) + " " + end.getYear();
-        } else {
-            return capitalize(startMonth) + "/" + start.getYear() + " - " + capitalize(endMonth) + "/" + end.getYear();
-        }
+        return switch (period) {
+            case CURRENT_MONTH -> {
+                var month = start.getMonth().getDisplayName(TextStyle.FULL, locale);
+                yield capitalize(month) + " " + start.getYear();
+            }
+            case CURRENT_QUARTER -> {
+                var quarter = ((start.getMonthValue() - 1) / 3) + 1;
+                yield quarter + "º Trimestre " + start.getYear();
+            }
+            case CURRENT_YEAR -> String.valueOf(start.getYear());
+            default -> {
+                var startMonth = start.getMonth().getDisplayName(TextStyle.SHORT, locale);
+                var endMonth = end.getMonth().getDisplayName(TextStyle.SHORT, locale);
+                if (start.getYear() == end.getYear()) {
+                    yield capitalize(startMonth) + " - " + capitalize(endMonth) + " " + end.getYear();
+                } else {
+                    yield capitalize(startMonth) + "/" + start.getYear() + " - " + capitalize(endMonth) + "/" + end.getYear();
+                }
+            }
+        };
     }
 
     private String capitalize(String s) {

@@ -41,21 +41,68 @@
             font-size: 0.875rem;
             color: var(--pico-muted-color);
         }
-        .period-selector {
+        .period-nav {
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: 0.75rem;
             margin-bottom: 1.5rem;
-            flex-wrap: wrap;
         }
-        .period-selector select {
+        .period-nav a.outline {
+            padding: 0.5rem 0.75rem;
             margin: 0;
-            width: auto;
+        }
+        .period-dropdown {
+            position: relative;
+        }
+        .period-label {
+            font-size: 1.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            min-width: 200px;
+        }
+        .period-label i {
+            font-size: 0.875rem;
+        }
+        .period-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 0.5rem;
+            background: var(--pico-card-background-color);
+            border: 1px solid var(--pico-muted-border-color);
+            border-radius: 0.5rem;
+            padding: 0.5rem 0;
             min-width: 180px;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            white-space: nowrap;
         }
-        .period-selector input[type="date"] {
+        .period-dropdown-menu a {
+            display: block;
+            padding: 0.5rem 1rem;
+            color: var(--pico-color);
+            text-decoration: none;
+        }
+        .period-dropdown-menu a:hover {
+            background: var(--pico-primary-background);
+        }
+        .custom-dates {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: 1rem;
+        }
+        .custom-dates input[type="date"] {
             margin: 0;
             width: auto;
+        }
+        .custom-dates button {
+            margin: 0;
         }
         .month-header {
             font-weight: 600;
@@ -71,29 +118,83 @@
         <p style="margin: 0;"><small>Visao de consumo patrimonial por competencia</small></p>
     </header>
 
-    <form method="get" action="/consumption" class="period-selector">
-        <label style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-            Periodo:
-            <select name="period" onchange="toggleCustomDates(this.value); if(this.value !== 'CUSTOM') this.form.submit();">
-                <option th:each="p : ${periods}"
-                        th:value="${p.name()}"
-                        th:text="${p.label}"
-                        th:selected="${selectedPeriod == p}">
-                </option>
-            </select>
-        </label>
-        <div id="customDates" th:style="${selectedPeriod.name() == 'CUSTOM' ? '' : 'display: none;'}" style="display: flex; align-items: center; gap: 0.5rem;">
-            <input type="date" name="startDate" th:value="${startDate}">
-            <span>ate</span>
-            <input type="date" name="endDate" th:value="${endDate}">
-            <button type="submit" style="margin: 0;">Aplicar</button>
-        </div>
-        <span style="color: var(--pico-muted-color);" th:text="${periodLabel}">Ago - Jan 2026</span>
+    <form method="get" action="/consumption" id="filtersForm">
+        <input type="hidden" name="offset" id="offsetInput" th:value="${offset}">
+        <input type="hidden" name="period" id="periodInput" th:value="${selectedPeriod.name()}">
+        <input type="hidden" name="startDate" id="startDateInput" th:value="${startDate}">
+        <input type="hidden" name="endDate" id="endDateInput" th:value="${endDate}">
     </form>
 
+    <div class="period-nav">
+        <a href="#" class="outline" th:data-offset="${offset - 1}" onclick="navigateOffset(this.dataset.offset); return false;"
+           th:classappend="${selectedPeriod.name() == 'CUSTOM' ? 'disabled' : ''}"
+           th:style="${selectedPeriod.name() == 'CUSTOM' ? 'pointer-events: none; opacity: 0.5;' : ''}">
+            <i class="fa-solid fa-chevron-left"></i>
+        </a>
+        <div class="period-dropdown">
+            <span class="period-label" onclick="togglePeriodDropdown()">
+                <span th:text="${periodLabel}">Janeiro 2024</span>
+                <i class="fa-solid fa-caret-down"></i>
+            </span>
+            <div id="periodDropdownMenu" class="period-dropdown-menu">
+                <a th:each="p : ${periods}"
+                   href="#"
+                   th:text="${p.label}"
+                   th:data-period="${p.name()}"
+                   onclick="selectPeriod(this.dataset.period); return false;">
+                </a>
+            </div>
+        </div>
+        <a href="#" class="outline" th:data-offset="${offset + 1}" onclick="navigateOffset(this.dataset.offset); return false;"
+           th:classappend="${selectedPeriod.name() == 'CUSTOM' ? 'disabled' : ''}"
+           th:style="${selectedPeriod.name() == 'CUSTOM' ? 'pointer-events: none; opacity: 0.5;' : ''}">
+            <i class="fa-solid fa-chevron-right"></i>
+        </a>
+        <div id="customDates" class="custom-dates" th:style="${selectedPeriod.name() == 'CUSTOM' ? '' : 'display: none;'}">
+            <input type="date" id="customStartDate" th:value="${startDate}" onchange="updateCustomDate('start', this.value)">
+            <span>até</span>
+            <input type="date" id="customEndDate" th:value="${endDate}" onchange="updateCustomDate('end', this.value)">
+            <button type="button" onclick="applyCustomDates()">Aplicar</button>
+        </div>
+    </div>
+
     <script>
-        function toggleCustomDates(value) {
-            document.getElementById('customDates').style.display = value === 'CUSTOM' ? 'flex' : 'none';
+        function togglePeriodDropdown() {
+            var menu = document.getElementById('periodDropdownMenu');
+            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        }
+        function selectPeriod(period) {
+            document.getElementById('periodInput').value = period;
+            document.getElementById('offsetInput').value = 0;
+            document.getElementById('filtersForm').submit();
+        }
+        function navigateOffset(offset) {
+            document.getElementById('offsetInput').value = offset;
+            document.getElementById('filtersForm').submit();
+        }
+        function updateCustomDate(type, value) {
+            if (type === 'start') {
+                document.getElementById('startDateInput').value = value;
+            } else {
+                document.getElementById('endDateInput').value = value;
+            }
+        }
+        function applyCustomDates() {
+            document.getElementById('startDateInput').value = document.getElementById('customStartDate').value;
+            document.getElementById('endDateInput').value = document.getElementById('customEndDate').value;
+            document.getElementById('filtersForm').submit();
+        }
+        document.addEventListener('click', function(e) {
+            var dropdown = document.querySelector('.period-dropdown');
+            if (dropdown && !dropdown.contains(e.target)) {
+                document.getElementById('periodDropdownMenu').style.display = 'none';
+            }
+        });
+        // Show/hide custom dates when period changes
+        var periodInput = document.getElementById('periodInput');
+        var customDates = document.getElementById('customDates');
+        if (periodInput.value === 'CUSTOM') {
+            customDates.style.display = 'flex';
         }
     </script>
 
