@@ -34,8 +34,16 @@ public class CategoryController {
                 ? categoryService.listAll()
                 : categoryService.listActive();
 
+        var incomeCategories = categories.stream()
+                .filter(c -> c.getType() == CategoryType.INCOME)
+                .toList();
+        var expenseCategories = categories.stream()
+                .filter(c -> c.getType() == CategoryType.EXPENSE)
+                .toList();
+
         model.addAttribute("title", "Categorias - Finance");
-        model.addAttribute("categories", categories);
+        model.addAttribute("incomeCategories", incomeCategories);
+        model.addAttribute("expenseCategories", expenseCategories);
         model.addAttribute("showInactive", showInactive);
         model.addAttribute("categoryTypes", CategoryType.values());
 
@@ -53,6 +61,12 @@ public class CategoryController {
         model.addAttribute("categoryTypes", CategoryType.values());
         model.addAttribute("isEdit", false);
         return "fragments/category-form :: form";
+    }
+
+    @GetMapping("/inline-form")
+    public String inlineForm(@RequestParam CategoryType type, Model model) {
+        model.addAttribute("type", type);
+        return "fragments/category-inline-form :: form";
     }
 
     @PostMapping
@@ -76,6 +90,25 @@ public class CategoryController {
             model.addAttribute("formName", name);
             model.addAttribute("formType", type);
             return "fragments/category-form :: form";
+        }
+    }
+
+    @PostMapping("/inline")
+    public String createInline(
+            @RequestParam String name,
+            @RequestParam CategoryType type,
+            Model model
+    ) {
+        try {
+            var command = new CreateCategoryCommand(name, type);
+            var category = categoryService.create(command);
+            model.addAttribute("category", category);
+            return "fragments/category-list-item :: item";
+        } catch (InvalidCategoryException | DuplicateCategoryNameException e) {
+            model.addAttribute("type", type);
+            model.addAttribute("errorMessage", e.getMessage());
+            model.addAttribute("formName", name);
+            return "fragments/category-inline-form :: form";
         }
     }
 
@@ -129,9 +162,9 @@ public class CategoryController {
             categoryService.deactivate(id);
             var category = categoryService.findById(id);
             model.addAttribute("category", category);
-            return "fragments/category-row :: row";
+            return "fragments/category-list-item :: item";
         } catch (CategoryNotFoundException e) {
-            return "fragments/category-row :: empty";
+            return "fragments/category-list-item :: empty";
         }
     }
 
@@ -141,9 +174,9 @@ public class CategoryController {
             categoryService.activate(id);
             var category = categoryService.findById(id);
             model.addAttribute("category", category);
-            return "fragments/category-row :: row";
+            return "fragments/category-list-item :: item";
         } catch (CategoryNotFoundException e) {
-            return "fragments/category-row :: empty";
+            return "fragments/category-list-item :: empty";
         }
     }
 }

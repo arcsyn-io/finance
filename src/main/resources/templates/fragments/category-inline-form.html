@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<body>
+<li th:fragment="form" class="category-item category-inline-form">
+    <form hx-post="/categories/inline"
+          hx-target="closest li"
+          hx-swap="outerHTML"
+          style="display: flex; align-items: center; gap: 0.5rem; flex: 1;">
+        <input type="hidden" name="type" th:value="${type}">
+        <input type="text"
+               name="name"
+               th:value="${formName}"
+               class="inline-input"
+               placeholder="Nome da categoria"
+               autocomplete="off"
+               autofocus
+               required>
+        <div class="category-actions">
+            <button type="button"
+                    class="icon-btn"
+                    title="Cancelar"
+                    onclick="this.closest('li').remove()">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <button type="submit"
+                    class="icon-btn icon-btn-success"
+                    title="Salvar">
+                <i class="fa-solid fa-check"></i>
+            </button>
+        </div>
+    </form>
+    <small th:if="${errorMessage}" class="error-message" th:text="${errorMessage}"></small>
+</li>
+</body>
+</html>

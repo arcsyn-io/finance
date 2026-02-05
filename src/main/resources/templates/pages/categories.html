@@ -4,23 +4,84 @@
 <body>
 <div th:fragment="content">
     <style>
-        .badge-income {
-            display: inline-block;
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.25rem;
-            font-size: 0.75rem;
-            font-weight: 600;
-            background: #10b98133;
-            color: #34d399;
+        .category-section {
+            background: var(--pico-card-background-color);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
         }
-        .badge-expense {
-            display: inline-block;
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.25rem;
-            font-size: 0.75rem;
-            font-weight: 600;
-            background: #ef444433;
+        .category-section h2 {
+            margin: 0 0 1rem 0;
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+        .category-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .category-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--pico-muted-border-color);
+        }
+        .category-item:last-child {
+            border-bottom: none;
+        }
+        .category-item.inactive .category-name {
+            color: var(--pico-muted-color);
+            text-decoration: line-through;
+        }
+        .category-name {
+            font-weight: 500;
+        }
+        .category-actions {
+            display: flex;
+            gap: 0.25rem;
+        }
+        .add-category-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 0;
+            color: var(--pico-primary);
+            cursor: pointer;
+            font-size: 0.9rem;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+        }
+        .add-category-btn:hover {
+            color: var(--pico-primary-hover);
+        }
+        .inline-input {
+            flex: 1;
+            border: none;
+            border-bottom: 2px solid var(--pico-primary);
+            border-radius: 0;
+            background: transparent;
+            padding: 0.5rem 0;
+            font-size: 1rem;
+            margin: 0;
+        }
+        .inline-input:focus {
+            outline: none;
+            border-bottom-color: var(--pico-primary-focus);
+            box-shadow: none;
+        }
+        .category-inline-form {
+            flex-wrap: wrap;
+        }
+        .category-inline-form form {
+            width: 100%;
+        }
+        .category-inline-form .error-message {
+            width: 100%;
             color: #f87171;
+            margin-top: 0.25rem;
         }
     </style>
 
@@ -29,14 +90,9 @@
             <h1 style="margin-bottom: 0;">Categorias</h1>
             <p style="margin: 0;"><small>Gerencie as categorias de receitas e despesas</small></p>
         </div>
-        <button hx-get="/categories/new"
-                hx-target="#sidebarContent"
-                hx-swap="innerHTML">
-            + Nova Categoria
-        </button>
     </header>
 
-    <div style="margin-bottom: 1rem;">
+    <div style="margin-bottom: 1.5rem;">
         <label class="toggle">
             <input type="checkbox"
                    th:checked="${showInactive}"
@@ -46,32 +102,45 @@
         </label>
     </div>
 
-    <figure>
-        <table>
-            <thead>
-                <tr>
-                    <th>Nome</th>
-                    <th>Tipo</th>
-                    <th>Status</th>
-                    <th style="text-align: right;">Ações</th>
-                </tr>
-            </thead>
-            <tbody id="categories-table">
-                <th:block th:each="category : ${categories}">
-                    <tr th:replace="~{fragments/category-row :: row(category=${category})}"></tr>
-                </th:block>
-                <tr th:if="${#lists.isEmpty(categories)}">
-                    <td colspan="4" style="text-align: center; padding: 2rem;">
-                        Nenhuma categoria encontrada.
-                        <a href="#"
-                           hx-get="/categories/new"
-                           hx-target="#sidebarContent"
-                           hx-swap="innerHTML">Criar primeira categoria</a>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </figure>
+    <!-- Receitas -->
+    <section class="category-section">
+        <h2>Receitas</h2>
+        <ul id="income-list" class="category-list">
+            <th:block th:each="category : ${incomeCategories}">
+                <li th:replace="~{fragments/category-list-item :: item(category=${category})}"></li>
+            </th:block>
+            <li th:if="${#lists.isEmpty(incomeCategories)}" class="category-item" style="color: var(--pico-muted-color);">
+                Nenhuma categoria de receita cadastrada
+            </li>
+        </ul>
+        <button class="add-category-btn"
+                hx-get="/categories/inline-form?type=INCOME"
+                hx-target="#income-list"
+                hx-swap="beforeend">
+            <i class="fa-solid fa-plus"></i>
+            Adicionar categoria
+        </button>
+    </section>
+
+    <!-- Despesas -->
+    <section class="category-section">
+        <h2>Despesas</h2>
+        <ul id="expense-list" class="category-list">
+            <th:block th:each="category : ${expenseCategories}">
+                <li th:replace="~{fragments/category-list-item :: item(category=${category})}"></li>
+            </th:block>
+            <li th:if="${#lists.isEmpty(expenseCategories)}" class="category-item" style="color: var(--pico-muted-color);">
+                Nenhuma categoria de despesa cadastrada
+            </li>
+        </ul>
+        <button class="add-category-btn"
+                hx-get="/categories/inline-form?type=EXPENSE"
+                hx-target="#expense-list"
+                hx-swap="beforeend">
+            <i class="fa-solid fa-plus"></i>
+            Adicionar categoria
+        </button>
+    </section>
 </div>
 </body>
 </html>
