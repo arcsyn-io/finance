@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::content})}">
+<body>
+<div th:fragment="content">
+    <style>
+        .badge-in {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #10b98133;
+            color: #34d399;
+        }
+        .badge-out {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #ef444433;
+            color: #f87171;
+        }
+        .badge-operational {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #3b82f633;
+            color: #93c5fd;
+        }
+        .badge-patrimonial {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #7c3aed33;
+            color: #a78bfa;
+        }
+        .amount-in {
+            color: #34d399;
+            font-weight: 600;
+        }
+        .amount-out {
+            color: #f87171;
+            font-weight: 600;
+        }
+        .wallet-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 2rem;
+        }
+        .wallet-info h1 {
+            margin-bottom: 0.25rem;
+        }
+        .wallet-balance {
+            text-align: right;
+        }
+        .wallet-balance .label {
+            font-size: 0.875rem;
+            color: var(--pico-muted-color);
+            margin-bottom: 0.25rem;
+        }
+        .wallet-balance .value {
+            font-size: 2rem;
+            font-weight: 700;
+            font-family: monospace;
+        }
+        .wallet-balance .value.negative {
+            color: var(--pico-del-color);
+        }
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-cash { background: #3b82f633; color: #93c5fd; }
+        .badge-negotiable_security { background: #10b98133; color: #34d399; }
+        .badge-long_term { background: #7c3aed33; color: #a78bfa; }
+        .badge-asset { background: #f59e0b33; color: #fbbf24; }
+    </style>
+
+    <nav aria-label="breadcrumb" style="margin-bottom: 1rem;">
+        <ul>
+            <li><a href="/wallets">Carteiras</a></li>
+            <li th:text="${wallet.name}">Nome da Carteira</li>
+        </ul>
+    </nav>
+
+    <header class="wallet-header">
+        <div class="wallet-info">
+            <h1 th:text="${wallet.name}">Nome da Carteira</h1>
+            <p style="margin: 0;">
+                <span th:class="'badge badge-' + ${wallet.type.name().toLowerCase()}"
+                      th:text="${wallet.type.name() == 'CASH' ? 'Caixa' :
+                                 wallet.type.name() == 'NEGOTIABLE_SECURITY' ? 'Título Negociável' :
+                                 wallet.type.name() == 'LONG_TERM' ? 'Longo Prazo' : 'Bem Patrimonial'}">Tipo</span>
+                <span th:unless="${wallet.active}" style="color: var(--pico-muted-color); margin-left: 0.5rem;">(Inativa)</span>
+            </p>
+        </div>
+        <div class="wallet-balance">
+            <div class="label">Saldo atual</div>
+            <div class="value" th:classappend="${balance < 0 ? 'negative' : ''}"
+                 th:text="'R$ ' + ${#numbers.formatDecimal(balance / 100.0, 1, 'POINT', 2, 'COMMA')}">R$ 0,00</div>
+        </div>
+    </header>
+
+    <h2 style="margin-bottom: 1rem;">Movimentações</h2>
+
+    <figure>
+        <table>
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Descrição</th>
+                    <th>Categoria</th>
+                    <th>Natureza</th>
+                    <th style="text-align: right;">Valor</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="entry : ${entries}" th:id="'entry-row-' + ${entry.id}">
+                    <td th:text="${#temporals.format(entry.occurredAt, 'dd/MM/yyyy')}">01/01/2024</td>
+                    <td th:text="${entry.description ?: '-'}">Descrição</td>
+                    <td th:text="${entry.categoryName}">Categoria</td>
+                    <td>
+                        <span th:class="${entry.nature.name() == 'OPERATIONAL' ? 'badge-operational' : 'badge-patrimonial'}"
+                              th:text="${entry.nature.name() == 'OPERATIONAL' ? 'Operacional' : 'Patrimonial'}">Natureza</span>
+                    </td>
+                    <td style="text-align: right;">
+                        <span th:class="${entry.direction.name() == 'IN' ? 'amount-in' : 'amount-out'}"
+                              th:text="${(entry.direction.name() == 'IN' ? '+' : '-') + 'R$ ' + #numbers.formatDecimal(entry.amount / 100.0, 1, 'POINT', 2, 'COMMA')}">
+                            R$ 100,00
+                        </span>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(entries)}">
+                    <td colspan="5" style="text-align: center; padding: 2rem;">
+                        Nenhuma movimentação encontrada nesta carteira.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </figure>
+</div>
+</body>
+</html>

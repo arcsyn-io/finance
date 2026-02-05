@@ -6,6 +6,7 @@ import com.lucaskalb.finance.exception.DuplicateWalletNameException;
 import com.lucaskalb.finance.exception.InvalidWalletException;
 import com.lucaskalb.finance.exception.WalletNotFoundException;
 import com.lucaskalb.finance.model.WalletType;
+import com.lucaskalb.finance.service.EntryService;
 import com.lucaskalb.finance.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -23,6 +24,7 @@ import java.util.Map;
 public class WalletController {
 
     private final WalletService walletService;
+    private final EntryService entryService;
 
     @GetMapping
     public String list(
@@ -33,9 +35,11 @@ public class WalletController {
         var wallets = showInactive
                 ? walletService.listAll()
                 : walletService.listActive();
+        var balances = walletService.getBalances();
 
         model.addAttribute("title", "Carteiras - Finance");
         model.addAttribute("wallets", wallets);
+        model.addAttribute("balances", balances);
         model.addAttribute("showInactive", showInactive);
         model.addAttribute("walletTypes", WalletType.values());
 
@@ -46,6 +50,24 @@ public class WalletController {
         }
 
         return "pages/wallets";
+    }
+
+    @GetMapping("/{id}")
+    public String view(@PathVariable long id, Model model) {
+        try {
+            var wallet = walletService.findById(id);
+            var balance = walletService.getBalance(id);
+            var entries = entryService.list(null, null, id, null, null, false);
+
+            model.addAttribute("title", wallet.getName() + " - Finance");
+            model.addAttribute("wallet", wallet);
+            model.addAttribute("balance", balance);
+            model.addAttribute("entries", entries);
+
+            return "pages/wallet";
+        } catch (WalletNotFoundException e) {
+            return "redirect:/wallets";
+        }
     }
 
     @GetMapping("/new")
@@ -128,7 +150,9 @@ public class WalletController {
         try {
             walletService.deactivate(id);
             var wallet = walletService.findById(id);
+            var balance = walletService.getBalance(id);
             model.addAttribute("wallet", wallet);
+            model.addAttribute("balance", balance);
             return "fragments/wallet-row :: row";
         } catch (WalletNotFoundException e) {
             return "fragments/wallet-row :: empty";
@@ -140,7 +164,9 @@ public class WalletController {
         try {
             walletService.activate(id);
             var wallet = walletService.findById(id);
+            var balance = walletService.getBalance(id);
             model.addAttribute("wallet", wallet);
+            model.addAttribute("balance", balance);
             return "fragments/wallet-row :: row";
         } catch (WalletNotFoundException e) {
             return "fragments/wallet-row :: empty";

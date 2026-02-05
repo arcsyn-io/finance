@@ -11,7 +11,7 @@
             font-size: 0.75rem;
             font-weight: 600;
         }
-        .badge-cash { background: var(--pico-primary-background); color: var(--pico-primary); }
+        .badge-cash { background: #3b82f633; color: #93c5fd; }
         .badge-credit_card { background: #ef444433; color: #f87171; }
         .badge-negotiable_security { background: #10b98133; color: #34d399; }
         .badge-long_term { background: #7c3aed33; color: #a78bfa; }
@@ -46,16 +46,17 @@
                 <tr>
                     <th>Nome</th>
                     <th>Tipo</th>
+                    <th style="text-align: right;">Saldo</th>
                     <th>Status</th>
                     <th style="text-align: right;">Ações</th>
                 </tr>
             </thead>
             <tbody id="wallets-table">
                 <th:block th:each="wallet : ${wallets}">
-                    <tr th:replace="~{fragments/wallet-row :: row(wallet=${wallet})}"></tr>
+                    <tr th:replace="~{fragments/wallet-row :: row(wallet=${wallet}, balance=${balances.getOrDefault(wallet.id, 0)})}"></tr>
                 </th:block>
                 <tr th:if="${#lists.isEmpty(wallets)}">
-                    <td colspan="4" style="text-align: center; padding: 2rem;">
+                    <td colspan="5" style="text-align: center; padding: 2rem;">
                         Nenhuma carteira encontrada.
                         <a href="#"
                            hx-get="/wallets/new"

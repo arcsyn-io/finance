@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
 <body>
-<tr th:fragment="row(wallet)" th:id="'wallet-row-' + ${wallet.id}">
+<tr th:fragment="row(wallet, balance)" th:id="'wallet-row-' + ${wallet.id}">
     <td>
-        <strong th:text="${wallet.name}">Nubank</strong>
+        <a th:href="@{/wallets/{id}(id=${wallet.id})}" style="text-decoration: none; color: inherit;">
+            <strong th:text="${wallet.name}">Nubank</strong>
+        </a>
     </td>
     <td>
         <span th:class="'badge badge-' + ${wallet.type.name().toLowerCase()}"
@@ -11,6 +13,10 @@
                          wallet.type.name() == 'CREDIT_CARD' ? 'Cartão de Crédito' :
                          wallet.type.name() == 'NEGOTIABLE_SECURITY' ? 'Título Negociável' :
                          wallet.type.name() == 'LONG_TERM' ? 'Longo Prazo' : 'Bem Patrimonial'}">Tipo</span>
+    </td>
+    <td style="text-align: right; font-family: monospace; font-size: 1.1rem;"
+        th:styleappend="${balance < 0 ? 'color: var(--pico-del-color);' : ''}">
+        <span th:text="${#numbers.formatDecimal(balance / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
     </td>
     <td>
         <span th:if="${wallet.active}" style="color: var(--pico-ins-color);">Ativa</span>
@@ -46,7 +52,7 @@
 </tr>
 
 <tr th:fragment="empty">
-    <td colspan="4" style="text-align: center;">Erro ao processar carteira</td>
+    <td colspan="5" style="text-align: center;">Erro ao processar carteira</td>
 </tr>
 </body>
 </html>

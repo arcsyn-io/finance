@@ -14,7 +14,9 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.jooq.impl.DSL.field;
@@ -403,5 +405,38 @@ public class EntryRepository {
 
     private LocalDateTime parseDateTime(String datetime) {
         return datetime != null ? LocalDateTime.parse(datetime, SQLITE_DATETIME) : null;
+    }
+
+    /**
+     * Calcula o saldo de cada carteira.
+     * Retorna um mapa de wallet_id -> saldo (em centavos).
+     */
+    public Map<Long, Long> calculateBalanceByWallet() {
+        var result = new HashMap<Long, Long>();
+
+        // Agrupa por wallet_id e calcula IN - OUT
+        dsl.select(
+                    field("wallet_id"),
+                    field("direction"),
+                    field("SUM(amount)").as("total")
+                )
+                .from(table("entry"))
+                .where(field("deleted_at").isNull())
+                .groupBy(field("wallet_id"), field("direction"))
+                .fetch()
+                .forEach(r -> {
+                    var walletId = ((Number) r.get("wallet_id")).longValue();
+                    var direction = (String) r.get("direction");
+                    var total = ((Number) r.get("total")).longValue();
+
+                    var currentBalance = result.getOrDefault(walletId, 0L);
+                    if (EntryDirection.IN.name().equals(direction)) {
+                        result.put(walletId, currentBalance + total);
+                    } else {
+                        result.put(walletId, currentBalance - total);
+                    }
+                });
+
+        return result;
     }
 }

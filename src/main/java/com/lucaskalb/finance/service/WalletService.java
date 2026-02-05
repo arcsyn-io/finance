@@ -7,18 +7,21 @@ import com.lucaskalb.finance.exception.InvalidWalletException;
 import com.lucaskalb.finance.exception.WalletNotFoundException;
 import com.lucaskalb.finance.model.Wallet;
 import com.lucaskalb.finance.model.WalletType;
+import com.lucaskalb.finance.repository.EntryRepository;
 import com.lucaskalb.finance.repository.WalletRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class WalletService {
 
     private final WalletRepository walletRepository;
+    private final EntryRepository entryRepository;
 
     @Transactional(readOnly = true)
     public List<Wallet> listActive() {
@@ -34,6 +37,16 @@ public class WalletService {
     public Wallet findById(long id) {
         return walletRepository.findById(id)
                 .orElseThrow(WalletNotFoundException::new);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, Long> getBalances() {
+        return entryRepository.calculateBalanceByWallet();
+    }
+
+    @Transactional(readOnly = true)
+    public long getBalance(long walletId) {
+        return entryRepository.calculateBalanceByWallet().getOrDefault(walletId, 0L);
     }
 
     @Transactional
