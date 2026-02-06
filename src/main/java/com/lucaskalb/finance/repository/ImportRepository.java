@@ -45,21 +45,23 @@ public class ImportRepository {
     }
 
     public void insertRow(long importRequestId, String description, LocalDateTime occurredAt,
-                          long amount, EntryDirection direction) {
+                          long amount, EntryDirection direction, String externalId) {
         dsl.insertInto(table("import_row"))
                 .columns(
                     field("import_request_id"),
                     field("description"),
                     field("occurred_at"),
                     field("amount"),
-                    field("direction")
+                    field("direction"),
+                    field("external_id")
                 )
                 .values(
                     importRequestId,
                     description,
                     occurredAt.format(SQLITE_DATETIME),
                     amount,
-                    direction.name()
+                    direction.name(),
+                    externalId
                 )
                 .execute();
     }
@@ -95,6 +97,7 @@ public class ImportRepository {
                     field("r.category_id"),
                     field("r.wallet_id"),
                     field("r.nature"),
+                    field("r.external_id"),
                     field("r.valid"),
                     field("r.validation_errors"),
                     field("c.name").as("category_name"),
@@ -119,6 +122,7 @@ public class ImportRepository {
                     field("r.category_id"),
                     field("r.wallet_id"),
                     field("r.nature"),
+                    field("r.external_id"),
                     field("r.valid"),
                     field("r.validation_errors"),
                     field("c.name").as("category_name"),
@@ -258,6 +262,7 @@ public class ImportRepository {
                 .categoryId(categoryId != null ? categoryId.longValue() : null)
                 .walletId(walletId != null ? walletId.longValue() : null)
                 .nature(nature != null ? EntryNature.valueOf(nature) : null)
+                .externalId(record.get(field("r.external_id", String.class)))
                 .valid(record.get(field("r.valid", Integer.class)) == 1)
                 .validationErrors(record.get(field("r.validation_errors", String.class)))
                 .categoryName(record.get(field("category_name", String.class)))

@@ -32,6 +32,7 @@ import java.util.List;
 public class ImportService {
 
     private static final DateTimeFormatter NUBANK_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final DateTimeFormatter NU_CONTA_DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     private final ImportRepository importRepository;
     private final EntryRepository entryRepository;
@@ -56,7 +57,10 @@ public class ImportService {
                     .orElseThrow(CategoryNotFoundException::new);
         }
 
-        var rows = parseCsvFile(command.file());
+        var rows = switch (command.source()) {
+            case NUBANK_CSV -> parseNubankCsvFile(command.file());
+            case NU_CONTA_CSV -> parseNuContaCsvFile(command.file());
+        };
 
         if (rows.isEmpty()) {
             throw new InvalidImportException("Arquivo CSV não contém lançamentos válidos");
@@ -75,7 +79,8 @@ public class ImportService {
                     row.description(),
                     row.occurredAt(),
                     row.amount(),
-                    row.direction()
+                    row.direction(),
+                    row.externalId()
             );
         }
 
@@ -275,10 +280,17 @@ public class ImportService {
         }
 
         int count = 0;
+        int skipped = 0;
         for (var row : rows) {
             var categoryId = row.getCategoryId() != null ? row.getCategoryId() : request.getCategoryId();
             var walletId = row.getWalletId() != null ? row.getWalletId() : request.getWalletId();
             var nature = row.getNature() != null ? row.getNature() : request.getNature();
+
+            // Verifica duplicata por external_id
+            if (row.getExternalId() != null && entryRepository.existsByExternalIdAndWallet(row.getExternalId(), walletId)) {
+                skipped++;
+                continue;
+            }
 
             var category = categoryRepository.findById(categoryId)
                     .orElseThrow(CategoryNotFoundException::new);
@@ -292,7 +304,8 @@ public class ImportService {
                     direction,
                     row.getAmount(),
                     row.getOccurredAt(),
-                    row.getDescription()
+                    row.getDescription(),
+                    row.getExternalId()
             );
             count++;
         }
@@ -324,7 +337,7 @@ public class ImportService {
         }
     }
 
-    private List<CsvRow> parseCsvFile(MultipartFile file) {
+    private List<CsvRow> parseNubankCsvFile(MultipartFile file) {
         var rows = new ArrayList<CsvRow>();
 
         try (var reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
@@ -341,7 +354,7 @@ public class ImportService {
                     continue;
                 }
 
-                var row = parseCsvLine(line);
+                var row = parseNubankCsvLine(line);
                 if (row != null) {
                     rows.add(row);
                 }
@@ -353,7 +366,7 @@ public class ImportService {
         return rows;
     }
 
-    private CsvRow parseCsvLine(String line) {
+    private CsvRow parseNubankCsvLine(String line) {
         // Formato: date,title,amount
         // Exemplo: 2025-12-29,Cooper Filial Jaragua,613.02
         // Com aspas: 2025-12-24,"IOF de ""Openai *Chatgpt Subscr""",4.05
@@ -380,7 +393,70 @@ public class ImportService {
                 return null;
             }
 
-            return new CsvRow(description, occurredAt, amount, direction);
+            return new CsvRow(description, occurredAt, amount, direction, null);
+
+        } catch (DateTimeParseException | NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private List<CsvRow> parseNuContaCsvFile(MultipartFile file) {
+        var rows = new ArrayList<CsvRow>();
+
+        try (var reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            boolean isHeader = true;
+
+            while ((line = reader.readLine()) != null) {
+                if (isHeader) {
+                    isHeader = false;
+                    continue;
+                }
+
+                if (line.isBlank()) {
+                    continue;
+                }
+
+                var row = parseNuContaCsvLine(line);
+                if (row != null) {
+                    rows.add(row);
+                }
+            }
+        } catch (IOException e) {
+            throw new InvalidImportException("Erro ao ler arquivo CSV: " + e.getMessage());
+        }
+
+        return rows;
+    }
+
+    private CsvRow parseNuContaCsvLine(String line) {
+        // Formato: Data,Valor,Identificador,Descrição
+        // Exemplo: 03/01/2026,-1512.50,6958faac-4d0e-40fc-b1d4-a0a030e4eb70,Transferência enviada pelo Pix
+        var parts = parseCsvFields(line);
+
+        if (parts.size() < 4) {
+            return null;
+        }
+
+        try {
+            var dateStr = parts.get(0).trim();
+            var valueStr = parts.get(1).trim().replace(",", ".");
+            var externalId = parts.get(2).trim();
+            var description = parts.get(3).trim();
+
+            var date = LocalDate.parse(dateStr, NU_CONTA_DATE_FORMAT);
+            var occurredAt = date.atStartOfDay();
+
+            var value = Double.parseDouble(valueStr);
+            // Nu Conta: valor positivo = entrada (IN), negativo = saída (OUT)
+            var direction = value >= 0 ? EntryDirection.IN : EntryDirection.OUT;
+            var amount = Math.round(Math.abs(value) * 100);
+
+            if (amount <= 0) {
+                return null;
+            }
+
+            return new CsvRow(description, occurredAt, amount, direction, externalId);
 
         } catch (DateTimeParseException | NumberFormatException e) {
             return null;
@@ -426,5 +502,5 @@ public class ImportService {
         return categoryType == CategoryType.INCOME ? EntryDirection.IN : EntryDirection.OUT;
     }
 
-    private record CsvRow(String description, LocalDateTime occurredAt, long amount, EntryDirection direction) {}
+    private record CsvRow(String description, LocalDateTime occurredAt, long amount, EntryDirection direction, String externalId) {}
 }

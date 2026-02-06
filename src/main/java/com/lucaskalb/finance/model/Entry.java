@@ -16,6 +16,7 @@ public class Entry {
     private long amount; // valor em centavos
     private LocalDateTime occurredAt;
     private String description;
+    private String externalId; // identificador externo (único por carteira)
     private LocalDateTime createdAt;
     private LocalDateTime deletedAt;
 

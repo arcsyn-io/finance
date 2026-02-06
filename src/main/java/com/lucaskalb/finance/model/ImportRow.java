@@ -17,6 +17,7 @@ public class ImportRow {
     private Long categoryId;
     private Long walletId;
     private EntryNature nature;
+    private String externalId;
     private boolean valid;
     private String validationErrors;
 

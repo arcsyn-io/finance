@@ -115,6 +115,11 @@ public class EntryRepository {
 
     public long insert(long walletId, long categoryId, EntryNature nature, EntryDirection direction,
                        long amount, LocalDateTime occurredAt, String description) {
+        return insert(walletId, categoryId, nature, direction, amount, occurredAt, description, null);
+    }
+
+    public long insert(long walletId, long categoryId, EntryNature nature, EntryDirection direction,
+                       long amount, LocalDateTime occurredAt, String description, String externalId) {
         dsl.insertInto(table("entry"))
                 .columns(
                     field("wallet_id"),
@@ -123,7 +128,8 @@ public class EntryRepository {
                     field("direction"),
                     field("amount"),
                     field("occurred_at"),
-                    field("description")
+                    field("description"),
+                    field("external_id")
                 )
                 .values(
                     walletId,
@@ -132,12 +138,25 @@ public class EntryRepository {
                     direction.name(),
                     amount,
                     occurredAt.format(SQLITE_DATETIME),
-                    description
+                    description,
+                    externalId
                 )
                 .execute();
 
         return dsl.select(field("last_insert_rowid()"))
                 .fetchOne(0, Long.class);
+    }
+
+    public boolean existsByExternalIdAndWallet(String externalId, long walletId) {
+        if (externalId == null) {
+            return false;
+        }
+        return dsl.selectCount()
+                .from(table("entry"))
+                .where(field("external_id").eq(externalId))
+                .and(field("wallet_id").eq(walletId))
+                .and(field("deleted_at").isNull())
+                .fetchOne(0, Integer.class) > 0;
     }
 
     public long insertWithTransfer(long walletId, long categoryId, EntryNature nature, EntryDirection direction,

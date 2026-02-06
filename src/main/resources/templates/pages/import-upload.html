@@ -32,11 +32,11 @@
 
                 <label for="source">
                     Fonte do arquivo
-                    <select id="source" name="source" required>
+                    <select id="source" name="source" required onchange="updateFormatHelp(this.value)">
                         <option value="">Selecione a fonte...</option>
                         <option th:each="s : ${sources}"
                                 th:value="${s.name()}"
-                                th:text="${s.name() == 'NUBANK_CSV' ? 'Nubank (CSV)' : s.name()}"
+                                th:text="${s.name() == 'NUBANK_CSV' ? 'Nubank Cartão (CSV)' : (s.name() == 'NU_CONTA_CSV' ? 'Nu Conta (CSV)' : s.name())}"
                                 th:selected="${formSource == s}">
                         </option>
                     </select>
@@ -91,17 +91,38 @@
         </article>
 
         <article style="margin: 0;">
-            <h3 style="margin-top: 0;">Formato esperado (Nubank)</h3>
-            <p>O arquivo CSV do Nubank deve ter a seguinte estrutura:</p>
-            <pre style="background: var(--pico-card-background-color); padding: 1rem; border-radius: 0.5rem; overflow-x: auto;"><code>date,title,amount
+            <div id="format-nubank">
+                <h3 style="margin-top: 0;">Formato esperado (Nubank Cartão)</h3>
+                <p>O arquivo CSV do Nubank Cartão deve ter a seguinte estrutura:</p>
+                <pre style="background: var(--pico-card-background-color); padding: 1rem; border-radius: 0.5rem; overflow-x: auto;"><code>date,title,amount
 2025-12-29,Cooper Filial Jaragua,613.02
 2025-12-08,Pagamento recebido,-5895.74</code></pre>
-            <ul>
-                <li><strong>date:</strong> formato YYYY-MM-DD</li>
-                <li><strong>title:</strong> descricao do lancamento</li>
-                <li><strong>amount:</strong> positivo = despesa, negativo = entrada/estorno</li>
-            </ul>
+                <ul>
+                    <li><strong>date:</strong> formato YYYY-MM-DD</li>
+                    <li><strong>title:</strong> descrição do lançamento</li>
+                    <li><strong>amount:</strong> positivo = despesa, negativo = entrada/estorno</li>
+                </ul>
+            </div>
+            <div id="format-nuconta" style="display: none;">
+                <h3 style="margin-top: 0;">Formato esperado (Nu Conta)</h3>
+                <p>O arquivo CSV do Nu Conta deve ter a seguinte estrutura:</p>
+                <pre style="background: var(--pico-card-background-color); padding: 1rem; border-radius: 0.5rem; overflow-x: auto;"><code>Data,Valor,Identificador,Descrição
+03/01/2026,-1512.50,6958faac-...,Transferência enviada
+07/01/2026,7000.00,695e1155-...,Resgate RDB</code></pre>
+                <ul>
+                    <li><strong>Data:</strong> formato DD/MM/YYYY</li>
+                    <li><strong>Valor:</strong> positivo = entrada, negativo = saída</li>
+                    <li><strong>Identificador:</strong> UUID único (evita duplicatas)</li>
+                    <li><strong>Descrição:</strong> descrição do lançamento</li>
+                </ul>
+            </div>
         </article>
+        <script>
+            function updateFormatHelp(source) {
+                document.getElementById('format-nubank').style.display = source === 'NUBANK_CSV' || source === '' ? 'block' : 'none';
+                document.getElementById('format-nuconta').style.display = source === 'NU_CONTA_CSV' ? 'block' : 'none';
+            }
+        </script>
     </div>
 
     <section th:if="${!#lists.isEmpty(pendingImports)}" style="margin-top: 2rem;">
@@ -121,7 +142,7 @@
                 <tbody>
                     <tr th:each="imp : ${pendingImports}">
                         <td th:text="${#temporals.format(imp.createdAt, 'dd/MM/yyyy HH:mm')}">01/01/2024 10:00</td>
-                        <td th:text="${imp.source.name() == 'NUBANK_CSV' ? 'Nubank' : imp.source.name()}">Nubank</td>
+                        <td th:text="${imp.source.name() == 'NUBANK_CSV' ? 'Nubank Cartão' : (imp.source.name() == 'NU_CONTA_CSV' ? 'Nu Conta' : imp.source.name())}">Nubank</td>
                         <td th:text="${imp.walletName ?: '-'}">Nubank</td>
                         <td th:text="${imp.categoryName ?: '-'}">Alimentação</td>
                         <td th:text="${#lists.size(imp.rows)}">10</td>
