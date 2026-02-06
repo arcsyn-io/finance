@@ -17,6 +17,7 @@ public class Entry {
     private LocalDateTime occurredAt;
     private String description;
     private String externalId; // identificador externo (único por carteira)
+    private Long transferId; // referência à transferência (quando vinculado)
     private LocalDateTime createdAt;
     private LocalDateTime deletedAt;
 
@@ -26,5 +27,9 @@ public class Entry {
 
     public boolean isDeleted() {
         return deletedAt != null;
+    }
+
+    public boolean isLinkedToTransfer() {
+        return transferId != null;
     }
 }

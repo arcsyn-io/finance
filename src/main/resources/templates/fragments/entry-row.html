@@ -26,6 +26,20 @@
     </td>
     <td style="text-align: right;">
         <div style="display: flex; gap: 0.25rem; justify-content: flex-end;">
+            <button th:if="${!entry.deleted and entry.transferId == null}"
+                    class="icon-btn"
+                    title="Vincular como transferencia"
+                    th:attr="hx-get=@{/entries/{id}/link(id=${entry.id})}"
+                    hx-target="body"
+                    hx-swap="beforeend">
+                <i class="fa-solid fa-link"></i>
+            </button>
+            <span th:if="${entry.transferId != null}"
+                  class="icon-btn"
+                  style="opacity: 0.5; cursor: default;"
+                  title="Vinculado a transferencia">
+                <i class="fa-solid fa-link"></i>
+            </span>
             <button th:unless="${entry.deleted}"
                     class="icon-btn"
                     title="Editar"

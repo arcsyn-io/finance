@@ -64,6 +64,7 @@ public class EntryRepository {
                     field("e.amount"),
                     field("e.occurred_at"),
                     field("e.description"),
+                    field("e.transfer_id"),
                     field("e.created_at"),
                     field("e.deleted_at"),
                     field("w.name").as("wallet_name"),
@@ -87,6 +88,7 @@ public class EntryRepository {
                     field("e.amount"),
                     field("e.occurred_at"),
                     field("e.description"),
+                    field("e.transfer_id"),
                     field("e.created_at"),
                     field("e.deleted_at"),
                     field("w.name").as("wallet_name"),
@@ -406,6 +408,7 @@ public class EntryRepository {
     }
 
     private Entry mapToEntry(Record record) {
+        var transferId = record.get(field("e.transfer_id", Integer.class));
         return Entry.builder()
                 .id(record.get(field("e.id", Integer.class)).longValue())
                 .walletId(record.get(field("e.wallet_id", Integer.class)).longValue())
@@ -415,11 +418,69 @@ public class EntryRepository {
                 .amount(record.get(field("e.amount", Integer.class)).longValue())
                 .occurredAt(parseDateTime(record.get(field("e.occurred_at", String.class))))
                 .description(record.get(field("e.description", String.class)))
+                .transferId(transferId != null ? transferId.longValue() : null)
                 .createdAt(parseDateTime(record.get(field("e.created_at", String.class))))
                 .deletedAt(parseDateTime(record.get(field("e.deleted_at", String.class))))
                 .walletName(record.get(field("wallet_name", String.class)))
                 .categoryName(record.get(field("category_name", String.class)))
                 .build();
+    }
+
+    /**
+     * Busca candidatos para vincular como transferência.
+     * Retorna entries com: direção oposta, carteira diferente, não deletados, sem transfer_id.
+     * Filtros opcionais: mesma data, mesmo valor.
+     */
+    public List<Entry> findLinkCandidates(long sourceEntryId, Long walletId, EntryDirection oppositeDirection,
+                                           Long amount, LocalDateTime occurredAt) {
+        Condition condition = trueCondition()
+                .and(field("e.id").ne(sourceEntryId))
+                .and(field("e.deleted_at").isNull())
+                .and(field("e.transfer_id").isNull())
+                .and(field("e.direction").eq(oppositeDirection.name()));
+
+        if (walletId != null) {
+            condition = condition.and(field("e.wallet_id").ne(walletId));
+        }
+        if (amount != null) {
+            condition = condition.and(field("e.amount").eq(amount));
+        }
+        if (occurredAt != null) {
+            var dateStr = occurredAt.toLocalDate().atStartOfDay().format(SQLITE_DATETIME);
+            var nextDateStr = occurredAt.toLocalDate().plusDays(1).atStartOfDay().format(SQLITE_DATETIME);
+            condition = condition.and(field("e.occurred_at").ge(dateStr))
+                    .and(field("e.occurred_at").lt(nextDateStr));
+        }
+
+        return dsl.select(
+                    field("e.id"),
+                    field("e.wallet_id"),
+                    field("e.category_id"),
+                    field("e.nature"),
+                    field("e.direction"),
+                    field("e.amount"),
+                    field("e.occurred_at"),
+                    field("e.description"),
+                    field("e.transfer_id"),
+                    field("e.created_at"),
+                    field("e.deleted_at"),
+                    field("w.name").as("wallet_name"),
+                    field("c.name").as("category_name")
+                )
+                .from(table("entry").as("e"))
+                .join(table("wallet").as("w")).on(field("e.wallet_id").eq(field("w.id")))
+                .join(table("category").as("c")).on(field("e.category_id").eq(field("c.id")))
+                .where(condition)
+                .orderBy(field("e.occurred_at").desc(), field("e.id").desc())
+                .limit(50)
+                .fetch(this::mapToEntry);
+    }
+
+    public void updateTransferId(long entryId, long transferId) {
+        dsl.update(table("entry"))
+                .set(field("transfer_id"), transferId)
+                .where(field("id").eq(entryId))
+                .execute();
     }
 
     private LocalDateTime parseDateTime(String datetime) {

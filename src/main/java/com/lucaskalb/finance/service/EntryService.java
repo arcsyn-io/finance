@@ -209,6 +209,29 @@ public class EntryService {
         return entryRepository.calculatePeriodExpense(startDate, endDate);
     }
 
+    @Transactional(readOnly = true)
+    public List<Entry> findLinkCandidates(long entryId, boolean filterAmount, boolean filterDate) {
+        return findLinkCandidates(entryId, filterAmount, filterDate, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Entry> findLinkCandidates(long entryId, boolean filterAmount, boolean filterDate, Long excludeWalletId) {
+        var entry = entryRepository.findById(entryId)
+                .orElseThrow(() -> new EntryNotFoundException(entryId));
+
+        var oppositeDirection = entry.getDirection() == EntryDirection.IN
+                ? EntryDirection.OUT
+                : EntryDirection.IN;
+
+        return entryRepository.findLinkCandidates(
+                entryId,
+                excludeWalletId != null ? excludeWalletId : entry.getWalletId(),
+                oppositeDirection,
+                filterAmount ? entry.getAmount() : null,
+                filterDate ? entry.getOccurredAt() : null
+        );
+    }
+
     private void validateAmount(long amount) {
         if (amount <= 0) {
             throw new InvalidEntryException("Valor deve ser maior que zero");

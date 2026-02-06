@@ -116,4 +116,57 @@ public class TransferService {
         }
         return baseDescription + " (" + preposition + " " + walletName + ")";
     }
+
+    /**
+     * Vincula dois lançamentos existentes como uma transferência.
+     */
+    @Transactional
+    public Transfer linkEntries(long sourceEntryId, long targetEntryId) {
+        var sourceEntry = entryRepository.findById(sourceEntryId)
+                .orElseThrow(() -> new InvalidTransferException("Lançamento de origem não encontrado"));
+        var targetEntry = entryRepository.findById(targetEntryId)
+                .orElseThrow(() -> new InvalidTransferException("Lançamento de destino não encontrado"));
+
+        // Validações
+        if (sourceEntry.isDeleted() || targetEntry.isDeleted()) {
+            throw new InvalidTransferException("Não é possível vincular lançamentos excluídos");
+        }
+        if (sourceEntry.getTransferId() != null || targetEntry.getTransferId() != null) {
+            throw new InvalidTransferException("Um dos lançamentos já está vinculado a uma transferência");
+        }
+        if (sourceEntry.getWalletId().equals(targetEntry.getWalletId())) {
+            throw new InvalidTransferException("Os lançamentos devem ser de carteiras diferentes");
+        }
+        if (sourceEntry.getDirection() == targetEntry.getDirection()) {
+            throw new InvalidTransferException("Os lançamentos devem ter direções opostas (um IN e um OUT)");
+        }
+        if (sourceEntry.getAmount() != targetEntry.getAmount()) {
+            throw new InvalidTransferException("Os lançamentos devem ter o mesmo valor");
+        }
+
+        // Determina qual é OUT (origem) e qual é IN (destino)
+        var outEntry = sourceEntry.getDirection() == EntryDirection.OUT ? sourceEntry : targetEntry;
+        var inEntry = sourceEntry.getDirection() == EntryDirection.IN ? sourceEntry : targetEntry;
+
+        // Usa a data mais recente entre os dois
+        var occurredAt = outEntry.getOccurredAt().isAfter(inEntry.getOccurredAt())
+                ? outEntry.getOccurredAt() : inEntry.getOccurredAt();
+
+        // Cria a transferência
+        var transferId = transferRepository.insert(
+                outEntry.getWalletId(),
+                inEntry.getWalletId(),
+                outEntry.getCategoryId(),
+                inEntry.getCategoryId(),
+                outEntry.getAmount(),
+                occurredAt,
+                outEntry.getDescription()
+        );
+
+        // Vincula os lançamentos
+        entryRepository.updateTransferId(outEntry.getId(), transferId);
+        entryRepository.updateTransferId(inEntry.getId(), transferId);
+
+        return transferRepository.findById(transferId).orElseThrow();
+    }
 }

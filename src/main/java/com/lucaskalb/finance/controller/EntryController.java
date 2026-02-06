@@ -6,11 +6,13 @@ import com.lucaskalb.finance.dto.UpdateEntryCommand;
 import com.lucaskalb.finance.exception.CategoryNotFoundException;
 import com.lucaskalb.finance.exception.EntryNotFoundException;
 import com.lucaskalb.finance.exception.InvalidEntryException;
+import com.lucaskalb.finance.exception.InvalidTransferException;
 import com.lucaskalb.finance.exception.WalletNotFoundException;
 import com.lucaskalb.finance.model.EntryNature;
 import com.lucaskalb.finance.model.Period;
 import com.lucaskalb.finance.service.CategoryService;
 import com.lucaskalb.finance.service.EntryService;
+import com.lucaskalb.finance.service.TransferService;
 import com.lucaskalb.finance.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -38,6 +40,7 @@ public class EntryController {
     private final EntryService entryService;
     private final WalletService walletService;
     private final CategoryService categoryService;
+    private final TransferService transferService;
 
     @GetMapping
     public String list(
@@ -265,6 +268,65 @@ public class EntryController {
     public ResponseEntity<Void> batchDelete(@RequestBody java.util.List<Long> entryIds) {
         entryService.batchDelete(entryIds);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/{id}/link")
+    public String linkModal(@PathVariable long id, Model model) {
+        try {
+            var entry = entryService.findById(id);
+            var candidates = entryService.findLinkCandidates(id, true, true);
+            var wallets = walletService.listActive();
+
+            model.addAttribute("entry", entry);
+            model.addAttribute("candidates", candidates);
+            model.addAttribute("wallets", wallets);
+            model.addAttribute("filterAmount", true);
+            model.addAttribute("filterDate", true);
+
+            return "fragments/link-modal :: modal";
+        } catch (EntryNotFoundException e) {
+            return "fragments/link-modal :: error";
+        }
+    }
+
+    @GetMapping("/{id}/link/candidates")
+    public String linkCandidates(
+            @PathVariable long id,
+            @RequestParam(required = false, defaultValue = "true") boolean filterAmount,
+            @RequestParam(required = false, defaultValue = "true") boolean filterDate,
+            @RequestParam(required = false) Long walletId,
+            Model model
+    ) {
+        try {
+            var entry = entryService.findById(id);
+            var candidates = entryService.findLinkCandidates(id, filterAmount, filterDate, walletId);
+
+            model.addAttribute("entry", entry);
+            model.addAttribute("candidates", candidates);
+
+            return "fragments/link-modal :: candidates";
+        } catch (EntryNotFoundException e) {
+            return "fragments/link-modal :: error";
+        }
+    }
+
+    @PostMapping("/{id}/link")
+    public String link(
+            @PathVariable long id,
+            @RequestParam long targetEntryId,
+            HttpServletResponse response,
+            HttpSession session
+    ) {
+        try {
+            transferService.linkEntries(id, targetEntryId);
+            session.setAttribute("successMessage", "Lançamentos vinculados como transferência");
+            response.setHeader("HX-Redirect", "/entries");
+            return null;
+        } catch (InvalidTransferException e) {
+            response.setHeader("HX-Retarget", "#linkError");
+            response.setHeader("HX-Reswap", "innerHTML");
+            return "fragments/link-modal :: errorMessage(message='" + e.getMessage() + "')";
+        }
     }
 
     private void addFormAttributes(Model model, long walletId, long categoryId, EntryNature nature,
