@@ -293,11 +293,22 @@
             Categoria
             <select onchange="document.getElementById('categoryIdInput').value = this.value; document.getElementById('filtersForm').submit();">
                 <option value="">Todas</option>
-                <option th:each="c : ${categories}"
-                        th:value="${c.id}"
-                        th:text="${c.name}"
-                        th:selected="${selectedCategoryId == c.id}">
-                </option>
+                <optgroup label="Receitas">
+                    <option th:each="c : ${categories}"
+                            th:if="${c.type.name() == 'INCOME'}"
+                            th:value="${c.id}"
+                            th:text="${c.name}"
+                            th:selected="${selectedCategoryId == c.id}">
+                    </option>
+                </optgroup>
+                <optgroup label="Despesas">
+                    <option th:each="c : ${categories}"
+                            th:if="${c.type.name() == 'EXPENSE'}"
+                            th:value="${c.id}"
+                            th:text="${c.name}"
+                            th:selected="${selectedCategoryId == c.id}">
+                    </option>
+                </optgroup>
             </select>
         </label>
         <label>
@@ -535,10 +546,7 @@
         </label>
         <label>
             Categoria:
-            <select id="batchCategory">
-                <option value="">-- Manter --</option>
-                <option th:each="c : ${categories}" th:value="${c.id}" th:text="${c.name}"></option>
-            </select>
+            <th:block th:replace="~{fragments/category-batch-select :: batch(categories=${categories})}"/>
         </label>
         <label>
             Natureza:

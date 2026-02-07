@@ -141,11 +141,7 @@
         </label>
         <label>
             Categoria:
-            <select id="batchCategory">
-                <option value="">-- Manter --</option>
-                <option value="__clear__">Usar padrao</option>
-                <option th:each="c : ${categories}" th:value="${c.id}" th:text="${c.name}"></option>
-            </select>
+            <th:block th:replace="~{fragments/category-batch-select :: batchWithDefault(categories=${categories})}"/>
         </label>
         <label>
             Natureza:

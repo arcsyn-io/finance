@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!-- Batch sem opcao "Usar padrao" (entries) -->
+<select th:fragment="batch(categories)" id="batchCategory">
+    <option value="">-- Manter --</option>
+    <optgroup label="Receitas">
+        <option th:each="c : ${categories}"
+                th:if="${c.type.name() == 'INCOME'}"
+                th:value="${c.id}"
+                th:text="${c.name}">
+        </option>
+    </optgroup>
+    <optgroup label="Despesas">
+        <option th:each="c : ${categories}"
+                th:if="${c.type.name() == 'EXPENSE'}"
+                th:value="${c.id}"
+                th:text="${c.name}">
+        </option>
+    </optgroup>
+</select>
+
+<!-- Batch com opcao "Usar padrao" (import-review) -->
+<select th:fragment="batchWithDefault(categories)" id="batchCategory">
+    <option value="">-- Manter --</option>
+    <option value="__clear__">Usar padrao</option>
+    <optgroup label="Receitas">
+        <option th:each="c : ${categories}"
+                th:if="${c.type.name() == 'INCOME'}"
+                th:value="${c.id}"
+                th:text="${c.name}">
+        </option>
+    </optgroup>
+    <optgroup label="Despesas">
+        <option th:each="c : ${categories}"
+                th:if="${c.type.name() == 'EXPENSE'}"
+                th:value="${c.id}"
+                th:text="${c.name}">
+        </option>
+    </optgroup>
+</select>
+
+</body>
+</html>

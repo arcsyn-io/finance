@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+    Select de categoria com optgroup agrupando por Receitas e Despesas.
+
+    Parametros:
+        categories    - lista de Category
+        selectId      - id/name do select (default: "categoryId")
+        selectedId    - id da categoria selecionada (pode ser null)
+        placeholder   - texto do placeholder (default: "Selecione a categoria...", '__none__' para omitir)
+        required      - se o campo e obrigatorio (default: true)
+
+    Uso basico:
+        <th:block th:replace="~{fragments/category-select :: select(categories=${categories}, selectId='categoryId', selectedId=${formCategoryId}, placeholder='Selecione a categoria...', required=${true})}"/>
+
+    Uso sem placeholder (edicao inline):
+        <th:block th:replace="~{fragments/category-select :: select(categories=${categories}, selectId='categoryId', selectedId=${entry.categoryId}, placeholder='__none__', required=${false})}"/>
+-->
+<select th:fragment="select(categories, selectId, selectedId, placeholder, required)"
+        th:id="${selectId ?: 'categoryId'}"
+        th:name="${selectId ?: 'categoryId'}"
+        th:required="${required != null ? required : true}">
+    <option th:if="${placeholder != '__none__'}" value="" th:text="${placeholder ?: 'Selecione a categoria...'}">Selecione a categoria...</option>
+    <optgroup label="Receitas">
+        <option th:each="c : ${categories}"
+                th:if="${c.type.name() == 'INCOME'}"
+                th:value="${c.id}"
+                th:text="${c.name}"
+                th:selected="${selectedId != null and selectedId == c.id}">
+        </option>
+    </optgroup>
+    <optgroup label="Despesas">
+        <option th:each="c : ${categories}"
+                th:if="${c.type.name() == 'EXPENSE'}"
+                th:value="${c.id}"
+                th:text="${c.name}"
+                th:selected="${selectedId != null and selectedId == c.id}">
+        </option>
+    </optgroup>
+</select>
+
+</body>
+</html>

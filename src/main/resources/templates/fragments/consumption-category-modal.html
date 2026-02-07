@@ -174,13 +174,7 @@
         <div class="edit-row-form">
             <label>
                 <small>Categoria</small>
-                <select name="categoryId">
-                    <option th:each="c : ${categories}"
-                            th:value="${c.id}"
-                            th:text="${c.name}"
-                            th:selected="${c.id == entry.categoryId}">
-                    </option>
-                </select>
+                <th:block th:replace="~{fragments/category-select :: select(categories=${categories}, selectId='categoryId', selectedId=${entry.categoryId}, placeholder='__none__', required=${false})}"/>
             </label>
             <label>
                 <small>Carteira</small>

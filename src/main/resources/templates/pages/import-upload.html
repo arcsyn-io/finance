@@ -56,14 +56,7 @@
 
                 <label for="categoryId">
                     Categoria padrão
-                    <select id="categoryId" name="categoryId">
-                        <option value="">Nenhuma</option>
-                        <option th:each="c : ${categories}"
-                                th:value="${c.id}"
-                                th:text="${c.name + ' (' + (c.type.name() == 'INCOME' ? 'Receita' : 'Despesa') + ')'}"
-                                th:selected="${formCategoryId == c.id}">
-                        </option>
-                    </select>
+                    <th:block th:replace="~{fragments/category-select :: select(categories=${categories}, selectId='categoryId', selectedId=${formCategoryId}, placeholder='Nenhuma', required=${false})}"/>
                 </label>
 
                 <label for="nature">
