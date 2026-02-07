@@ -214,6 +214,7 @@ public class EntryRepository {
                     field("e.amount"),
                     field("e.occurred_at"),
                     field("e.description"),
+                    field("e.transfer_id"),
                     field("e.created_at"),
                     field("e.deleted_at"),
                     field("w.name").as("wallet_name"),
