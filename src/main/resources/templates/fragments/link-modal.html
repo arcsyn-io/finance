@@ -67,6 +67,37 @@
             margin: 0;
             font-weight: 600;
         }
+        .link-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid var(--pico-muted-border-color);
+        }
+        .link-tab {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            border: none;
+            background: none;
+            color: var(--pico-muted-color);
+            font-size: 0.875rem;
+            font-weight: 500;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: color 0.2s, border-color 0.2s;
+        }
+        .link-tab:hover {
+            color: var(--pico-color);
+        }
+        .link-tab.active {
+            color: var(--pico-primary);
+            border-bottom-color: var(--pico-primary);
+        }
+        .link-tab-content {
+            display: none;
+        }
+        .link-tab-content.active {
+            display: block;
+        }
         .link-filters {
             display: flex;
             gap: 1rem;
@@ -147,6 +178,26 @@
             border-radius: 0.5rem;
             margin-bottom: 1rem;
         }
+        .create-form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        .create-form-grid label {
+            margin-bottom: 0;
+        }
+        .create-form-grid select,
+        .create-form-grid input {
+            margin-bottom: 0;
+        }
+        .create-form-grid .full-width {
+            grid-column: span 2;
+        }
+        .readonly-field {
+            background: var(--pico-form-element-disabled-background-color);
+            border-color: var(--pico-form-element-disabled-border-color);
+            opacity: 0.7;
+        }
     </style>
 
     <div class="link-modal-overlay" onclick="if(event.target === this) closeLinkModal()">
@@ -186,30 +237,83 @@
                     </dl>
                 </div>
 
-                <div class="link-filters">
-                    <label>
-                        <input type="checkbox" id="filterAmount" checked onchange="refreshCandidates()">
-                        Mesmo valor
-                    </label>
-                    <label>
-                        <input type="checkbox" id="filterDate" checked onchange="refreshCandidates()">
-                        Mesma data
-                    </label>
-                    <label>
-                        Carteira:
-                        <select id="filterWallet" onchange="refreshCandidates()">
-                            <option value="">Todas</option>
-                            <option th:each="w : ${wallets}"
-                                    th:if="${w.id != entry.walletId}"
-                                    th:value="${w.id}"
-                                    th:text="${w.name}">
-                            </option>
-                        </select>
-                    </label>
+                <div class="link-tabs">
+                    <button type="button" class="link-tab active" onclick="switchTab('existing', this)">
+                        <i class="fa-solid fa-link"></i> Vincular existente
+                    </button>
+                    <button type="button" class="link-tab" onclick="switchTab('create', this)">
+                        <i class="fa-solid fa-plus"></i> Criar novo
+                    </button>
                 </div>
 
-                <div id="candidatesList" class="candidates-list">
-                    <div th:replace="~{fragments/link-modal :: candidates}"></div>
+                <!-- Aba: Vincular existente -->
+                <div id="tabExisting" class="link-tab-content active">
+                    <div class="link-filters">
+                        <label>
+                            <input type="checkbox" id="filterAmount" checked onchange="refreshCandidates()">
+                            Mesmo valor
+                        </label>
+                        <label>
+                            <input type="checkbox" id="filterDate" checked onchange="refreshCandidates()">
+                            Mesma data
+                        </label>
+                        <label>
+                            Carteira:
+                            <select id="filterWallet" onchange="refreshCandidates()">
+                                <option value="">Todas</option>
+                                <option th:each="w : ${wallets}"
+                                        th:if="${w.id != entry.walletId}"
+                                        th:value="${w.id}"
+                                        th:text="${w.name}">
+                                </option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <div id="candidatesList" class="candidates-list">
+                        <div th:replace="~{fragments/link-modal :: candidates}"></div>
+                    </div>
+                </div>
+
+                <!-- Aba: Criar novo -->
+                <div id="tabCreate" class="link-tab-content">
+                    <div class="create-form-grid">
+                        <label>
+                            Data
+                            <input type="text" class="readonly-field" readonly
+                                   th:value="${#temporals.format(entry.occurredAt, 'dd/MM/yyyy')}">
+                        </label>
+                        <label>
+                            Valor
+                            <input type="text" class="readonly-field" readonly
+                                   th:value="${'R$ ' + entryAmount}">
+                        </label>
+                        <label>
+                            Carteira
+                            <select id="createWalletId" name="walletId" required>
+                                <option value="">Selecione a carteira...</option>
+                                <option th:each="w : ${wallets}"
+                                        th:if="${w.id != entry.walletId}"
+                                        th:value="${w.id}"
+                                        th:text="${w.name}">
+                                </option>
+                            </select>
+                        </label>
+                        <label>
+                            Categoria
+                            <th:block th:replace="~{fragments/category-select :: select(categories=${categories}, selectId='createCategoryId', selectedId=${null}, placeholder='Selecione a categoria...', required=${true})}"/>
+                        </label>
+                        <label>
+                            Natureza
+                            <select id="createNature" name="nature" required>
+                                <option th:each="n : ${natures}" th:value="${n}" th:text="${n}"></option>
+                            </select>
+                        </label>
+                        <label>
+                            Descricao
+                            <input type="text" id="createDescription" name="description" placeholder="Opcional">
+                        </label>
+                    </div>
                 </div>
             </div>
 
@@ -219,12 +323,30 @@
                     <i class="fa-solid fa-right-left"></i>
                     Vincular
                 </button>
+                <button type="button" id="createButton" onclick="createAndLink()" style="display:none;">
+                    <i class="fa-solid fa-plus"></i>
+                    Criar e Vincular
+                </button>
             </div>
         </div>
     </div>
 
     <script th:inline="javascript">
         var sourceEntryId = [[${entry.id}]];
+        var currentTab = 'existing';
+
+        function switchTab(tab, btn) {
+            currentTab = tab;
+            document.querySelectorAll('.link-tab').forEach(function(t) { t.classList.remove('active'); });
+            btn.classList.add('active');
+
+            document.getElementById('tabExisting').classList.toggle('active', tab === 'existing');
+            document.getElementById('tabCreate').classList.toggle('active', tab === 'create');
+            document.getElementById('linkButton').style.display = tab === 'existing' ? '' : 'none';
+            document.getElementById('createButton').style.display = tab === 'create' ? '' : 'none';
+
+            document.getElementById('linkError').innerHTML = '';
+        }
 
         function refreshCandidates() {
             var filterAmount = document.getElementById('filterAmount').checked;
@@ -258,7 +380,46 @@
                 method: 'POST',
                 body: formData,
                 headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]').content
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]').content,
+                    'HX-Current-URL': window.location.href
+                }
+            }).then(function(response) {
+                if (response.headers.get('HX-Redirect')) {
+                    window.location.href = response.headers.get('HX-Redirect');
+                } else {
+                    return response.text();
+                }
+            }).then(function(html) {
+                if (html) {
+                    document.getElementById('linkError').innerHTML = html;
+                }
+            });
+        }
+
+        function createAndLink() {
+            var walletId = document.getElementById('createWalletId').value;
+            var categoryId = document.getElementById('createCategoryId').value;
+            var nature = document.getElementById('createNature').value;
+            var description = document.getElementById('createDescription').value;
+
+            if (!walletId || !categoryId) {
+                document.getElementById('linkError').innerHTML =
+                    '<span class="link-error"><i class="fa-solid fa-circle-exclamation"></i> Selecione carteira e categoria.</span>';
+                return;
+            }
+
+            var formData = new FormData();
+            formData.append('walletId', walletId);
+            formData.append('categoryId', categoryId);
+            formData.append('nature', nature);
+            if (description) formData.append('description', description);
+
+            fetch('/entries/' + sourceEntryId + '/link/create', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]').content,
+                    'HX-Current-URL': window.location.href
                 }
             }).then(function(response) {
                 if (response.headers.get('HX-Redirect')) {

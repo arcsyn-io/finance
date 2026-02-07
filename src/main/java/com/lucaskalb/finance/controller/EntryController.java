@@ -20,6 +20,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
@@ -152,6 +153,7 @@ public class EntryController {
             @RequestParam LocalDate occurredAt,
             @RequestParam(required = false) String description,
             Model model,
+            HttpServletRequest request,
             HttpServletResponse response,
             HttpSession session
     ) {
@@ -167,7 +169,7 @@ public class EntryController {
             );
             entryService.create(command);
             session.setAttribute("successMessage", "Lançamento criado com sucesso");
-            response.setHeader("HX-Redirect", "/entries");
+            response.setHeader("HX-Redirect", getEntriesRedirectUrl(request));
             return null;
         } catch (InvalidEntryException | WalletNotFoundException | CategoryNotFoundException e) {
             model.addAttribute("errorMessage", e.getMessage());
@@ -203,6 +205,7 @@ public class EntryController {
             @RequestParam LocalDate occurredAt,
             @RequestParam(required = false) String description,
             Model model,
+            HttpServletRequest request,
             HttpServletResponse response,
             HttpSession session
     ) {
@@ -219,7 +222,7 @@ public class EntryController {
             );
             entryService.update(command);
             session.setAttribute("successMessage", "Lançamento atualizado com sucesso");
-            response.setHeader("HX-Redirect", "/entries");
+            response.setHeader("HX-Redirect", getEntriesRedirectUrl(request));
             return null;
         } catch (InvalidEntryException | WalletNotFoundException | CategoryNotFoundException e) {
             model.addAttribute("errorMessage", e.getMessage());
@@ -227,7 +230,7 @@ public class EntryController {
             addFormAttributes(model, walletId, categoryId, nature, amount, occurredAt, description, true);
             return "fragments/entry-form :: form";
         } catch (EntryNotFoundException e) {
-            response.setHeader("HX-Redirect", "/entries");
+            response.setHeader("HX-Redirect", getEntriesRedirectUrl(request));
             return null;
         }
     }
@@ -278,8 +281,11 @@ public class EntryController {
             var wallets = walletService.listActive();
 
             model.addAttribute("entry", entry);
+            model.addAttribute("entryAmount", formatCentsToAmount(entry.getAmount()));
             model.addAttribute("candidates", candidates);
             model.addAttribute("wallets", wallets);
+            model.addAttribute("categories", categoryService.listActive());
+            model.addAttribute("natures", EntryNature.values());
             model.addAttribute("filterAmount", true);
             model.addAttribute("filterDate", true);
 
@@ -314,13 +320,37 @@ public class EntryController {
     public String link(
             @PathVariable long id,
             @RequestParam long targetEntryId,
+            HttpServletRequest request,
             HttpServletResponse response,
             HttpSession session
     ) {
         try {
             transferService.linkEntries(id, targetEntryId);
             session.setAttribute("successMessage", "Lançamentos vinculados como transferência");
-            response.setHeader("HX-Redirect", "/entries");
+            response.setHeader("HX-Redirect", getEntriesRedirectUrl(request));
+            return null;
+        } catch (InvalidTransferException e) {
+            response.setHeader("HX-Retarget", "#linkError");
+            response.setHeader("HX-Reswap", "innerHTML");
+            return "fragments/link-modal :: errorMessage(message='" + e.getMessage() + "')";
+        }
+    }
+
+    @PostMapping("/{id}/link/create")
+    public String linkCreate(
+            @PathVariable long id,
+            @RequestParam long walletId,
+            @RequestParam long categoryId,
+            @RequestParam EntryNature nature,
+            @RequestParam(required = false) String description,
+            HttpServletRequest request,
+            HttpServletResponse response,
+            HttpSession session
+    ) {
+        try {
+            transferService.createAndLink(id, walletId, categoryId, nature, description);
+            session.setAttribute("successMessage", "Lançamento criado e vinculado como transferência");
+            response.setHeader("HX-Redirect", getEntriesRedirectUrl(request));
             return null;
         } catch (InvalidTransferException e) {
             response.setHeader("HX-Retarget", "#linkError");
@@ -341,6 +371,20 @@ public class EntryController {
         model.addAttribute("formOccurredAt", occurredAt);
         model.addAttribute("formDescription", description);
         model.addAttribute("isEdit", isEdit);
+    }
+
+    private String getEntriesRedirectUrl(HttpServletRequest request) {
+        var currentUrl = request.getHeader("HX-Current-URL");
+        if (currentUrl != null) {
+            try {
+                var uri = java.net.URI.create(currentUrl);
+                var query = uri.getRawQuery();
+                if (query != null) {
+                    return "/entries?" + query;
+                }
+            } catch (Exception ignored) {}
+        }
+        return "/entries";
     }
 
     private long parseAmountToCents(String amount) {

@@ -118,6 +118,78 @@ public class TransferService {
     }
 
     /**
+     * Cria um novo lançamento e vincula ao existente como transferência.
+     * Herda amount e occurredAt do source entry.
+     */
+    @Transactional
+    public Transfer createAndLink(long sourceEntryId, long walletId, long categoryId,
+                                   EntryNature nature, String description) {
+        var sourceEntry = entryRepository.findById(sourceEntryId)
+                .orElseThrow(() -> new InvalidTransferException("Lançamento de origem não encontrado"));
+
+        if (sourceEntry.isDeleted()) {
+            throw new InvalidTransferException("Lançamento de origem está excluído");
+        }
+        if (sourceEntry.getTransferId() != null) {
+            throw new InvalidTransferException("Lançamento já está vinculado a uma transferência");
+        }
+
+        var targetWallet = walletRepository.findById(walletId)
+                .orElseThrow(() -> new WalletNotFoundException(walletId));
+        if (!targetWallet.isActive()) {
+            throw new InvalidTransferException("Carteira selecionada está inativa");
+        }
+        if (sourceEntry.getWalletId().equals(walletId)) {
+            throw new InvalidTransferException("Carteira deve ser diferente da carteira de origem");
+        }
+
+        var category = categoryRepository.findById(categoryId)
+                .orElseThrow(CategoryNotFoundException::new);
+
+        // Direção do novo entry é oposta à do source
+        var expectedType = sourceEntry.getDirection() == EntryDirection.OUT
+                ? CategoryType.INCOME : CategoryType.EXPENSE;
+        if (category.getType() != expectedType) {
+            throw new InvalidTransferException("Categoria deve ser do tipo " +
+                    (expectedType == CategoryType.INCOME ? "Receita" : "Despesa"));
+        }
+
+        var newDirection = sourceEntry.getDirection() == EntryDirection.OUT
+                ? EntryDirection.IN : EntryDirection.OUT;
+
+        // Determina from/to pela direção do source
+        long fromWalletId, toWalletId, fromCategoryId, toCategoryId;
+        if (sourceEntry.getDirection() == EntryDirection.OUT) {
+            fromWalletId = sourceEntry.getWalletId();
+            toWalletId = walletId;
+            fromCategoryId = sourceEntry.getCategoryId();
+            toCategoryId = categoryId;
+        } else {
+            fromWalletId = walletId;
+            toWalletId = sourceEntry.getWalletId();
+            fromCategoryId = categoryId;
+            toCategoryId = sourceEntry.getCategoryId();
+        }
+
+        var transferId = transferRepository.insert(
+                fromWalletId, toWalletId, fromCategoryId, toCategoryId,
+                sourceEntry.getAmount(), sourceEntry.getOccurredAt(), description
+        );
+
+        // Cria o novo entry
+        entryRepository.insertWithTransfer(
+                walletId, categoryId, nature, newDirection,
+                sourceEntry.getAmount(), sourceEntry.getOccurredAt(),
+                description, transferId
+        );
+
+        // Atualiza o source entry com o transferId
+        entryRepository.updateTransferId(sourceEntryId, transferId);
+
+        return transferRepository.findById(transferId).orElseThrow();
+    }
+
+    /**
      * Vincula dois lançamentos existentes como uma transferência.
      */
     @Transactional
