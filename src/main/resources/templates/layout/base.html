@@ -40,8 +40,20 @@
         });
     </script>
     <style>
+        html {
+            overflow-y: auto;
+            scrollbar-gutter: stable both-edges;
+        }
         :root {
             --pico-font-size: 100%;
+        }
+        * {
+            scrollbar-width: thin;
+        }
+        @supports (overflow-y: overlay) {
+            html {
+                overflow-y: overlay;
+            }
         }
 
         .icon-btn {
