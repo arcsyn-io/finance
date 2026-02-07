@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<div th:fragment="modal" id="consumptionCategoryModalContent">
+    <style>
+        .category-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .category-modal {
+            background: var(--pico-card-background-color);
+            border-radius: 0.5rem;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .category-modal-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--pico-muted-border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .category-modal-header h3 {
+            margin: 0;
+        }
+        .category-modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .category-modal-body table {
+            margin-bottom: 0;
+        }
+        .category-modal-body td,
+        .category-modal-body th {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+        }
+        .category-modal-error {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid #ef4444;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #f87171;
+        }
+        .edit-row-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem 0.75rem;
+        }
+        .edit-row-form label {
+            margin-bottom: 0;
+        }
+        .edit-row-form small {
+            color: var(--pico-muted-color);
+        }
+        .edit-row-form select,
+        .edit-row-form input {
+            margin-top: 0.25rem;
+            margin-bottom: 0;
+        }
+        .edit-row-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+            margin-top: 0.75rem;
+        }
+        .edit-row-actions button {
+            margin: 0;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.875rem;
+        }
+    </style>
+
+    <div class="category-modal-overlay" onclick="if(event.target === this) closeCategoryModal()">
+        <div class="category-modal">
+            <div class="category-modal-header">
+                <h3 th:text="${categoryName}">Categoria</h3>
+                <button type="button" class="icon-btn" onclick="closeCategoryModal()" title="Fechar">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="category-modal-body">
+                <div th:replace="~{fragments/consumption-category-modal :: entriesContent}"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function closeCategoryModal() {
+            window.location.reload();
+        }
+    </script>
+</div>
+
+<div th:fragment="entriesContent" id="categoryEntriesContent">
+    <div th:if="${errorMessage}" class="category-modal-error">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <span th:text="${errorMessage}">Erro</span>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Data</th>
+                <th>Descricao</th>
+                <th>Carteira</th>
+                <th style="text-align: right;">Valor</th>
+                <th style="width: 50px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            <th:block th:each="entry : ${entries}">
+                <tr th:replace="~{fragments/consumption-category-modal :: entryRow}"></tr>
+            </th:block>
+            <tr th:if="${#lists.isEmpty(entries)}">
+                <td colspan="5" style="text-align: center; padding: 2rem;">
+                    <em>Nenhum lancamento encontrado</em>
+                </td>
+            </tr>
+        </tbody>
+        <tfoot th:if="${!#lists.isEmpty(entries)}">
+            <tr style="font-weight: 600;">
+                <td colspan="3">Total</td>
+                <td style="text-align: right;">
+                    R$ <span th:text="${#numbers.formatDecimal(totalAmount / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+                </td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<tr th:fragment="entryRow">
+    <td th:text="${#temporals.format(entry.occurredAt, 'dd/MM/yyyy')}">01/01/2024</td>
+    <td th:text="${entry.description ?: '-'}">Descricao</td>
+    <td th:text="${entry.walletName}">Carteira</td>
+    <td style="text-align: right; color: var(--pico-del-color);">
+        R$ <span th:text="${#numbers.formatDecimal(entry.amount / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+    </td>
+    <td>
+        <button type="button" class="icon-btn"
+                th:attr="hx-get=@{/consumption/entries/{id}/edit-inline(id=${entry.id}, categoryId=${categoryId}, startDate=${startDate}, endDate=${endDate})}"
+                hx-target="closest tr"
+                hx-swap="outerHTML"
+                title="Editar">
+            <i class="fa-solid fa-pen-to-square"></i>
+        </button>
+    </td>
+</tr>
+
+<tr th:fragment="editRow">
+    <td colspan="5" style="padding: 1rem;">
+        <input type="hidden" name="originalCategoryId" th:value="${categoryId}">
+        <input type="hidden" name="startDate" th:value="${startDate}">
+        <input type="hidden" name="endDate" th:value="${endDate}">
+
+        <div class="edit-row-form">
+            <label>
+                <small>Categoria</small>
+                <select name="categoryId">
+                    <option th:each="c : ${categories}"
+                            th:value="${c.id}"
+                            th:text="${c.name}"
+                            th:selected="${c.id == entry.categoryId}">
+                    </option>
+                </select>
+            </label>
+            <label>
+                <small>Carteira</small>
+                <select name="walletId">
+                    <option th:each="w : ${wallets}"
+                            th:value="${w.id}"
+                            th:text="${w.name}"
+                            th:selected="${w.id == entry.walletId}">
+                    </option>
+                </select>
+            </label>
+            <label>
+                <small>Natureza</small>
+                <select name="nature">
+                    <option th:each="n : ${natures}"
+                            th:value="${n.name()}"
+                            th:text="${n.name() == 'OPERATIONAL' ? 'Operacional' : 'Patrimonial'}"
+                            th:selected="${n == entry.nature}">
+                    </option>
+                </select>
+            </label>
+            <label>
+                <small>Descricao</small>
+                <input type="text" name="description"
+                       th:value="${entry.description}"
+                       placeholder="Descricao...">
+            </label>
+        </div>
+        <div class="edit-row-actions">
+            <button type="button" class="outline secondary"
+                    th:attr="hx-get=@{/consumption/entries/{id}/row(id=${entry.id}, categoryId=${categoryId}, startDate=${startDate}, endDate=${endDate})}"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML">
+                Cancelar
+            </button>
+            <button type="button"
+                    th:attr="hx-post=@{/consumption/entries/{id}(id=${entry.id})}"
+                    hx-target="#categoryEntriesContent"
+                    hx-swap="outerHTML"
+                    hx-include="closest tr">
+                Salvar
+            </button>
+        </div>
+    </td>
+</tr>
+
+</body>
+</html>

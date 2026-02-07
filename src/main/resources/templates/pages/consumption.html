@@ -111,6 +111,13 @@
         .category-row td:first-child {
             padding-left: 2rem;
         }
+        .category-link {
+            cursor: pointer;
+        }
+        .category-link:hover {
+            text-decoration: underline;
+            color: var(--pico-primary);
+        }
     </style>
 
     <header style="margin-bottom: 1.5rem;">
@@ -229,7 +236,11 @@
                 </thead>
                 <tbody>
                     <tr th:each="c : ${consumptionByCategory}">
-                        <td th:text="${c.categoryName}">Categoria</td>
+                        <td class="category-link"
+                            th:attr="hx-get=@{/consumption/category/{id}(id=${c.categoryId}, startDate=${startDate}, endDate=${endDate})}"
+                            hx-target="#consumptionCategoryModal"
+                            hx-swap="innerHTML"
+                            th:text="${c.categoryName}">Categoria</td>
                         <td style="text-align: right;">
                             R$ <span th:text="${#numbers.formatDecimal(c.totalConsumed / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
                         </td>
@@ -312,6 +323,8 @@
             </table>
         </figure>
     </section>
+
+    <div id="consumptionCategoryModal"></div>
 </div>
 </body>
 </html>

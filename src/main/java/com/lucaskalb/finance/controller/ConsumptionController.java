@@ -1,14 +1,22 @@
 package com.lucaskalb.finance.controller;
 
+import com.lucaskalb.finance.model.EntryDirection;
+import com.lucaskalb.finance.model.EntryNature;
+import com.lucaskalb.finance.service.CategoryService;
 import com.lucaskalb.finance.service.ConsumptionService;
+import com.lucaskalb.finance.service.EntryService;
+import com.lucaskalb.finance.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.format.TextStyle;
 import java.time.temporal.TemporalAdjusters;
@@ -23,6 +31,9 @@ import java.util.Locale;
 public class ConsumptionController {
 
     private final ConsumptionService consumptionService;
+    private final EntryService entryService;
+    private final CategoryService categoryService;
+    private final WalletService walletService;
 
     public enum ConsumptionPeriod {
         CURRENT_MONTH("Mês atual"),
@@ -84,6 +95,116 @@ public class ConsumptionController {
         model.addAttribute("monthlyTotals", monthlyTotals);
 
         return "pages/consumption";
+    }
+
+    @GetMapping("/category/{categoryId}")
+    public String categoryDetail(
+            @PathVariable long categoryId,
+            @RequestParam LocalDate startDate,
+            @RequestParam LocalDate endDate,
+            Model model
+    ) {
+        var entries = entryService.list(
+                startDate.atStartOfDay(),
+                endDate.atTime(LocalTime.MAX),
+                null, categoryId, EntryNature.PATRIMONIAL, false
+        ).stream()
+                .filter(e -> e.getDirection() == EntryDirection.OUT)
+                .toList();
+
+        var totalAmount = entries.stream().mapToLong(e -> e.getAmount()).sum();
+        var categoryName = entries.isEmpty()
+                ? categoryService.findById(categoryId).getName()
+                : entries.getFirst().getCategoryName();
+
+        model.addAttribute("entries", entries);
+        model.addAttribute("categoryName", categoryName);
+        model.addAttribute("categoryId", categoryId);
+        model.addAttribute("totalAmount", totalAmount);
+        model.addAttribute("categories", categoryService.listActive());
+        model.addAttribute("wallets", walletService.listActive());
+        model.addAttribute("natures", EntryNature.values());
+        model.addAttribute("startDate", startDate);
+        model.addAttribute("endDate", endDate);
+
+        return "fragments/consumption-category-modal :: modal";
+    }
+
+    @GetMapping("/entries/{entryId}/edit-inline")
+    public String editEntryInline(
+            @PathVariable long entryId,
+            @RequestParam long categoryId,
+            @RequestParam LocalDate startDate,
+            @RequestParam LocalDate endDate,
+            Model model
+    ) {
+        var entry = entryService.findById(entryId);
+        model.addAttribute("entry", entry);
+        model.addAttribute("categories", categoryService.listActive());
+        model.addAttribute("wallets", walletService.listActive());
+        model.addAttribute("natures", EntryNature.values());
+        model.addAttribute("categoryId", categoryId);
+        model.addAttribute("startDate", startDate);
+        model.addAttribute("endDate", endDate);
+
+        return "fragments/consumption-category-modal :: editRow";
+    }
+
+    @GetMapping("/entries/{entryId}/row")
+    public String entryRow(
+            @PathVariable long entryId,
+            @RequestParam long categoryId,
+            @RequestParam LocalDate startDate,
+            @RequestParam LocalDate endDate,
+            Model model
+    ) {
+        var entry = entryService.findById(entryId);
+        model.addAttribute("entry", entry);
+        model.addAttribute("categoryId", categoryId);
+        model.addAttribute("startDate", startDate);
+        model.addAttribute("endDate", endDate);
+
+        return "fragments/consumption-category-modal :: entryRow";
+    }
+
+    @PostMapping("/entries/{entryId}")
+    public String updateEntryFromConsumption(
+            @PathVariable long entryId,
+            @RequestParam long walletId,
+            @RequestParam long categoryId,
+            @RequestParam EntryNature nature,
+            @RequestParam(required = false) String description,
+            @RequestParam long originalCategoryId,
+            @RequestParam LocalDate startDate,
+            @RequestParam LocalDate endDate,
+            Model model
+    ) {
+        try {
+            entryService.updateFields(entryId, walletId, categoryId, nature, description);
+        } catch (Exception e) {
+            model.addAttribute("errorMessage", e.getMessage());
+        }
+
+        var entries = entryService.list(
+                startDate.atStartOfDay(),
+                endDate.atTime(LocalTime.MAX),
+                null, originalCategoryId, EntryNature.PATRIMONIAL, false
+        ).stream()
+                .filter(e -> e.getDirection() == EntryDirection.OUT)
+                .toList();
+
+        var totalAmount = entries.stream().mapToLong(e -> e.getAmount()).sum();
+
+        model.addAttribute("entries", entries);
+        model.addAttribute("categoryId", originalCategoryId);
+        model.addAttribute("totalAmount", totalAmount);
+        model.addAttribute("categories", categoryService.listActive());
+        model.addAttribute("wallets", walletService.listActive());
+        model.addAttribute("natures", EntryNature.values());
+        model.addAttribute("startDate", startDate);
+        model.addAttribute("endDate", endDate);
+
+        return "fragments/consumption-category-modal :: entriesContent";
     }
 
     private record DateRange(java.time.LocalDateTime start, java.time.LocalDateTime end) {}

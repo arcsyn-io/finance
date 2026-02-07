@@ -477,6 +477,18 @@ public class EntryRepository {
                 .fetch(this::mapToEntry);
     }
 
+    public void updateFields(long id, long walletId, long categoryId, EntryNature nature,
+                             EntryDirection direction, String description) {
+        dsl.update(table("entry"))
+                .set(field("wallet_id"), walletId)
+                .set(field("category_id"), categoryId)
+                .set(field("nature"), nature.name())
+                .set(field("direction"), direction.name())
+                .set(field("description"), description)
+                .where(field("id").eq(id))
+                .execute();
+    }
+
     public void updateTransferId(long entryId, long transferId) {
         dsl.update(table("entry"))
                 .set(field("transfer_id"), transferId)

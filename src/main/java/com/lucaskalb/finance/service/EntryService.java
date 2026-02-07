@@ -209,6 +209,29 @@ public class EntryService {
         return entryRepository.calculatePeriodExpense(startDate, endDate);
     }
 
+    @Transactional
+    public Entry updateFields(long entryId, long walletId, long categoryId, EntryNature nature, String description) {
+        entryRepository.findById(entryId)
+                .orElseThrow(() -> new EntryNotFoundException(entryId));
+
+        var wallet = walletRepository.findById(walletId)
+                .orElseThrow(() -> new WalletNotFoundException(walletId));
+
+        if (!wallet.isActive()) {
+            throw new InvalidEntryException("Carteira inativa não pode receber lançamentos");
+        }
+
+        validateNature(nature);
+
+        var category = categoryRepository.findById(categoryId)
+                .orElseThrow(CategoryNotFoundException::new);
+
+        var direction = inferDirection(category.getType());
+        entryRepository.updateFields(entryId, walletId, categoryId, nature, direction, description);
+
+        return entryRepository.findById(entryId).orElseThrow();
+    }
+
     @Transactional(readOnly = true)
     public List<Entry> findLinkCandidates(long entryId, boolean filterAmount, boolean filterDate) {
         return findLinkCandidates(entryId, filterAmount, filterDate, null);
