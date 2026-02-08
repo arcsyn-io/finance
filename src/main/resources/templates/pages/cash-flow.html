@@ -58,6 +58,15 @@
         .cash-flow-table tbody tr:hover {
             background: var(--pico-primary-background);
         }
+        .cash-flow-table tbody tr.row-highlight:hover {
+            background: rgba(99, 102, 241, 0.25);
+        }
+        .cash-flow-table tbody tr.row-result:hover {
+            background: rgba(99, 102, 241, 0.35);
+        }
+        .cash-flow-table tbody tr.row-config:hover {
+            background: rgba(59, 130, 246, 0.12);
+        }
         .cash-flow-table .row-label {
             font-weight: 500;
         }
@@ -93,6 +102,40 @@
         }
         .cash-flow-table .editable:hover {
             color: var(--pico-primary);
+        }
+        .cash-flow-table .clickable {
+            cursor: pointer;
+        }
+        .cash-flow-table .clickable:hover {
+            text-decoration: underline;
+        }
+        .cash-flow-table .collapsible-toggle {
+            cursor: pointer;
+            user-select: none;
+        }
+        .cash-flow-table .collapsible-toggle:hover {
+            background: var(--pico-primary-background);
+        }
+        .cash-flow-table .collapsible-toggle .toggle-icon {
+            transition: transform 0.2s ease;
+            display: inline-block;
+            margin-right: 0.35rem;
+            font-size: 0.7rem;
+        }
+        .cash-flow-table .collapsible-toggle.open .toggle-icon {
+            transform: rotate(90deg);
+        }
+        .cash-flow-table .collapse-row {
+            display: none;
+        }
+        .cash-flow-table .collapse-row.visible {
+            display: table-row;
+        }
+        .cash-flow-table .collapse-row td {
+            padding-top: 0.3rem;
+            padding-bottom: 0.3rem;
+            font-size: 0.8rem;
+            opacity: 0.75;
         }
         .table-wrapper {
             overflow-x: auto;
@@ -173,21 +216,59 @@
                 </thead>
                 <tbody>
                     <!-- Recebimentos Totais -->
-                    <tr>
-                        <td class="row-label">Recebimentos</td>
+                    <tr class="collapsible-toggle" data-collapse-target="receipts-detail">
+                        <td class="row-label">
+                            <span class="toggle-icon"><i class="fa-solid fa-chevron-right"></i></span>Recebimentos
+                        </td>
                         <td th:each="m : ${annualCashFlow.months}"
-                            class="positive"
+                            class="positive clickable"
+                            th:attr="hx-get=@{/cash-flow/entries(month=${m.referenceMonth},direction='IN')}"
+                            hx-target="#cashFlowEntriesModal"
+                            hx-swap="innerHTML"
+                            onclick="event.stopPropagation()"
                             th:text="${#numbers.formatDecimal(m.totalReceipts / 100.0, 1, 'POINT', 2, 'COMMA')}">
+                            0,00
+                        </td>
+                    </tr>
+                    <!-- Recebimentos por categoria -->
+                    <tr th:each="cat : ${opInCategories}" class="collapse-row" data-collapse-group="receipts-detail">
+                        <td class="row-label" style="padding-left: 2rem;" th:text="${cat.categoryName}">Categoria</td>
+                        <td th:each="m, iterStat : ${annualCashFlow.months}"
+                            th:with="amount=${cat.monthlyAmounts[iterStat.index]}"
+                            th:class="${amount != 0} ? 'positive clickable' : 'positive'"
+                            th:attr="hx-get=${amount != 0} ? @{/cash-flow/op-entries(month=${m.referenceMonth},direction='IN',categoryId=${cat.categoryId})} : null"
+                            th:hx-target="${amount != 0} ? '#cashFlowEntriesModal' : null"
+                            th:hx-swap="${amount != 0} ? 'innerHTML' : null"
+                            th:text="${amount == 0} ? '-' : ${#numbers.formatDecimal(amount / 100.0, 1, 'POINT', 2, 'COMMA')}">
                             0,00
                         </td>
                     </tr>
 
                     <!-- Despesas Totais -->
-                    <tr>
-                        <td class="row-label">Despesas</td>
+                    <tr class="collapsible-toggle" data-collapse-target="expenses-detail">
+                        <td class="row-label">
+                            <span class="toggle-icon"><i class="fa-solid fa-chevron-right"></i></span>Despesas
+                        </td>
                         <td th:each="m : ${annualCashFlow.months}"
-                            class="negative"
+                            class="negative clickable"
+                            th:attr="hx-get=@{/cash-flow/entries(month=${m.referenceMonth},direction='OUT')}"
+                            hx-target="#cashFlowEntriesModal"
+                            hx-swap="innerHTML"
+                            onclick="event.stopPropagation()"
                             th:text="${#numbers.formatDecimal(m.totalExpenses / 100.0, 1, 'POINT', 2, 'COMMA')}">
+                            0,00
+                        </td>
+                    </tr>
+                    <!-- Despesas por categoria -->
+                    <tr th:each="cat : ${opOutCategories}" class="collapse-row" data-collapse-group="expenses-detail">
+                        <td class="row-label" style="padding-left: 2rem;" th:text="${cat.categoryName}">Categoria</td>
+                        <td th:each="m, iterStat : ${annualCashFlow.months}"
+                            th:with="amount=${cat.monthlyAmounts[iterStat.index]}"
+                            th:class="${amount != 0} ? 'negative clickable' : 'negative'"
+                            th:attr="hx-get=${amount != 0} ? @{/cash-flow/op-entries(month=${m.referenceMonth},direction='OUT',categoryId=${cat.categoryId})} : null"
+                            th:hx-target="${amount != 0} ? '#cashFlowEntriesModal' : null"
+                            th:hx-swap="${amount != 0} ? 'innerHTML' : null"
+                            th:text="${amount == 0} ? '-' : ${#numbers.formatDecimal(amount / 100.0, 1, 'POINT', 2, 'COMMA')}">
                             0,00
                         </td>
                     </tr>
@@ -247,6 +328,82 @@
                             0,00
                         </td>
                     </tr>
+
+                    <!-- Movimentações não-operacionais por categoria -->
+                    <tr class="row-separator" style="opacity: 0.6;">
+                        <td class="row-label" colspan="13" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; padding-top: 1rem;">
+                            <i class="fa-solid fa-arrows-rotate" style="margin-right: 0.25rem;"></i> Movimentações não-operacionais
+                        </td>
+                    </tr>
+
+                    <!-- Entradas não-operacionais por categoria -->
+                    <th:block th:if="${!nonOpInCategories.isEmpty()}">
+                        <tr style="opacity: 0.5;">
+                            <td class="row-label" colspan="13" style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; padding-top: 0.5rem; padding-bottom: 0.25rem;">
+                                Entradas
+                            </td>
+                        </tr>
+                        <tr th:each="cat : ${nonOpInCategories}" style="opacity: 0.7;">
+                            <td class="row-label" style="padding-left: 1.5rem;" th:text="${cat.categoryName}">Categoria</td>
+                            <td th:each="m, iterStat : ${annualCashFlow.months}"
+                                th:with="amount=${cat.monthlyAmounts[iterStat.index]}"
+                                th:class="${amount != 0} ? 'positive clickable' : 'positive'"
+                                th:attr="hx-get=${amount != 0} ? @{/cash-flow/non-op-entries(month=${m.referenceMonth},direction='IN',categoryId=${cat.categoryId})} : null"
+                                th:hx-target="${amount != 0} ? '#cashFlowEntriesModal' : null"
+                                th:hx-swap="${amount != 0} ? 'innerHTML' : null"
+                                th:text="${amount == 0} ? '-' : ${#numbers.formatDecimal(amount / 100.0, 1, 'POINT', 2, 'COMMA')}">
+                                0,00
+                            </td>
+                        </tr>
+                        <tr style="opacity: 0.7; font-weight: 600;">
+                            <td class="row-label" style="padding-left: 1.5rem;">Total Entradas</td>
+                            <td th:each="m : ${annualCashFlow.months}"
+                                class="positive"
+                                th:text="${m.nonOperationalCashIn == 0} ? '-' : ${#numbers.formatDecimal(m.nonOperationalCashIn / 100.0, 1, 'POINT', 2, 'COMMA')}">
+                                0,00
+                            </td>
+                        </tr>
+                    </th:block>
+
+                    <!-- Saídas não-operacionais por categoria -->
+                    <th:block th:if="${!nonOpOutCategories.isEmpty()}">
+                        <tr style="opacity: 0.5;">
+                            <td class="row-label" colspan="13" style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; padding-top: 0.5rem; padding-bottom: 0.25rem;">
+                                Saídas
+                            </td>
+                        </tr>
+                        <tr th:each="cat : ${nonOpOutCategories}" style="opacity: 0.7;">
+                            <td class="row-label" style="padding-left: 1.5rem;" th:text="${cat.categoryName}">Categoria</td>
+                            <td th:each="m, iterStat : ${annualCashFlow.months}"
+                                th:with="amount=${cat.monthlyAmounts[iterStat.index]}"
+                                th:class="${amount != 0} ? 'negative clickable' : 'negative'"
+                                th:attr="hx-get=${amount != 0} ? @{/cash-flow/non-op-entries(month=${m.referenceMonth},direction='OUT',categoryId=${cat.categoryId})} : null"
+                                th:hx-target="${amount != 0} ? '#cashFlowEntriesModal' : null"
+                                th:hx-swap="${amount != 0} ? 'innerHTML' : null"
+                                th:text="${amount == 0} ? '-' : ${#numbers.formatDecimal(amount / 100.0, 1, 'POINT', 2, 'COMMA')}">
+                                0,00
+                            </td>
+                        </tr>
+                        <tr style="opacity: 0.7; font-weight: 600;">
+                            <td class="row-label" style="padding-left: 1.5rem;">Total Saídas</td>
+                            <td th:each="m : ${annualCashFlow.months}"
+                                class="negative"
+                                th:text="${m.nonOperationalCashOut == 0} ? '-' : ${#numbers.formatDecimal(m.nonOperationalCashOut / 100.0, 1, 'POINT', 2, 'COMMA')}">
+                                0,00
+                            </td>
+                        </tr>
+                    </th:block>
+
+                    <!-- Resultado não-operacional -->
+                    <tr style="opacity: 0.8; font-weight: 600;" class="row-separator">
+                        <td class="row-label">Resultado</td>
+                        <td th:each="m : ${annualCashFlow.months}"
+                            th:with="net=${m.nonOperationalCashIn - m.nonOperationalCashOut}"
+                            th:classappend="${net >= 0} ? 'positive' : 'negative'"
+                            th:text="${net == 0} ? '-' : ${#numbers.formatDecimal(net / 100.0, 1, 'POINT', 2, 'COMMA')}">
+                            0,00
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </figure>
@@ -254,8 +411,11 @@
 
     <div style="margin-top: 1rem; font-size: 0.875rem; opacity: 0.7;">
         <i class="fa-solid fa-info-circle"></i>
+        Clique nos valores de <strong>Recebimentos</strong> ou <strong>Despesas</strong> para ver os lançamentos.
         Clique nos valores de <strong>Saldo Inicial</strong> ou <strong>Caixa Mínimo</strong> para editar.
     </div>
+
+    <div id="cashFlowEntriesModal"></div>
 
     <script th:inline="javascript">
         const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -374,6 +534,18 @@
                     legend: { display: false }
                 }
             }
+        });
+        // Collapse/expand para Recebimentos e Despesas
+        document.querySelectorAll('.collapsible-toggle').forEach(toggle => {
+            toggle.addEventListener('click', function(e) {
+                // Não toggler se clicou numa célula com hx-get (valor mensal)
+                if (e.target.closest('[hx-get]')) return;
+
+                var target = this.dataset.collapseTarget;
+                var rows = document.querySelectorAll('[data-collapse-group="' + target + '"]');
+                var isOpen = this.classList.toggle('open');
+                rows.forEach(row => row.classList.toggle('visible', isOpen));
+            });
         });
     </script>
 </div>
