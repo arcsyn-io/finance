@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<div th:fragment="modal" id="cashFlowEntriesModalContent">
+    <style>
+        .cf-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .cf-modal {
+            background: var(--pico-card-background-color);
+            border-radius: 0.5rem;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .cf-modal-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--pico-muted-border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .cf-modal-header h3 {
+            margin: 0;
+        }
+        .cf-modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .cf-modal-body table {
+            margin-bottom: 0;
+        }
+        .cf-modal-body td,
+        .cf-modal-body th {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+        }
+        .cf-modal-body tbody tr:hover {
+            background: var(--pico-primary-background);
+        }
+        .cf-edit-row-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem 0.75rem;
+        }
+        .cf-edit-row-form label {
+            margin-bottom: 0;
+        }
+        .cf-edit-row-form small {
+            color: var(--pico-muted-color);
+        }
+        .cf-edit-row-form select,
+        .cf-edit-row-form input {
+            margin-top: 0.25rem;
+            margin-bottom: 0;
+        }
+        .cf-edit-row-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+            margin-top: 0.75rem;
+        }
+        .cf-edit-row-actions button {
+            margin: 0;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.875rem;
+        }
+    </style>
+
+    <div class="cf-modal-overlay" onclick="if(event.target === this) closeCfModal()">
+        <div class="cf-modal">
+            <div class="cf-modal-header">
+                <h3 th:text="${modalTitle}">Lancamentos</h3>
+                <button type="button" class="icon-btn" onclick="closeCfModal()" title="Fechar">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div id="cfModalBody" th:fragment="modalBody" class="cf-modal-body">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Descricao</th>
+                            <th>Categoria</th>
+                            <th>Carteira</th>
+                            <th style="text-align: right;">Valor</th>
+                            <th style="width: 3rem;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="entry : ${entries}">
+                            <td th:text="${#temporals.format(entry.occurredAt, 'dd/MM/yyyy')}">01/01/2024</td>
+                            <td th:text="${entry.description ?: '-'}">Descricao</td>
+                            <td th:text="${entry.categoryName}">Categoria</td>
+                            <td th:text="${entry.walletName}">Carteira</td>
+                            <td style="text-align: right;">
+                                R$ <span th:text="${#numbers.formatDecimal(entry.amount / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+                            </td>
+                            <td style="text-align: center;">
+                                <button type="button" class="icon-btn"
+                                        th:attr="hx-get=@{/cash-flow/entries/{id}/edit-inline(id=${entry.id}, month=${month}, direction=${direction})}"
+                                        hx-target="closest tr"
+                                        hx-swap="outerHTML"
+                                        title="Editar">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(entries)}">
+                            <td colspan="6" style="text-align: center; padding: 2rem;">
+                                <em>Nenhum lancamento encontrado</em>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot th:if="${!#lists.isEmpty(entries)}">
+                        <tr style="font-weight: 600;">
+                            <td colspan="5">Total</td>
+                            <td style="text-align: right;">
+                                R$ <span th:text="${#numbers.formatDecimal(totalAmount / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function closeCfModal() {
+            document.getElementById('cashFlowEntriesModal').innerHTML = '';
+        }
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeCfModal();
+        });
+    </script>
+</div>
+
+
+</body>
+</html>

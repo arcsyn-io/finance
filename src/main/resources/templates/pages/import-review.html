@@ -52,8 +52,14 @@
             vertical-align: middle;
         }
         #import-rows input,
-        #import-rows select {
+        #import-rows select,
+        #import-rows textarea {
             margin: 0;
+        }
+        #import-rows textarea {
+            field-sizing: content;
+            resize: none;
+            min-height: unset;
         }
         #import-rows tr.selected {
             background: var(--pico-primary-background);

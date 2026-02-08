@@ -391,6 +391,40 @@ public class EntryRepository {
     }
 
     /**
+     * Lista lançamentos do fluxo de caixa para um período e direção.
+     * Mesmos filtros de calculateMonthlyCashFlowReceipts/Expenses.
+     */
+    public List<Entry> listCashFlowEntries(LocalDateTime startDate, LocalDateTime endDate, EntryDirection direction) {
+        return dsl.select(
+                    field("e.id"),
+                    field("e.wallet_id"),
+                    field("e.category_id"),
+                    field("e.nature"),
+                    field("e.direction"),
+                    field("e.amount"),
+                    field("e.occurred_at"),
+                    field("e.description"),
+                    field("e.transfer_id"),
+                    field("e.created_at"),
+                    field("e.deleted_at"),
+                    field("w.name").as("wallet_name"),
+                    field("c.name").as("category_name")
+                )
+                .from(table("entry").as("e"))
+                .join(table("wallet").as("w")).on(field("e.wallet_id").eq(field("w.id")))
+                .join(table("category").as("c")).on(field("e.category_id").eq(field("c.id")))
+                .where(field("e.deleted_at").isNull())
+                .and(field("e.direction").eq(direction.name()))
+                .and(field("e.nature").eq(EntryNature.OPERATIONAL.name()))
+                .and(field("w.type").eq("CASH"))
+                .and(field("e.transfer_id").isNull())
+                .and(field("e.occurred_at").ge(startDate.format(SQLITE_DATETIME)))
+                .and(field("e.occurred_at").lt(endDate.format(SQLITE_DATETIME)))
+                .orderBy(field("e.occurred_at").desc(), field("e.id").desc())
+                .fetch(this::mapToEntry);
+    }
+
+    /**
      * Calcula despesas mensais para fluxo de caixa.
      * Considera apenas: wallet.type = CASH, nature = OPERATIONAL, transfer_id IS NULL
      */
@@ -403,6 +437,188 @@ public class EntryRepository {
                 .and(field("e.nature").eq(EntryNature.OPERATIONAL.name()))
                 .and(field("w.type").eq("CASH"))
                 .and(field("e.transfer_id").isNull())
+                .and(field("e.occurred_at").ge(startDate.format(SQLITE_DATETIME)))
+                .and(field("e.occurred_at").lt(endDate.format(SQLITE_DATETIME)))
+                .fetchOne(0, Long.class);
+    }
+
+    /**
+     * Lista lançamentos operacionais em carteiras CASH para um período, direção e categoria.
+     * Mesmos filtros de calculateMonthlyCashFlowReceipts/Expenses, com filtro adicional de categoria.
+     */
+    public List<Entry> listOperationalCashEntries(LocalDateTime startDate, LocalDateTime endDate,
+                                                    EntryDirection direction, long categoryId) {
+        return dsl.select(
+                    field("e.id"),
+                    field("e.wallet_id"),
+                    field("e.category_id"),
+                    field("e.nature"),
+                    field("e.direction"),
+                    field("e.amount"),
+                    field("e.occurred_at"),
+                    field("e.description"),
+                    field("e.transfer_id"),
+                    field("e.created_at"),
+                    field("e.deleted_at"),
+                    field("w.name").as("wallet_name"),
+                    field("c.name").as("category_name")
+                )
+                .from(table("entry").as("e"))
+                .join(table("wallet").as("w")).on(field("e.wallet_id").eq(field("w.id")))
+                .join(table("category").as("c")).on(field("e.category_id").eq(field("c.id")))
+                .where(field("e.deleted_at").isNull())
+                .and(field("e.direction").eq(direction.name()))
+                .and(field("e.category_id").eq(categoryId))
+                .and(field("e.nature").eq(EntryNature.OPERATIONAL.name()))
+                .and(field("w.type").eq("CASH"))
+                .and(field("e.transfer_id").isNull())
+                .and(field("e.occurred_at").ge(startDate.format(SQLITE_DATETIME)))
+                .and(field("e.occurred_at").lt(endDate.format(SQLITE_DATETIME)))
+                .orderBy(field("e.occurred_at").desc(), field("e.id").desc())
+                .fetch(this::mapToEntry);
+    }
+
+    /**
+     * Lista lançamentos não-operacionais em carteiras CASH para um período, direção e categoria.
+     * Mesmos filtros de calculateMonthlyNonOperationalCash*, com filtro adicional de categoria.
+     */
+    public List<Entry> listNonOperationalCashEntries(LocalDateTime startDate, LocalDateTime endDate,
+                                                      EntryDirection direction, long categoryId) {
+        return dsl.select(
+                    field("e.id"),
+                    field("e.wallet_id"),
+                    field("e.category_id"),
+                    field("e.nature"),
+                    field("e.direction"),
+                    field("e.amount"),
+                    field("e.occurred_at"),
+                    field("e.description"),
+                    field("e.transfer_id"),
+                    field("e.created_at"),
+                    field("e.deleted_at"),
+                    field("w.name").as("wallet_name"),
+                    field("c.name").as("category_name")
+                )
+                .from(table("entry").as("e"))
+                .join(table("wallet").as("w")).on(field("e.wallet_id").eq(field("w.id")))
+                .join(table("category").as("c")).on(field("e.category_id").eq(field("c.id")))
+                .where(field("e.deleted_at").isNull())
+                .and(field("e.direction").eq(direction.name()))
+                .and(field("e.category_id").eq(categoryId))
+                .and(field("w.type").eq("CASH"))
+                .and(
+                    field("e.nature").ne(EntryNature.OPERATIONAL.name())
+                    .or(field("e.transfer_id").isNotNull())
+                )
+                .and(field("e.occurred_at").ge(startDate.format(SQLITE_DATETIME)))
+                .and(field("e.occurred_at").lt(endDate.format(SQLITE_DATETIME)))
+                .orderBy(field("e.occurred_at").desc(), field("e.id").desc())
+                .fetch(this::mapToEntry);
+    }
+
+    /**
+     * Calcula entradas não-operacionais em carteiras CASH (resgates, transferências recebidas).
+     * Complemento do fluxo de caixa: wallet.type = CASH, mas (nature != OPERATIONAL ou transfer_id IS NOT NULL).
+     */
+    public long calculateMonthlyNonOperationalCashIn(LocalDateTime startDate, LocalDateTime endDate) {
+        return dsl.select(field("COALESCE(SUM(e.amount), 0)"))
+                .from(table("entry").as("e"))
+                .join(table("wallet").as("w")).on(field("e.wallet_id").eq(field("w.id")))
+                .where(field("e.deleted_at").isNull())
+                .and(field("e.direction").eq(EntryDirection.IN.name()))
+                .and(field("w.type").eq("CASH"))
+                .and(
+                    field("e.nature").ne(EntryNature.OPERATIONAL.name())
+                    .or(field("e.transfer_id").isNotNull())
+                )
+                .and(field("e.occurred_at").ge(startDate.format(SQLITE_DATETIME)))
+                .and(field("e.occurred_at").lt(endDate.format(SQLITE_DATETIME)))
+                .fetchOne(0, Long.class);
+    }
+
+    /**
+     * Lista movimentações não-operacionais em carteiras CASH agrupadas por mês, categoria e direção.
+     * Mesmos critérios dos métodos calculateMonthlyNonOperationalCash*.
+     * Retorna: [month (YYYY-MM), categoryId, categoryName, direction, total]
+     */
+    public List<Object[]> listNonOperationalCashByCategory(LocalDateTime startDate, LocalDateTime endDate) {
+        return dsl.select(
+                    field("strftime('%Y-%m', e.occurred_at)").as("month"),
+                    field("c.id"),
+                    field("c.name"),
+                    field("e.direction"),
+                    field("SUM(e.amount)").as("total")
+                )
+                .from(table("entry").as("e"))
+                .join(table("wallet").as("w")).on(field("e.wallet_id").eq(field("w.id")))
+                .join(table("category").as("c")).on(field("e.category_id").eq(field("c.id")))
+                .where(field("e.deleted_at").isNull())
+                .and(field("w.type").eq("CASH"))
+                .and(
+                    field("e.nature").ne(EntryNature.OPERATIONAL.name())
+                    .or(field("e.transfer_id").isNotNull())
+                )
+                .and(field("e.occurred_at").ge(startDate.format(SQLITE_DATETIME)))
+                .and(field("e.occurred_at").lt(endDate.format(SQLITE_DATETIME)))
+                .groupBy(field("strftime('%Y-%m', e.occurred_at)"), field("c.id"), field("c.name"), field("e.direction"))
+                .orderBy(field("total").desc())
+                .fetch(r -> new Object[]{
+                        (String) r.get("month"),
+                        ((Number) r.get("c.id")).longValue(),
+                        (String) r.get("c.name"),
+                        (String) r.get("e.direction"),
+                        ((Number) r.get("total")).longValue()
+                });
+    }
+
+    /**
+     * Lista movimentações operacionais em carteiras CASH agrupadas por mês, categoria e direção.
+     * Mesmos critérios dos métodos calculateMonthlyCashFlowReceipts/Expenses.
+     * Retorna: [month (YYYY-MM), categoryId, categoryName, direction, total]
+     */
+    public List<Object[]> listOperationalCashByCategory(LocalDateTime startDate, LocalDateTime endDate) {
+        return dsl.select(
+                    field("strftime('%Y-%m', e.occurred_at)").as("month"),
+                    field("c.id"),
+                    field("c.name"),
+                    field("e.direction"),
+                    field("SUM(e.amount)").as("total")
+                )
+                .from(table("entry").as("e"))
+                .join(table("wallet").as("w")).on(field("e.wallet_id").eq(field("w.id")))
+                .join(table("category").as("c")).on(field("e.category_id").eq(field("c.id")))
+                .where(field("e.deleted_at").isNull())
+                .and(field("w.type").eq("CASH"))
+                .and(field("e.nature").eq(EntryNature.OPERATIONAL.name()))
+                .and(field("e.transfer_id").isNull())
+                .and(field("e.occurred_at").ge(startDate.format(SQLITE_DATETIME)))
+                .and(field("e.occurred_at").lt(endDate.format(SQLITE_DATETIME)))
+                .groupBy(field("strftime('%Y-%m', e.occurred_at)"), field("c.id"), field("c.name"), field("e.direction"))
+                .orderBy(field("total").desc())
+                .fetch(r -> new Object[]{
+                        (String) r.get("month"),
+                        ((Number) r.get("c.id")).longValue(),
+                        (String) r.get("c.name"),
+                        (String) r.get("e.direction"),
+                        ((Number) r.get("total")).longValue()
+                });
+    }
+
+    /**
+     * Calcula saídas não-operacionais de carteiras CASH (aplicações, transferências enviadas).
+     * Complemento do fluxo de caixa: wallet.type = CASH, mas (nature != OPERATIONAL ou transfer_id IS NOT NULL).
+     */
+    public long calculateMonthlyNonOperationalCashOut(LocalDateTime startDate, LocalDateTime endDate) {
+        return dsl.select(field("COALESCE(SUM(e.amount), 0)"))
+                .from(table("entry").as("e"))
+                .join(table("wallet").as("w")).on(field("e.wallet_id").eq(field("w.id")))
+                .where(field("e.deleted_at").isNull())
+                .and(field("e.direction").eq(EntryDirection.OUT.name()))
+                .and(field("w.type").eq("CASH"))
+                .and(
+                    field("e.nature").ne(EntryNature.OPERATIONAL.name())
+                    .or(field("e.transfer_id").isNotNull())
+                )
                 .and(field("e.occurred_at").ge(startDate.format(SQLITE_DATETIME)))
                 .and(field("e.occurred_at").lt(endDate.format(SQLITE_DATETIME)))
                 .fetchOne(0, Long.class);

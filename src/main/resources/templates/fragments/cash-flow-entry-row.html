@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<tr th:fragment="entryRow">
+    <td th:text="${#temporals.format(entry.occurredAt, 'dd/MM/yyyy')}">01/01/2024</td>
+    <td th:text="${entry.description ?: '-'}">Descricao</td>
+    <td th:text="${entry.categoryName}">Categoria</td>
+    <td th:text="${entry.walletName}">Carteira</td>
+    <td style="text-align: right;">
+        R$ <span th:text="${#numbers.formatDecimal(entry.amount / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+    </td>
+    <td style="text-align: center;">
+        <button type="button" class="icon-btn"
+                th:attr="hx-get=@{/cash-flow/entries/{id}/edit-inline(id=${entry.id}, month=${month}, direction=${direction})}"
+                hx-target="closest tr"
+                hx-swap="outerHTML"
+                title="Editar">
+            <i class="fa-solid fa-pen-to-square"></i>
+        </button>
+    </td>
+</tr>
+
+<tr th:fragment="editRow">
+    <td colspan="6" style="padding: 1rem;">
+        <input type="hidden" name="month" th:value="${month}">
+        <input type="hidden" name="direction" th:value="${direction}">
+
+        <div class="cf-edit-row-form">
+            <label>
+                <small>Categoria</small>
+                <th:block th:replace="~{fragments/category-select :: select(categories=${categories}, selectId='categoryId', selectedId=${entry.categoryId}, placeholder='__none__', required=${false})}"/>
+            </label>
+            <label>
+                <small>Carteira</small>
+                <select name="walletId">
+                    <option th:each="w : ${wallets}"
+                            th:value="${w.id}"
+                            th:text="${w.name}"
+                            th:selected="${w.id == entry.walletId}">
+                    </option>
+                </select>
+            </label>
+            <label style="grid-column: 1 / -1;">
+                <small>Descricao</small>
+                <input type="text" name="description"
+                       th:value="${entry.description}"
+                       placeholder="Descricao...">
+            </label>
+        </div>
+        <div class="cf-edit-row-actions">
+            <button type="button" class="outline secondary"
+                    th:attr="hx-get=@{/cash-flow/entries/{id}/row(id=${entry.id}, month=${month}, direction=${direction})}"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML">
+                Cancelar
+            </button>
+            <button type="button"
+                    th:attr="hx-post=@{/cash-flow/entries/{id}(id=${entry.id})}"
+                    hx-target="#cfModalBody"
+                    hx-swap="outerHTML"
+                    hx-include="closest tr">
+                Salvar
+            </button>
+        </div>
+    </td>
+</tr>
+
+</body>
+</html>
