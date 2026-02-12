@@ -8,6 +8,8 @@ import com.lucaskalb.finance.exception.EntryNotFoundException;
 import com.lucaskalb.finance.exception.InvalidEntryException;
 import com.lucaskalb.finance.exception.InvalidTransferException;
 import com.lucaskalb.finance.exception.WalletNotFoundException;
+import com.lucaskalb.finance.model.EconomicEvent;
+import com.lucaskalb.finance.model.EntryDirection;
 import com.lucaskalb.finance.model.EntryNature;
 import com.lucaskalb.finance.model.Period;
 import com.lucaskalb.finance.service.CategoryService;
@@ -51,25 +53,45 @@ public class EntryController {
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) EntryNature nature,
             @RequestParam(name = "showDeleted", defaultValue = "false") boolean showDeleted,
+            @RequestParam(required = false) LocalDate customStart,
+            @RequestParam(required = false) LocalDate customEnd,
             Model model,
             HttpSession session
     ) {
-        var dateRange = calculateDateRange(period, offset);
+        var dateRange = period == Period.CUSTOM && customStart != null && customEnd != null
+                ? new DateRange(customStart, customEnd)
+                : calculateDateRange(period, offset);
         var entries = entryService.list(
                 dateRange.start().atStartOfDay(),
                 dateRange.end().atTime(LocalTime.MAX),
                 walletId, categoryId, nature, showDeleted
         );
 
+        var activeEntries = entries.stream().filter(e -> !e.isDeleted()).toList();
+        var totalIn = activeEntries.stream()
+                .filter(e -> e.getDirection() == EntryDirection.IN)
+                .mapToLong(e -> e.getAmount()).sum();
+        var totalOut = activeEntries.stream()
+                .filter(e -> e.getDirection() == EntryDirection.OUT)
+                .mapToLong(e -> e.getAmount()).sum();
+
         model.addAttribute("title", "Lançamentos - Finance");
         model.addAttribute("entries", entries);
+        var totalBalance = totalIn - totalOut;
+        model.addAttribute("totalIn", totalIn);
+        model.addAttribute("totalOut", totalOut);
+        model.addAttribute("totalBalance", totalBalance);
+        model.addAttribute("totalBalanceAbs", Math.abs(totalBalance));
         model.addAttribute("wallets", walletService.listActive());
         model.addAttribute("categories", categoryService.listActive());
         model.addAttribute("natures", EntryNature.values());
+        model.addAttribute("economicEvents", EconomicEvent.values());
         model.addAttribute("periods", Period.values());
         model.addAttribute("selectedPeriod", period);
         model.addAttribute("offset", offset);
-        model.addAttribute("periodLabel", formatPeriodLabel(period, dateRange.start()));
+        model.addAttribute("periodLabel", formatPeriodLabel(period, dateRange.start(), dateRange.end()));
+        model.addAttribute("customStart", period == Period.CUSTOM ? dateRange.start() : null);
+        model.addAttribute("customEnd", period == Period.CUSTOM ? dateRange.end() : null);
         model.addAttribute("selectedWalletId", walletId);
         model.addAttribute("selectedCategoryId", categoryId);
         model.addAttribute("selectedNature", nature);
@@ -112,26 +134,32 @@ public class EntryController {
                 var targetDay = baseDay.plusDays(offset);
                 yield new DateRange(targetDay, targetDay);
             }
+            case CUSTOM -> {
+                // fallback se chamado sem datas — usa mês atual
+                var start = today.with(TemporalAdjusters.firstDayOfMonth());
+                var end = today.with(TemporalAdjusters.lastDayOfMonth());
+                yield new DateRange(start, end);
+            }
         };
     }
 
-    private String formatPeriodLabel(Period period, LocalDate date) {
+    private String formatPeriodLabel(Period period, LocalDate start, LocalDate end) {
         var locale = new Locale("pt", "BR");
 
         return switch (period) {
             case CURRENT_MONTH, PREVIOUS_MONTH -> {
-                var month = date.getMonth().getDisplayName(TextStyle.FULL, locale);
+                var month = start.getMonth().getDisplayName(TextStyle.FULL, locale);
                 var capitalizedMonth = month.substring(0, 1).toUpperCase() + month.substring(1);
-                yield capitalizedMonth + " " + date.getYear();
+                yield capitalizedMonth + " " + start.getYear();
             }
-            case THIS_WEEK -> {
-                var endOfWeek = date.plusDays(6);
-                yield String.format("%02d/%02d - %02d/%02d/%d",
-                        date.getDayOfMonth(), date.getMonthValue(),
-                        endOfWeek.getDayOfMonth(), endOfWeek.getMonthValue(), endOfWeek.getYear());
-            }
+            case THIS_WEEK -> String.format("%02d/%02d - %02d/%02d/%d",
+                    start.getDayOfMonth(), start.getMonthValue(),
+                    end.getDayOfMonth(), end.getMonthValue(), end.getYear());
             case TODAY, YESTERDAY -> String.format("%02d/%02d/%d",
-                    date.getDayOfMonth(), date.getMonthValue(), date.getYear());
+                    start.getDayOfMonth(), start.getMonthValue(), start.getYear());
+            case CUSTOM -> String.format("%02d/%02d/%d - %02d/%02d/%d",
+                    start.getDayOfMonth(), start.getMonthValue(), start.getYear(),
+                    end.getDayOfMonth(), end.getMonthValue(), end.getYear());
         };
     }
 
@@ -140,6 +168,7 @@ public class EntryController {
         model.addAttribute("wallets", walletService.listActive());
         model.addAttribute("categories", categoryService.listActive());
         model.addAttribute("natures", EntryNature.values());
+        model.addAttribute("economicEvents", EconomicEvent.values());
         model.addAttribute("isEdit", false);
         return "fragments/entry-form :: form";
     }
@@ -149,6 +178,7 @@ public class EntryController {
             @RequestParam long walletId,
             @RequestParam long categoryId,
             @RequestParam EntryNature nature,
+            @RequestParam(required = false) EconomicEvent economicEvent,
             @RequestParam String amount,
             @RequestParam LocalDate occurredAt,
             @RequestParam(required = false) String description,
@@ -163,6 +193,7 @@ public class EntryController {
                     walletId,
                     categoryId,
                     nature,
+                    economicEvent,
                     amountCents,
                     occurredAt.atStartOfDay(),
                     description
@@ -173,7 +204,7 @@ public class EntryController {
             return null;
         } catch (InvalidEntryException | WalletNotFoundException | CategoryNotFoundException e) {
             model.addAttribute("errorMessage", e.getMessage());
-            addFormAttributes(model, walletId, categoryId, nature, amount, occurredAt, description, false);
+            addFormAttributes(model, walletId, categoryId, nature, economicEvent, amount, occurredAt, description, false);
             return "fragments/entry-form :: form";
         }
     }
@@ -187,6 +218,7 @@ public class EntryController {
             model.addAttribute("wallets", walletService.listActive());
             model.addAttribute("categories", categoryService.listActive());
             model.addAttribute("natures", EntryNature.values());
+            model.addAttribute("economicEvents", EconomicEvent.values());
             model.addAttribute("isEdit", true);
             return "fragments/entry-form :: form";
         } catch (EntryNotFoundException e) {
@@ -201,6 +233,7 @@ public class EntryController {
             @RequestParam long walletId,
             @RequestParam long categoryId,
             @RequestParam EntryNature nature,
+            @RequestParam(required = false) EconomicEvent economicEvent,
             @RequestParam String amount,
             @RequestParam LocalDate occurredAt,
             @RequestParam(required = false) String description,
@@ -216,6 +249,7 @@ public class EntryController {
                     walletId,
                     categoryId,
                     nature,
+                    economicEvent,
                     amountCents,
                     occurredAt.atStartOfDay(),
                     description
@@ -227,7 +261,7 @@ public class EntryController {
         } catch (InvalidEntryException | WalletNotFoundException | CategoryNotFoundException e) {
             model.addAttribute("errorMessage", e.getMessage());
             model.addAttribute("entry", Map.of("id", id));
-            addFormAttributes(model, walletId, categoryId, nature, amount, occurredAt, description, true);
+            addFormAttributes(model, walletId, categoryId, nature, economicEvent, amount, occurredAt, description, true);
             return "fragments/entry-form :: form";
         } catch (EntryNotFoundException e) {
             response.setHeader("HX-Redirect", getEntriesRedirectUrl(request));
@@ -360,13 +394,16 @@ public class EntryController {
     }
 
     private void addFormAttributes(Model model, long walletId, long categoryId, EntryNature nature,
-                                   String amount, LocalDate occurredAt, String description, boolean isEdit) {
+                                   EconomicEvent economicEvent, String amount, LocalDate occurredAt,
+                                   String description, boolean isEdit) {
         model.addAttribute("wallets", walletService.listActive());
         model.addAttribute("categories", categoryService.listActive());
         model.addAttribute("natures", EntryNature.values());
+        model.addAttribute("economicEvents", EconomicEvent.values());
         model.addAttribute("formWalletId", walletId);
         model.addAttribute("formCategoryId", categoryId);
         model.addAttribute("formNature", nature);
+        model.addAttribute("formEconomicEvent", economicEvent);
         model.addAttribute("formAmount", amount);
         model.addAttribute("formOccurredAt", occurredAt);
         model.addAttribute("formDescription", description);

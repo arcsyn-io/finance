@@ -5,7 +5,8 @@ public enum Period {
     PREVIOUS_MONTH("Mês anterior"),
     THIS_WEEK("Essa semana"),
     TODAY("Hoje"),
-    YESTERDAY("Ontem");
+    YESTERDAY("Ontem"),
+    CUSTOM("Personalizado");
 
     private final String label;
 

@@ -8,9 +8,11 @@ import com.lucaskalb.finance.exception.EntryNotFoundException;
 import com.lucaskalb.finance.exception.InvalidEntryException;
 import com.lucaskalb.finance.exception.WalletNotFoundException;
 import com.lucaskalb.finance.model.CategoryType;
+import com.lucaskalb.finance.model.EconomicEvent;
 import com.lucaskalb.finance.model.Entry;
 import com.lucaskalb.finance.model.EntryDirection;
 import com.lucaskalb.finance.model.EntryNature;
+import com.lucaskalb.finance.model.WalletType;
 import com.lucaskalb.finance.repository.CategoryRepository;
 import com.lucaskalb.finance.repository.EntryRepository;
 import com.lucaskalb.finance.repository.WalletRepository;
@@ -60,6 +62,10 @@ public class EntryService {
 
         var direction = inferDirection(category.getType());
 
+        var economicEvent = command.economicEvent() != null
+                ? command.economicEvent()
+                : inferEconomicEvent(wallet.getType(), command.nature(), direction, null);
+
         var id = entryRepository.insert(
                 command.walletId(),
                 command.categoryId(),
@@ -67,7 +73,8 @@ public class EntryService {
                 direction,
                 command.amount(),
                 command.occurredAt(),
-                command.description()
+                command.description(),
+                economicEvent
         );
 
         return entryRepository.findById(id).orElseThrow();
@@ -79,7 +86,7 @@ public class EntryService {
         validateOccurredAt(command.occurredAt());
         validateNature(command.nature());
 
-        entryRepository.findById(command.id())
+        var existing = entryRepository.findById(command.id())
                 .orElseThrow(() -> new EntryNotFoundException(command.id()));
 
         var wallet = walletRepository.findById(command.walletId())
@@ -94,6 +101,10 @@ public class EntryService {
 
         var direction = inferDirection(category.getType());
 
+        var economicEvent = command.economicEvent() != null
+                ? command.economicEvent()
+                : inferEconomicEvent(wallet.getType(), command.nature(), direction, existing.getTransferId());
+
         entryRepository.update(
                 command.id(),
                 command.walletId(),
@@ -102,7 +113,8 @@ public class EntryService {
                 direction,
                 command.amount(),
                 command.occurredAt(),
-                command.description()
+                command.description(),
+                economicEvent
         );
 
         return entryRepository.findById(command.id()).orElseThrow();
@@ -158,6 +170,11 @@ public class EntryService {
             var nature = EntryNature.valueOf(command.nature());
             entryRepository.batchUpdateNature(command.entryIds(), nature);
         }
+
+        if (command.economicEvent() != null && !command.economicEvent().isBlank()) {
+            var economicEvent = EconomicEvent.valueOf(command.economicEvent());
+            entryRepository.batchUpdateEconomicEvent(command.entryIds(), economicEvent);
+        }
     }
 
     @Transactional
@@ -210,8 +227,9 @@ public class EntryService {
     }
 
     @Transactional
-    public Entry updateFields(long entryId, long walletId, long categoryId, EntryNature nature, String description) {
-        entryRepository.findById(entryId)
+    public Entry updateFields(long entryId, long walletId, long categoryId, EntryNature nature,
+                              EconomicEvent economicEvent, String description) {
+        var existing = entryRepository.findById(entryId)
                 .orElseThrow(() -> new EntryNotFoundException(entryId));
 
         var wallet = walletRepository.findById(walletId)
@@ -227,7 +245,12 @@ public class EntryService {
                 .orElseThrow(CategoryNotFoundException::new);
 
         var direction = inferDirection(category.getType());
-        entryRepository.updateFields(entryId, walletId, categoryId, nature, direction, description);
+
+        var resolvedEvent = economicEvent != null
+                ? economicEvent
+                : inferEconomicEvent(wallet.getType(), nature, direction, existing.getTransferId());
+
+        entryRepository.updateFields(entryId, walletId, categoryId, nature, direction, description, resolvedEvent);
 
         return entryRepository.findById(entryId).orElseThrow();
     }
@@ -275,5 +298,22 @@ public class EntryService {
 
     private EntryDirection inferDirection(CategoryType categoryType) {
         return categoryType == CategoryType.INCOME ? EntryDirection.IN : EntryDirection.OUT;
+    }
+
+    public static EconomicEvent inferEconomicEvent(WalletType walletType, EntryNature nature,
+                                                    EntryDirection direction, Long transferId) {
+        if (transferId != null) {
+            return EconomicEvent.TRANSFER;
+        }
+        if (walletType == WalletType.NEGOTIABLE_SECURITY || walletType == WalletType.LONG_TERM || walletType == WalletType.ASSET) {
+            return EconomicEvent.INVESTMENT;
+        }
+        if (nature == EntryNature.OPERATIONAL && direction == EntryDirection.OUT && walletType == WalletType.CASH) {
+            return EconomicEvent.LIQUIDATION;
+        }
+        if (direction == EntryDirection.OUT) {
+            return EconomicEvent.CONSUMPTION;
+        }
+        return EconomicEvent.INVESTMENT;
     }
 }

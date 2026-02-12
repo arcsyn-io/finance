@@ -187,7 +187,7 @@ public class CashFlowController {
 
         try {
             var entry = entryService.findById(entryId);
-            entryService.updateFields(entryId, walletId, categoryId, entry.getNature(), description);
+            entryService.updateFields(entryId, walletId, categoryId, entry.getNature(), entry.getEconomicEvent(), description);
         } catch (Exception e) {
             model.addAttribute("errorMessage", e.getMessage());
         }

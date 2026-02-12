@@ -180,7 +180,7 @@ public class ConsumptionController {
             Model model
     ) {
         try {
-            entryService.updateFields(entryId, walletId, categoryId, nature, description);
+            entryService.updateFields(entryId, walletId, categoryId, nature, null, description);
         } catch (Exception e) {
             model.addAttribute("errorMessage", e.getMessage());
         }

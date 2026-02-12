@@ -84,6 +84,56 @@
         .badge-negotiable_security { background: #10b98133; color: #34d399; }
         .badge-long_term { background: #7c3aed33; color: #a78bfa; }
         .badge-asset { background: #f59e0b33; color: #fbbf24; }
+        .period-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+        .period-nav a.outline {
+            padding: 0.5rem 0.75rem;
+            margin: 0;
+        }
+        .period-dropdown {
+            position: relative;
+        }
+        .period-label {
+            font-size: 1.25rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            min-width: 200px;
+        }
+        .period-label i {
+            font-size: 0.875rem;
+        }
+        .period-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 0.5rem;
+            background: var(--pico-card-background-color);
+            border: 1px solid var(--pico-muted-border-color);
+            border-radius: 0.5rem;
+            padding: 0.5rem 0;
+            min-width: 180px;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            white-space: nowrap;
+        }
+        .period-dropdown-menu a {
+            display: block;
+            padding: 0.5rem 1rem;
+            color: var(--pico-color);
+            text-decoration: none;
+        }
+        .period-dropdown-menu a:hover {
+            background: var(--pico-primary-background);
+        }
     </style>
 
     <nav aria-label="breadcrumb" style="margin-bottom: 1rem;">
@@ -113,6 +163,87 @@
 
     <h2 style="margin-bottom: 1rem;">Movimentações</h2>
 
+    <form method="get" th:action="@{/wallets/{id}(id=${wallet.id})}" id="filtersForm">
+        <input type="hidden" name="offset" id="offsetInput" th:value="${offset}">
+        <input type="hidden" name="period" id="periodInput" th:value="${selectedPeriod.name()}">
+        <input type="hidden" name="customStart" id="customStartInput" th:value="${customStart}">
+        <input type="hidden" name="customEnd" id="customEndInput" th:value="${customEnd}">
+    </form>
+
+    <div class="period-nav">
+        <a href="#" class="outline" th:data-offset="${offset - 1}" onclick="navigateOffset(this.dataset.offset); return false;"
+           th:style="${selectedPeriod.name() == 'CUSTOM'} ? 'display:none' : ''">
+            <i class="fa-solid fa-chevron-left"></i>
+        </a>
+        <div class="period-dropdown">
+            <span class="period-label" onclick="togglePeriodDropdown()">
+                <span th:text="${periodLabel}">Janeiro 2024</span>
+                <i class="fa-solid fa-caret-down"></i>
+            </span>
+            <div id="periodDropdownMenu" class="period-dropdown-menu">
+                <a th:each="p : ${periods}"
+                   href="#"
+                   th:text="${p.label}"
+                   th:data-period="${p.name()}"
+                   onclick="selectPeriod(this.dataset.period); return false;">
+                </a>
+            </div>
+        </div>
+        <a href="#" class="outline" th:data-offset="${offset + 1}" onclick="navigateOffset(this.dataset.offset); return false;"
+           th:style="${selectedPeriod.name() == 'CUSTOM'} ? 'display:none' : ''">
+            <i class="fa-solid fa-chevron-right"></i>
+        </a>
+        <div id="customDateRange" th:style="${selectedPeriod.name() == 'CUSTOM'} ? 'display:flex' : 'display:none'"
+             style="display:none; align-items: center; gap: 0.5rem;">
+            <input type="date" id="customStartPicker" th:value="${customStart}" style="margin:0; width:auto;">
+            <span>—</span>
+            <input type="date" id="customEndPicker" th:value="${customEnd}" style="margin:0; width:auto;">
+            <button type="button" class="outline" style="margin:0; padding: 0.5rem 0.75rem;" onclick="applyCustomPeriod()">
+                <i class="fa-solid fa-check"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function togglePeriodDropdown() {
+            var menu = document.getElementById('periodDropdownMenu');
+            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        }
+        function selectPeriod(period) {
+            document.getElementById('periodInput').value = period;
+            document.getElementById('offsetInput').value = 0;
+            if (period === 'CUSTOM') {
+                document.getElementById('customDateRange').style.display = 'flex';
+                document.querySelectorAll('.period-nav a.outline').forEach(function(el) { el.style.display = 'none'; });
+                document.getElementById('customStartPicker').focus();
+                return;
+            }
+            document.getElementById('customStartInput').value = '';
+            document.getElementById('customEndInput').value = '';
+            document.getElementById('filtersForm').submit();
+        }
+        function applyCustomPeriod() {
+            var start = document.getElementById('customStartPicker').value;
+            var end = document.getElementById('customEndPicker').value;
+            if (!start || !end) return;
+            document.getElementById('customStartInput').value = start;
+            document.getElementById('customEndInput').value = end;
+            document.getElementById('periodInput').value = 'CUSTOM';
+            document.getElementById('offsetInput').value = 0;
+            document.getElementById('filtersForm').submit();
+        }
+        function navigateOffset(offset) {
+            document.getElementById('offsetInput').value = offset;
+            document.getElementById('filtersForm').submit();
+        }
+        document.addEventListener('click', function(e) {
+            var dropdown = document.querySelector('.period-dropdown');
+            if (dropdown && !dropdown.contains(e.target)) {
+                document.getElementById('periodDropdownMenu').style.display = 'none';
+            }
+        });
+    </script>
+
     <figure>
         <table>
             <thead>
@@ -127,7 +258,9 @@
             <tbody>
                 <tr th:each="entry : ${entries}" th:id="'entry-row-' + ${entry.id}">
                     <td th:text="${#temporals.format(entry.occurredAt, 'dd/MM/yyyy')}">01/01/2024</td>
-                    <td th:text="${entry.description ?: '-'}">Descrição</td>
+                    <td th:text="${entry.description ?: '-'}"
+                        style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                        th:title="${entry.description}">Descrição</td>
                     <td th:text="${entry.categoryName}">Categoria</td>
                     <td>
                         <span th:class="${entry.nature.name() == 'OPERATIONAL' ? 'badge-operational' : 'badge-patrimonial'}"
@@ -142,10 +275,30 @@
                 </tr>
                 <tr th:if="${#lists.isEmpty(entries)}">
                     <td colspan="5" style="text-align: center; padding: 2rem;">
-                        Nenhuma movimentação encontrada nesta carteira.
+                        Nenhuma movimentação encontrada neste período.
                     </td>
                 </tr>
             </tbody>
+            <tfoot th:if="${!#lists.isEmpty(entries)}">
+                <tr>
+                    <td colspan="4" style="text-align: right; font-weight: 600;">
+                        <div style="display: flex; flex-direction: column; gap: 0.25rem; align-items: flex-end;">
+                            <span>Entradas</span>
+                            <span>Saídas</span>
+                            <span style="border-top: 1px solid var(--pico-muted-border-color); padding-top: 0.25rem;">Saldo do período</span>
+                        </div>
+                    </td>
+                    <td style="text-align: right; font-weight: 600;">
+                        <div style="display: flex; flex-direction: column; gap: 0.25rem; align-items: flex-end;">
+                            <span class="amount-in" th:text="'+R$ ' + ${#numbers.formatDecimal(totalIn / 100.0, 1, 'POINT', 2, 'COMMA')}">+R$ 0,00</span>
+                            <span class="amount-out" th:text="'-R$ ' + ${#numbers.formatDecimal(totalOut / 100.0, 1, 'POINT', 2, 'COMMA')}">-R$ 0,00</span>
+                            <span style="border-top: 1px solid var(--pico-muted-border-color); padding-top: 0.25rem;"
+                                  th:class="${periodBalance >= 0 ? 'amount-in' : 'amount-out'}"
+                                  th:text="${(periodBalance >= 0 ? '+' : '-') + 'R$ ' + #numbers.formatDecimal(periodBalanceAbs / 100.0, 1, 'POINT', 2, 'COMMA')}">R$ 0,00</span>
+                        </div>
+                    </td>
+                </tr>
+            </tfoot>
         </table>
     </figure>
 </div>

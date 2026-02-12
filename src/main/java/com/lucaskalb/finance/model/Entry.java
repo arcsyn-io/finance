@@ -18,6 +18,7 @@ public class Entry {
     private String description;
     private String externalId; // identificador externo (único por carteira)
     private Long transferId; // referência à transferência (quando vinculado)
+    private EconomicEvent economicEvent;
     private LocalDateTime createdAt;
     private LocalDateTime deletedAt;
 

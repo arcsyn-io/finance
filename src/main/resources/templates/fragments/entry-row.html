@@ -8,7 +8,9 @@
     <td th:text="${#temporals.format(entry.occurredAt, 'dd/MM/yyyy')}"
         th:style="${entry.deleted ? 'text-decoration: line-through;' : ''}">01/01/2024</td>
     <td th:text="${entry.description ?: '-'}"
-        th:style="${entry.deleted ? 'text-decoration: line-through;' : ''}">Descrição</td>
+        style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+        th:title="${entry.description}"
+        th:style="${entry.deleted ? 'max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: line-through;' : 'max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'}">Descrição</td>
     <td th:text="${entry.walletName}"
         th:style="${entry.deleted ? 'text-decoration: line-through;' : ''}">Nubank</td>
     <td th:text="${entry.categoryName}"
@@ -16,6 +18,11 @@
     <td>
         <span th:class="${entry.nature.name() == 'OPERATIONAL' ? 'badge-operational' : 'badge-patrimonial'}"
               th:text="${entry.nature.name() == 'OPERATIONAL' ? 'Operacional' : 'Patrimonial'}">Natureza</span>
+    </td>
+    <td>
+        <span th:if="${entry.economicEvent != null}"
+              th:class="'badge-' + ${entry.economicEvent.name().toLowerCase()}"
+              th:text="${entry.economicEvent.name() == 'CONSUMPTION' ? 'Consumo' : entry.economicEvent.name() == 'LIQUIDATION' ? 'Liquidação' : entry.economicEvent.name() == 'INVESTMENT' ? 'Investimento' : 'Transferência'}">Evento</span>
     </td>
     <td style="text-align: right;">
         <span th:class="${entry.direction.name() == 'IN' ? 'amount-in' : 'amount-out'}"
@@ -69,7 +76,7 @@
 </tr>
 
 <tr th:fragment="empty">
-    <td colspan="8" style="text-align: center;">Erro ao processar lançamento</td>
+    <td colspan="9" style="text-align: center;">Erro ao processar lançamento</td>
 </tr>
 </body>
 </html>

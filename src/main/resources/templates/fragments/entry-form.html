@@ -58,6 +58,18 @@
             </select>
         </label>
 
+        <label for="economicEvent">
+            Evento Econômico
+            <select id="economicEvent" name="economicEvent">
+                <option value="">Inferir automaticamente</option>
+                <option th:each="ev : ${economicEvents}"
+                        th:value="${ev.name()}"
+                        th:text="${ev.name() == 'CONSUMPTION' ? 'Consumo' : ev.name() == 'LIQUIDATION' ? 'Liquidação' : ev.name() == 'INVESTMENT' ? 'Investimento' : 'Transferência'}"
+                        th:selected="${formEconomicEvent != null ? formEconomicEvent == ev : entry?.economicEvent == ev}">
+                </option>
+            </select>
+        </label>
+
         <label for="amount">
             Valor (R$)
             <input type="text"
