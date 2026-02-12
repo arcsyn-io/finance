@@ -341,6 +341,7 @@ public class DevDataInitializer implements CommandLineRunner {
                 wallet.getId(),
                 category.getId(),
                 nature,
+                null,
                 amount,
                 occurredAt,
                 description

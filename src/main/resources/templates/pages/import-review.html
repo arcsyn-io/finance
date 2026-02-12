@@ -60,6 +60,7 @@
             field-sizing: content;
             resize: none;
             min-height: unset;
+            max-width: 400px;
         }
         #import-rows tr.selected {
             background: var(--pico-primary-background);
@@ -130,6 +131,10 @@
             <dd th:text="${importRequest.nature != null ? (importRequest.nature.name() == 'OPERATIONAL' ? 'Operacional' : 'Patrimonial') : 'Nenhuma'}">Operacional</dd>
         </div>
         <div>
+            <dt>Evento Economico padrao</dt>
+            <dd th:text="${importRequest.economicEvent != null ? (importRequest.economicEvent.name() == 'CONSUMPTION' ? 'Consumo' : importRequest.economicEvent.name() == 'LIQUIDATION' ? 'Liquidação' : importRequest.economicEvent.name() == 'INVESTMENT' ? 'Investimento' : 'Transferência') : 'Inferir auto.'}">Inferir auto.</dd>
+        </div>
+        <div>
             <dt>Total de lancamentos</dt>
             <dd th:text="${#lists.size(importRequest.rows)}">0</dd>
         </div>
@@ -157,6 +162,14 @@
                 <option th:each="n : ${natures}" th:value="${n.name()}" th:text="${n.name() == 'OPERATIONAL' ? 'Operacional' : 'Patrimonial'}"></option>
             </select>
         </label>
+        <label>
+            Evento:
+            <select id="batchEconomicEvent">
+                <option value="">-- Manter --</option>
+                <option value="__clear__">Inferir auto.</option>
+                <option th:each="ev : ${economicEvents}" th:value="${ev.name()}" th:text="${ev.name() == 'CONSUMPTION' ? 'Consumo' : ev.name() == 'LIQUIDATION' ? 'Liquidação' : ev.name() == 'INVESTMENT' ? 'Investimento' : 'Transferência'}"></option>
+            </select>
+        </label>
         <button type="button" onclick="applyBatchChanges()">Aplicar</button>
         <button type="button" class="outline" onclick="clearSelection()">Limpar</button>
     </div>
@@ -171,16 +184,17 @@
                     <th>Carteira</th>
                     <th>Categoria</th>
                     <th>Natureza</th>
+                    <th>Evento</th>
                     <th style="text-align: right;">Valor</th>
                     <th style="text-align: right;">Acoes</th>
                 </tr>
             </thead>
             <tbody id="import-rows">
                 <th:block th:each="row : ${importRequest.rows}">
-                    <tr th:replace="~{fragments/import-row :: row(row=${row}, importRequest=${importRequest}, wallets=${wallets}, categories=${categories}, natures=${natures})}"></tr>
+                    <tr th:replace="~{fragments/import-row :: row(row=${row}, importRequest=${importRequest}, wallets=${wallets}, categories=${categories}, natures=${natures}, economicEvents=${economicEvents})}"></tr>
                 </th:block>
                 <tr th:if="${#lists.isEmpty(importRequest.rows)}">
-                    <td colspan="8" style="text-align: center; padding: 2rem;">
+                    <td colspan="9" style="text-align: center; padding: 2rem;">
                         Nenhum lancamento para importar.
                     </td>
                 </tr>
@@ -222,6 +236,7 @@
             document.getElementById('batchWallet').value = '';
             document.getElementById('batchCategory').value = '';
             document.getElementById('batchNature').value = '';
+            document.getElementById('batchEconomicEvent').value = '';
             updateBatchActions();
         }
 
@@ -232,8 +247,9 @@
             var walletValue = document.getElementById('batchWallet').value;
             var categoryValue = document.getElementById('batchCategory').value;
             var natureValue = document.getElementById('batchNature').value;
+            var economicEventValue = document.getElementById('batchEconomicEvent').value;
 
-            if (!walletValue && !categoryValue && !natureValue) {
+            if (!walletValue && !categoryValue && !natureValue && !economicEventValue) {
                 alert('Selecione pelo menos um campo para alterar');
                 return;
             }
@@ -247,7 +263,8 @@
                 rowIds: rowIds,
                 walletId: walletValue === '__clear__' ? '' : walletValue,
                 categoryId: categoryValue === '__clear__' ? '' : categoryValue,
-                nature: natureValue === '__clear__' ? '' : natureValue
+                nature: natureValue === '__clear__' ? '' : natureValue,
+                economicEvent: economicEventValue === '__clear__' ? '' : economicEventValue
             };
 
             fetch('/imports/' + importId + '/rows/batch', {
@@ -266,6 +283,7 @@
                         if (walletValue) selects[0].value = walletValue === '__clear__' ? '' : walletValue;
                         if (categoryValue) selects[1].value = categoryValue === '__clear__' ? '' : categoryValue;
                         if (natureValue) selects[2].value = natureValue === '__clear__' ? '' : natureValue;
+                        if (economicEventValue) selects[3].value = economicEventValue === '__clear__' ? '' : economicEventValue;
                     });
                     clearSelection();
                 }

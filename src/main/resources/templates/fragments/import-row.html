@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
 <body>
-<tr th:fragment="row(row, importRequest, wallets, categories, natures)"
+<tr th:fragment="row(row, importRequest, wallets, categories, natures, economicEvents)"
     th:id="${'row-' + row.id}">
     <td><input type="checkbox" class="row-checkbox"></td>
     <td th:text="${#temporals.format(row.occurredAt, 'dd/MM/yyyy')}">01/01/2024</td>
@@ -81,6 +81,26 @@
                     th:value="${n.name()}"
                     th:text="${n.name() == 'OPERATIONAL' ? 'Operacional' : 'Patrimonial'}"
                     th:selected="${row.nature == n}">
+            </option>
+        </select>
+    </td>
+    <td>
+        <select name="value"
+                th:hx-post="@{/imports/{id}/rows/{rowId}/field(id=${importRequest.id}, rowId=${row.id})}"
+                hx-trigger="change"
+                hx-vals='{"field":"economicEvent"}'
+                hx-swap="none">
+            <option value=""
+                    th:if="${importRequest.economicEvent != null}"
+                    th:selected="${row.economicEvent == null}"
+                    th:text="${(importRequest.economicEvent.name() == 'CONSUMPTION' ? 'Consumo' : importRequest.economicEvent.name() == 'LIQUIDATION' ? 'Liquid.' : importRequest.economicEvent.name() == 'INVESTMENT' ? 'Invest.' : 'Transf.') + ' (padrao)'}">Padrao</option>
+            <option value=""
+                    th:if="${importRequest.economicEvent == null}"
+                    th:selected="${row.economicEvent == null}">Inferir auto.</option>
+            <option th:each="ev : ${economicEvents}"
+                    th:value="${ev.name()}"
+                    th:text="${ev.name() == 'CONSUMPTION' ? 'Consumo' : ev.name() == 'LIQUIDATION' ? 'Liquidação' : ev.name() == 'INVESTMENT' ? 'Investimento' : 'Transferência'}"
+                    th:selected="${row.economicEvent == ev}">
             </option>
         </select>
     </td>

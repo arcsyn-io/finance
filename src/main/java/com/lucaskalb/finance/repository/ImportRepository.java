@@ -22,21 +22,24 @@ public class ImportRepository {
 
     private final DSLContext dsl;
 
-    public long insertRequest(ImportSource source, Long walletId, Long categoryId, EntryNature nature) {
+    public long insertRequest(ImportSource source, Long walletId, Long categoryId,
+                              EntryNature nature, EconomicEvent economicEvent) {
         dsl.insertInto(table("import_request"))
                 .columns(
                     field("status"),
                     field("source"),
                     field("wallet_id"),
                     field("category_id"),
-                    field("nature")
+                    field("nature"),
+                    field("economic_event")
                 )
                 .values(
                     ImportStatus.PENDING_REVIEW.name(),
                     source.name(),
                     walletId,
                     categoryId,
-                    nature != null ? nature.name() : null
+                    nature != null ? nature.name() : null,
+                    economicEvent != null ? economicEvent.name() : null
                 )
                 .execute();
 
@@ -74,6 +77,7 @@ public class ImportRepository {
                     field("ir.wallet_id"),
                     field("ir.category_id"),
                     field("ir.nature"),
+                    field("ir.economic_event"),
                     field("ir.created_at"),
                     field("ir.confirmed_at"),
                     field("w.name").as("wallet_name"),
@@ -97,6 +101,7 @@ public class ImportRepository {
                     field("r.category_id"),
                     field("r.wallet_id"),
                     field("r.nature"),
+                    field("r.economic_event"),
                     field("r.external_id"),
                     field("r.valid"),
                     field("r.validation_errors"),
@@ -122,6 +127,7 @@ public class ImportRepository {
                     field("r.category_id"),
                     field("r.wallet_id"),
                     field("r.nature"),
+                    field("r.economic_event"),
                     field("r.external_id"),
                     field("r.valid"),
                     field("r.validation_errors"),
@@ -136,7 +142,7 @@ public class ImportRepository {
     }
 
     public void updateRow(long id, String description, LocalDateTime occurredAt, long amount,
-                          Long categoryId, Long walletId, EntryNature nature) {
+                          Long categoryId, Long walletId, EntryNature nature, EconomicEvent economicEvent) {
         dsl.update(table("import_row"))
                 .set(field("description"), description)
                 .set(field("occurred_at"), occurredAt.format(SQLITE_DATETIME))
@@ -144,6 +150,7 @@ public class ImportRepository {
                 .set(field("category_id"), categoryId)
                 .set(field("wallet_id"), walletId)
                 .set(field("nature"), nature != null ? nature.name() : null)
+                .set(field("economic_event"), economicEvent != null ? economicEvent.name() : null)
                 .where(field("id").eq(id))
                 .execute();
     }
@@ -182,6 +189,13 @@ public class ImportRepository {
                 .execute();
     }
 
+    public void updateRowEconomicEvent(long id, EconomicEvent economicEvent) {
+        dsl.update(table("import_row"))
+                .set(field("economic_event"), economicEvent != null ? economicEvent.name() : null)
+                .where(field("id").eq(id))
+                .execute();
+    }
+
     public void confirmRequest(long id) {
         dsl.update(table("import_request"))
                 .set(field("status"), ImportStatus.CONFIRMED.name())
@@ -208,6 +222,7 @@ public class ImportRepository {
                     field("ir.wallet_id"),
                     field("ir.category_id"),
                     field("ir.nature"),
+                    field("ir.economic_event"),
                     field("ir.created_at"),
                     field("ir.confirmed_at"),
                     field("w.name").as("wallet_name"),
@@ -232,6 +247,7 @@ public class ImportRepository {
         var walletId = record.get(field("ir.wallet_id", Integer.class));
         var categoryId = record.get(field("ir.category_id", Integer.class));
         var nature = record.get(field("ir.nature", String.class));
+        var economicEvent = record.get(field("ir.economic_event", String.class));
 
         return ImportRequest.builder()
                 .id(record.get(field("ir.id", Integer.class)).longValue())
@@ -240,6 +256,7 @@ public class ImportRepository {
                 .walletId(walletId != null ? walletId.longValue() : null)
                 .categoryId(categoryId != null ? categoryId.longValue() : null)
                 .nature(nature != null ? EntryNature.valueOf(nature) : null)
+                .economicEvent(economicEvent != null ? EconomicEvent.valueOf(economicEvent) : null)
                 .createdAt(parseDateTime(record.get(field("ir.created_at", String.class))))
                 .confirmedAt(parseDateTime(record.get(field("ir.confirmed_at", String.class))))
                 .walletName(record.get(field("wallet_name", String.class)))
@@ -251,6 +268,7 @@ public class ImportRepository {
         var categoryId = record.get(field("r.category_id", Integer.class));
         var walletId = record.get(field("r.wallet_id", Integer.class));
         var nature = record.get(field("r.nature", String.class));
+        var economicEvent = record.get(field("r.economic_event", String.class));
 
         return ImportRow.builder()
                 .id(record.get(field("r.id", Integer.class)).longValue())
@@ -262,6 +280,7 @@ public class ImportRepository {
                 .categoryId(categoryId != null ? categoryId.longValue() : null)
                 .walletId(walletId != null ? walletId.longValue() : null)
                 .nature(nature != null ? EntryNature.valueOf(nature) : null)
+                .economicEvent(economicEvent != null ? EconomicEvent.valueOf(economicEvent) : null)
                 .externalId(record.get(field("r.external_id", String.class)))
                 .valid(record.get(field("r.valid", Integer.class)) == 1)
                 .validationErrors(record.get(field("r.validation_errors", String.class)))

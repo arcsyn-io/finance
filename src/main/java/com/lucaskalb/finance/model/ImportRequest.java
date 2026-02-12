@@ -15,6 +15,7 @@ public class ImportRequest {
     private Long walletId;
     private Long categoryId;
     private EntryNature nature;
+    private EconomicEvent economicEvent;
     private LocalDateTime createdAt;
     private LocalDateTime confirmedAt;
 

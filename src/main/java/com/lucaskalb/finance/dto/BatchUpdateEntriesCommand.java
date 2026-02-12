@@ -6,5 +6,6 @@ public record BatchUpdateEntriesCommand(
         List<Long> entryIds,
         Long walletId,
         Long categoryId,
-        String nature
+        String nature,
+        String economicEvent
 ) {}

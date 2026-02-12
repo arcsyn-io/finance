@@ -6,6 +6,7 @@ import com.lucaskalb.finance.exception.CategoryNotFoundException;
 import com.lucaskalb.finance.exception.ImportNotFoundException;
 import com.lucaskalb.finance.exception.InvalidImportException;
 import com.lucaskalb.finance.exception.WalletNotFoundException;
+import com.lucaskalb.finance.model.EconomicEvent;
 import com.lucaskalb.finance.model.EntryNature;
 import com.lucaskalb.finance.model.ImportSource;
 import com.lucaskalb.finance.service.CategoryService;
@@ -42,6 +43,7 @@ public class ImportController {
         model.addAttribute("wallets", walletService.listActive());
         model.addAttribute("categories", categoryService.listActive());
         model.addAttribute("natures", EntryNature.values());
+        model.addAttribute("economicEvents", EconomicEvent.values());
         model.addAttribute("sources", ImportSource.values());
         model.addAttribute("pendingImports", pendingImports);
         return "pages/import-upload";
@@ -54,11 +56,12 @@ public class ImportController {
             @RequestParam(required = false) Long walletId,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) EntryNature nature,
+            @RequestParam(required = false) EconomicEvent economicEvent,
             Model model,
             HttpServletResponse response
     ) {
         try {
-            var command = new CreateImportCommand(file, source, walletId, categoryId, nature);
+            var command = new CreateImportCommand(file, source, walletId, categoryId, nature, economicEvent);
             var importRequest = importService.createFromCsv(command);
 
             response.setHeader("HX-Redirect", "/imports/" + importRequest.getId() + "/review");
@@ -69,11 +72,13 @@ public class ImportController {
             model.addAttribute("wallets", walletService.listActive());
             model.addAttribute("categories", categoryService.listActive());
             model.addAttribute("natures", EntryNature.values());
+            model.addAttribute("economicEvents", EconomicEvent.values());
             model.addAttribute("sources", ImportSource.values());
             model.addAttribute("formSource", source);
             model.addAttribute("formWalletId", walletId);
             model.addAttribute("formCategoryId", categoryId);
             model.addAttribute("formNature", nature);
+            model.addAttribute("formEconomicEvent", economicEvent);
             return "pages/import-upload";
         }
     }
@@ -88,6 +93,7 @@ public class ImportController {
             model.addAttribute("wallets", walletService.listActive());
             model.addAttribute("categories", categoryService.listActive());
             model.addAttribute("natures", EntryNature.values());
+            model.addAttribute("economicEvents", EconomicEvent.values());
             return "pages/import-review";
 
         } catch (ImportNotFoundException e) {
@@ -113,6 +119,7 @@ public class ImportController {
             model.addAttribute("wallets", walletService.listActive());
             model.addAttribute("categories", categoryService.listActive());
             model.addAttribute("natures", EntryNature.values());
+            model.addAttribute("economicEvents", EconomicEvent.values());
             return "fragments/import-row :: editForm";
 
         } catch (ImportNotFoundException | InvalidImportException e) {
@@ -131,6 +138,7 @@ public class ImportController {
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) Long walletId,
             @RequestParam(required = false) EntryNature nature,
+            @RequestParam(required = false) EconomicEvent economicEvent,
             Model model,
             HttpServletResponse response
     ) {
@@ -144,7 +152,8 @@ public class ImportController {
                     amountCents,
                     categoryId,
                     walletId,
-                    nature
+                    nature,
+                    economicEvent
             );
 
             var row = importService.updateRow(command);
@@ -152,6 +161,10 @@ public class ImportController {
 
             model.addAttribute("row", row);
             model.addAttribute("importRequest", importRequest);
+            model.addAttribute("wallets", walletService.listActive());
+            model.addAttribute("categories", categoryService.listActive());
+            model.addAttribute("natures", EntryNature.values());
+            model.addAttribute("economicEvents", EconomicEvent.values());
             return "fragments/import-row :: row";
 
         } catch (InvalidImportException | CategoryNotFoundException | WalletNotFoundException e) {
@@ -165,6 +178,7 @@ public class ImportController {
             model.addAttribute("wallets", walletService.listActive());
             model.addAttribute("categories", categoryService.listActive());
             model.addAttribute("natures", EntryNature.values());
+            model.addAttribute("economicEvents", EconomicEvent.values());
             return "fragments/import-row :: editForm";
         }
     }
@@ -210,7 +224,8 @@ public class ImportController {
             HttpServletResponse response
     ) {
         try {
-            importService.updateRowsBatch(id, request.rowIds(), request.walletId(), request.categoryId(), request.nature());
+            importService.updateRowsBatch(id, request.rowIds(), request.walletId(),
+                    request.categoryId(), request.nature(), request.economicEvent());
             response.setStatus(200);
         } catch (Exception e) {
             response.setStatus(400);
@@ -221,7 +236,8 @@ public class ImportController {
             java.util.List<Long> rowIds,
             String walletId,
             String categoryId,
-            String nature
+            String nature,
+            String economicEvent
     ) {}
 
     @PostMapping("/{id}/confirm")

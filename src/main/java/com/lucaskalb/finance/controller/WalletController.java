@@ -5,6 +5,8 @@ import com.lucaskalb.finance.dto.UpdateWalletCommand;
 import com.lucaskalb.finance.exception.DuplicateWalletNameException;
 import com.lucaskalb.finance.exception.InvalidWalletException;
 import com.lucaskalb.finance.exception.WalletNotFoundException;
+import com.lucaskalb.finance.model.EntryDirection;
+import com.lucaskalb.finance.model.Period;
 import com.lucaskalb.finance.model.WalletType;
 import com.lucaskalb.finance.service.EntryService;
 import com.lucaskalb.finance.service.WalletService;
@@ -16,6 +18,12 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.TextStyle;
+import java.time.temporal.TemporalAdjusters;
+import java.util.Locale;
 import java.util.Map;
 
 @Controller
@@ -53,16 +61,47 @@ public class WalletController {
     }
 
     @GetMapping("/{id}")
-    public String view(@PathVariable long id, Model model) {
+    public String view(
+            @PathVariable long id,
+            @RequestParam(required = false, defaultValue = "CURRENT_MONTH") Period period,
+            @RequestParam(required = false, defaultValue = "0") int offset,
+            @RequestParam(required = false) LocalDate customStart,
+            @RequestParam(required = false) LocalDate customEnd,
+            Model model
+    ) {
         try {
             var wallet = walletService.findById(id);
             var balance = walletService.getBalance(id);
-            var entries = entryService.list(null, null, id, null, null, false);
+
+            var dateRange = period == Period.CUSTOM && customStart != null && customEnd != null
+                    ? new DateRange(customStart, customEnd)
+                    : calculateDateRange(period, offset);
+            var startDateTime = dateRange.start().atStartOfDay();
+            var endDateTime = dateRange.end().atTime(LocalTime.MAX);
+            var entries = entryService.list(startDateTime, endDateTime, id, null, null, false);
+
+            var totalIn = entries.stream()
+                    .filter(e -> e.getDirection() == EntryDirection.IN)
+                    .mapToLong(e -> e.getAmount()).sum();
+            var totalOut = entries.stream()
+                    .filter(e -> e.getDirection() == EntryDirection.OUT)
+                    .mapToLong(e -> e.getAmount()).sum();
+            var periodBalance = totalIn - totalOut;
 
             model.addAttribute("title", wallet.getName() + " - Finance");
             model.addAttribute("wallet", wallet);
             model.addAttribute("balance", balance);
             model.addAttribute("entries", entries);
+            model.addAttribute("totalIn", totalIn);
+            model.addAttribute("totalOut", totalOut);
+            model.addAttribute("periodBalance", periodBalance);
+            model.addAttribute("periodBalanceAbs", Math.abs(periodBalance));
+            model.addAttribute("periods", Period.values());
+            model.addAttribute("selectedPeriod", period);
+            model.addAttribute("offset", offset);
+            model.addAttribute("periodLabel", formatPeriodLabel(period, dateRange.start(), dateRange.end()));
+            model.addAttribute("customStart", period == Period.CUSTOM ? dateRange.start() : null);
+            model.addAttribute("customEnd", period == Period.CUSTOM ? dateRange.end() : null);
 
             return "pages/wallet";
         } catch (WalletNotFoundException e) {
@@ -171,5 +210,61 @@ public class WalletController {
         } catch (WalletNotFoundException e) {
             return "fragments/wallet-row :: empty";
         }
+    }
+
+    private record DateRange(LocalDate start, LocalDate end) {}
+
+    private DateRange calculateDateRange(Period period, int offset) {
+        var today = LocalDate.now();
+
+        return switch (period) {
+            case CURRENT_MONTH, PREVIOUS_MONTH -> {
+                var baseMonth = period == Period.CURRENT_MONTH ? today : today.minusMonths(1);
+                var targetMonth = baseMonth.plusMonths(offset);
+                var start = targetMonth.with(TemporalAdjusters.firstDayOfMonth());
+                var end = targetMonth.with(TemporalAdjusters.lastDayOfMonth());
+                yield new DateRange(start, end);
+            }
+            case THIS_WEEK -> {
+                var baseWeekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+                var targetWeekStart = baseWeekStart.plusWeeks(offset);
+                var targetWeekEnd = targetWeekStart.plusDays(6);
+                yield new DateRange(targetWeekStart, targetWeekEnd);
+            }
+            case TODAY -> {
+                var targetDay = today.plusDays(offset);
+                yield new DateRange(targetDay, targetDay);
+            }
+            case YESTERDAY -> {
+                var baseDay = today.minusDays(1);
+                var targetDay = baseDay.plusDays(offset);
+                yield new DateRange(targetDay, targetDay);
+            }
+            case CUSTOM -> {
+                var start = today.with(TemporalAdjusters.firstDayOfMonth());
+                var end = today.with(TemporalAdjusters.lastDayOfMonth());
+                yield new DateRange(start, end);
+            }
+        };
+    }
+
+    private String formatPeriodLabel(Period period, LocalDate start, LocalDate end) {
+        var locale = new Locale("pt", "BR");
+
+        return switch (period) {
+            case CURRENT_MONTH, PREVIOUS_MONTH -> {
+                var month = start.getMonth().getDisplayName(TextStyle.FULL, locale);
+                var capitalizedMonth = month.substring(0, 1).toUpperCase() + month.substring(1);
+                yield capitalizedMonth + " " + start.getYear();
+            }
+            case THIS_WEEK -> String.format("%02d/%02d - %02d/%02d/%d",
+                    start.getDayOfMonth(), start.getMonthValue(),
+                    end.getDayOfMonth(), end.getMonthValue(), end.getYear());
+            case TODAY, YESTERDAY -> String.format("%02d/%02d/%d",
+                    start.getDayOfMonth(), start.getMonthValue(), start.getYear());
+            case CUSTOM -> String.format("%02d/%02d/%d - %02d/%02d/%d",
+                    start.getDayOfMonth(), start.getMonthValue(), start.getYear(),
+                    end.getDayOfMonth(), end.getMonthValue(), end.getYear());
+        };
     }
 }

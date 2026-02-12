@@ -40,6 +40,42 @@
             background: #7c3aed33;
             color: #a78bfa;
         }
+        .badge-consumption {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #f9731633;
+            color: #fb923c;
+        }
+        .badge-liquidation {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #ef444433;
+            color: #f87171;
+        }
+        .badge-investment {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #10b98133;
+            color: #34d399;
+        }
+        .badge-transfer {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #6366f133;
+            color: #818cf8;
+        }
         .filters-form {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -246,10 +282,13 @@
         <input type="hidden" name="categoryId" id="categoryIdInput" th:value="${selectedCategoryId}">
         <input type="hidden" name="nature" id="natureInput" th:value="${selectedNature?.name()}">
         <input type="hidden" name="showDeleted" id="showDeletedInput" th:value="${showDeleted}">
+        <input type="hidden" name="customStart" id="customStartInput" th:value="${customStart}">
+        <input type="hidden" name="customEnd" id="customEndInput" th:value="${customEnd}">
     </form>
 
     <div class="period-nav">
-        <a href="#" class="outline nav-prev" th:data-offset="${offset - 1}" onclick="navigateOffset(this.dataset.offset); return false;">
+        <a href="#" class="outline nav-prev" th:data-offset="${offset - 1}" onclick="navigateOffset(this.dataset.offset); return false;"
+           th:style="${selectedPeriod.name() == 'CUSTOM'} ? 'display:none' : ''">
             <i class="fa-solid fa-chevron-left"></i>
         </a>
         <div class="period-dropdown">
@@ -266,9 +305,19 @@
                 </a>
             </div>
         </div>
-        <a href="#" class="outline nav-next" th:data-offset="${offset + 1}" onclick="navigateOffset(this.dataset.offset); return false;">
+        <a href="#" class="outline nav-next" th:data-offset="${offset + 1}" onclick="navigateOffset(this.dataset.offset); return false;"
+           th:style="${selectedPeriod.name() == 'CUSTOM'} ? 'display:none' : ''">
             <i class="fa-solid fa-chevron-right"></i>
         </a>
+        <div id="customDateRange" th:style="${selectedPeriod.name() == 'CUSTOM'} ? 'display:flex' : 'display:none'"
+             style="display:none; align-items: center; gap: 0.5rem;">
+            <input type="date" id="customStartPicker" th:value="${customStart}" style="margin:0; width:auto;">
+            <span>—</span>
+            <input type="date" id="customEndPicker" th:value="${customEnd}" style="margin:0; width:auto;">
+            <button type="button" class="outline" style="margin:0; padding: 0.5rem 0.75rem;" onclick="applyCustomPeriod()">
+                <i class="fa-solid fa-check"></i>
+            </button>
+        </div>
         <span id="toggleFiltersBtn"
               th:class="${selectedWalletId != null or selectedCategoryId != null or selectedNature != null or showDeleted} ? 'filter-btn active' : 'filter-btn'">
             <i class="fa-solid fa-filter"></i>
@@ -340,6 +389,24 @@
         }
         function selectPeriod(period) {
             document.getElementById('periodInput').value = period;
+            document.getElementById('offsetInput').value = 0;
+            if (period === 'CUSTOM') {
+                document.getElementById('customDateRange').style.display = 'flex';
+                document.querySelectorAll('.nav-prev, .nav-next').forEach(function(el) { el.style.display = 'none'; });
+                document.getElementById('customStartPicker').focus();
+                return;
+            }
+            document.getElementById('customStartInput').value = '';
+            document.getElementById('customEndInput').value = '';
+            document.getElementById('filtersForm').submit();
+        }
+        function applyCustomPeriod() {
+            var start = document.getElementById('customStartPicker').value;
+            var end = document.getElementById('customEndPicker').value;
+            if (!start || !end) return;
+            document.getElementById('customStartInput').value = start;
+            document.getElementById('customEndInput').value = end;
+            document.getElementById('periodInput').value = 'CUSTOM';
             document.getElementById('offsetInput').value = 0;
             document.getElementById('filtersForm').submit();
         }
@@ -450,6 +517,7 @@
             document.getElementById('batchWallet').value = '';
             document.getElementById('batchCategory').value = '';
             document.getElementById('batchNature').value = '';
+            document.getElementById('batchEconomicEvent').value = '';
             updateBatchActions();
         }
         function applyBatchChanges() {
@@ -459,8 +527,9 @@
             var walletValue = document.getElementById('batchWallet').value;
             var categoryValue = document.getElementById('batchCategory').value;
             var natureValue = document.getElementById('batchNature').value;
+            var economicEventValue = document.getElementById('batchEconomicEvent').value;
 
-            if (!walletValue && !categoryValue && !natureValue) {
+            if (!walletValue && !categoryValue && !natureValue && !economicEventValue) {
                 alert('Selecione pelo menos um campo para alterar');
                 return;
             }
@@ -474,7 +543,8 @@
                 entryIds: entryIds,
                 walletId: walletValue ? parseInt(walletValue) : null,
                 categoryId: categoryValue ? parseInt(categoryValue) : null,
-                nature: natureValue || null
+                nature: natureValue || null,
+                economicEvent: economicEventValue || null
             };
 
             fetch('/entries/batch', {
@@ -555,6 +625,14 @@
                 <option th:each="n : ${natures}" th:value="${n.name()}" th:text="${n.name() == 'OPERATIONAL' ? 'Operacional' : 'Patrimonial'}"></option>
             </select>
         </label>
+        <label>
+            Evento:
+            <select id="batchEconomicEvent">
+                <option value="">-- Manter --</option>
+                <option th:each="ev : ${economicEvents}" th:value="${ev.name()}"
+                        th:text="${ev.name() == 'CONSUMPTION' ? 'Consumo' : ev.name() == 'LIQUIDATION' ? 'Liquidação' : ev.name() == 'INVESTMENT' ? 'Investimento' : 'Transferência'}"></option>
+            </select>
+        </label>
         <button type="button" onclick="applyBatchChanges()">Aplicar</button>
         <button type="button" class="outline" onclick="clearSelection()">Limpar</button>
         <button type="button" class="outline" onclick="batchDelete()">Excluir</button>
@@ -566,10 +644,11 @@
                 <tr>
                     <th style="width: 2.5rem;"><input type="checkbox" class="row-checkbox" id="selectAll" onchange="toggleSelectAll(this.checked)"></th>
                     <th>Ocorrido Em</th>
-                    <th>Descrição</th>
+                    <th style="max-width: 200px;">Descrição</th>
                     <th>Carteira</th>
                     <th>Categoria</th>
                     <th>Natureza</th>
+                    <th>Evento</th>
                     <th style="text-align: right;">Valor</th>
                     <th style="text-align: right;">Ações</th>
                 </tr>
@@ -579,7 +658,7 @@
                     <tr th:replace="~{fragments/entry-row :: row(entry=${entry})}"></tr>
                 </th:block>
                 <tr th:if="${#lists.isEmpty(entries)}">
-                    <td colspan="8" style="text-align: center; padding: 2rem;">
+                    <td colspan="9" style="text-align: center; padding: 2rem;">
                         Nenhum lançamento encontrado.
                         <a href="#"
                            hx-get="/entries/new"
@@ -588,6 +667,27 @@
                     </td>
                 </tr>
             </tbody>
+            <tfoot th:if="${!#lists.isEmpty(entries)}">
+                <tr>
+                    <td colspan="7" style="text-align: right; font-weight: 600;">
+                        <div style="display: flex; flex-direction: column; gap: 0.25rem; align-items: flex-end;">
+                            <span>Entradas</span>
+                            <span>Saídas</span>
+                            <span style="border-top: 1px solid var(--pico-muted-border-color); padding-top: 0.25rem;">Saldo</span>
+                        </div>
+                    </td>
+                    <td style="text-align: right; font-weight: 600;">
+                        <div style="display: flex; flex-direction: column; gap: 0.25rem; align-items: flex-end;">
+                            <span class="amount-in" th:text="'+R$ ' + ${#numbers.formatDecimal(totalIn / 100.0, 1, 'POINT', 2, 'COMMA')}">+R$ 0,00</span>
+                            <span class="amount-out" th:text="'-R$ ' + ${#numbers.formatDecimal(totalOut / 100.0, 1, 'POINT', 2, 'COMMA')}">-R$ 0,00</span>
+                            <span style="border-top: 1px solid var(--pico-muted-border-color); padding-top: 0.25rem;"
+                                  th:class="${totalBalance >= 0 ? 'amount-in' : 'amount-out'}"
+                                  th:text="${(totalBalance >= 0 ? '+' : '-') + 'R$ ' + #numbers.formatDecimal(totalBalanceAbs / 100.0, 1, 'POINT', 2, 'COMMA')}">R$ 0,00</span>
+                        </div>
+                    </td>
+                    <td></td>
+                </tr>
+            </tfoot>
         </table>
     </figure>
 </div>

@@ -2,6 +2,7 @@ package com.lucaskalb.finance.repository;
 
 import com.lucaskalb.finance.dto.CategoryConsumption;
 import com.lucaskalb.finance.dto.MonthlyConsumption;
+import com.lucaskalb.finance.model.EconomicEvent;
 import com.lucaskalb.finance.model.Entry;
 import com.lucaskalb.finance.model.EntryDirection;
 import com.lucaskalb.finance.model.EntryNature;
@@ -65,6 +66,7 @@ public class EntryRepository {
                     field("e.occurred_at"),
                     field("e.description"),
                     field("e.transfer_id"),
+                    field("e.economic_event"),
                     field("e.created_at"),
                     field("e.deleted_at"),
                     field("w.name").as("wallet_name"),
@@ -89,6 +91,7 @@ public class EntryRepository {
                     field("e.occurred_at"),
                     field("e.description"),
                     field("e.transfer_id"),
+                    field("e.economic_event"),
                     field("e.created_at"),
                     field("e.deleted_at"),
                     field("w.name").as("wallet_name"),
@@ -116,12 +119,13 @@ public class EntryRepository {
     }
 
     public long insert(long walletId, long categoryId, EntryNature nature, EntryDirection direction,
-                       long amount, LocalDateTime occurredAt, String description) {
-        return insert(walletId, categoryId, nature, direction, amount, occurredAt, description, null);
+                       long amount, LocalDateTime occurredAt, String description, EconomicEvent economicEvent) {
+        return insert(walletId, categoryId, nature, direction, amount, occurredAt, description, null, economicEvent);
     }
 
     public long insert(long walletId, long categoryId, EntryNature nature, EntryDirection direction,
-                       long amount, LocalDateTime occurredAt, String description, String externalId) {
+                       long amount, LocalDateTime occurredAt, String description, String externalId,
+                       EconomicEvent economicEvent) {
         dsl.insertInto(table("entry"))
                 .columns(
                     field("wallet_id"),
@@ -131,7 +135,8 @@ public class EntryRepository {
                     field("amount"),
                     field("occurred_at"),
                     field("description"),
-                    field("external_id")
+                    field("external_id"),
+                    field("economic_event")
                 )
                 .values(
                     walletId,
@@ -141,7 +146,8 @@ public class EntryRepository {
                     amount,
                     occurredAt.format(SQLITE_DATETIME),
                     description,
-                    externalId
+                    externalId,
+                    economicEvent != null ? economicEvent.name() : null
                 )
                 .execute();
 
@@ -172,7 +178,8 @@ public class EntryRepository {
                     field("amount"),
                     field("occurred_at"),
                     field("description"),
-                    field("transfer_id")
+                    field("transfer_id"),
+                    field("economic_event")
                 )
                 .values(
                     walletId,
@@ -182,7 +189,8 @@ public class EntryRepository {
                     amount,
                     occurredAt.format(SQLITE_DATETIME),
                     description,
-                    transferId
+                    transferId,
+                    EconomicEvent.TRANSFER.name()
                 )
                 .execute();
 
@@ -191,7 +199,7 @@ public class EntryRepository {
     }
 
     public void update(long id, long walletId, long categoryId, EntryNature nature, EntryDirection direction,
-                       long amount, LocalDateTime occurredAt, String description) {
+                       long amount, LocalDateTime occurredAt, String description, EconomicEvent economicEvent) {
         dsl.update(table("entry"))
                 .set(field("wallet_id"), walletId)
                 .set(field("category_id"), categoryId)
@@ -200,6 +208,7 @@ public class EntryRepository {
                 .set(field("amount"), amount)
                 .set(field("occurred_at"), occurredAt.format(SQLITE_DATETIME))
                 .set(field("description"), description)
+                .set(field("economic_event"), economicEvent != null ? economicEvent.name() : null)
                 .where(field("id").eq(id))
                 .execute();
     }
@@ -215,6 +224,7 @@ public class EntryRepository {
                     field("e.occurred_at"),
                     field("e.description"),
                     field("e.transfer_id"),
+                    field("e.economic_event"),
                     field("e.created_at"),
                     field("e.deleted_at"),
                     field("w.name").as("wallet_name"),
@@ -240,6 +250,28 @@ public class EntryRepository {
                 .from(table("entry"))
                 .where(field("deleted_at").isNull())
                 .and(field("direction").eq(EntryDirection.OUT.name()))
+                .fetchOne(0, Long.class);
+
+        return inTotal - outTotal;
+    }
+
+    public long calculateBalanceByWalletAndPeriod(long walletId, LocalDateTime startDate, LocalDateTime endDate) {
+        var inTotal = dsl.select(field("COALESCE(SUM(amount), 0)"))
+                .from(table("entry"))
+                .where(field("deleted_at").isNull())
+                .and(field("wallet_id").eq(walletId))
+                .and(field("direction").eq(EntryDirection.IN.name()))
+                .and(field("occurred_at").ge(startDate.format(SQLITE_DATETIME)))
+                .and(field("occurred_at").lt(endDate.format(SQLITE_DATETIME)))
+                .fetchOne(0, Long.class);
+
+        var outTotal = dsl.select(field("COALESCE(SUM(amount), 0)"))
+                .from(table("entry"))
+                .where(field("deleted_at").isNull())
+                .and(field("wallet_id").eq(walletId))
+                .and(field("direction").eq(EntryDirection.OUT.name()))
+                .and(field("occurred_at").ge(startDate.format(SQLITE_DATETIME)))
+                .and(field("occurred_at").lt(endDate.format(SQLITE_DATETIME)))
                 .fetchOne(0, Long.class);
 
         return inTotal - outTotal;
@@ -307,6 +339,13 @@ public class EntryRepository {
                 .execute();
     }
 
+    public void batchUpdateEconomicEvent(List<Long> ids, EconomicEvent economicEvent) {
+        dsl.update(table("entry"))
+                .set(field("economic_event"), economicEvent.name())
+                .where(field("id").in(ids))
+                .execute();
+    }
+
     public void batchSoftDelete(List<Long> ids) {
         dsl.update(table("entry"))
                 .set(field("deleted_at"), LocalDateTime.now().format(SQLITE_DATETIME))
@@ -324,8 +363,7 @@ public class EntryRepository {
                 .from(table("entry").as("e"))
                 .join(table("category").as("c")).on(field("e.category_id").eq(field("c.id")))
                 .where(field("e.deleted_at").isNull())
-                .and(field("e.nature").eq(EntryNature.PATRIMONIAL.name()))
-                .and(field("e.direction").eq(EntryDirection.OUT.name()))
+                .and(field("e.economic_event").eq(EconomicEvent.CONSUMPTION.name()))
                 .and(field("e.occurred_at").ge(startDate.format(SQLITE_DATETIME)))
                 .and(field("e.occurred_at").lt(endDate.format(SQLITE_DATETIME)))
                 .groupBy(field("c.id"), field("c.name"))
@@ -347,8 +385,7 @@ public class EntryRepository {
                 .from(table("entry").as("e"))
                 .join(table("category").as("c")).on(field("e.category_id").eq(field("c.id")))
                 .where(field("e.deleted_at").isNull())
-                .and(field("e.nature").eq(EntryNature.PATRIMONIAL.name()))
-                .and(field("e.direction").eq(EntryDirection.OUT.name()))
+                .and(field("e.economic_event").eq(EconomicEvent.CONSUMPTION.name()))
                 .and(field("e.occurred_at").ge(startDate.format(SQLITE_DATETIME)))
                 .and(field("e.occurred_at").lt(endDate.format(SQLITE_DATETIME)))
                 .groupBy(field("strftime('%Y-%m', e.occurred_at)"), field("c.id"), field("c.name"))
@@ -365,8 +402,7 @@ public class EntryRepository {
         return dsl.select(field("COALESCE(SUM(e.amount), 0)"))
                 .from(table("entry").as("e"))
                 .where(field("e.deleted_at").isNull())
-                .and(field("e.nature").eq(EntryNature.PATRIMONIAL.name()))
-                .and(field("e.direction").eq(EntryDirection.OUT.name()))
+                .and(field("e.economic_event").eq(EconomicEvent.CONSUMPTION.name()))
                 .and(field("e.occurred_at").ge(startDate.format(SQLITE_DATETIME)))
                 .and(field("e.occurred_at").lt(endDate.format(SQLITE_DATETIME)))
                 .fetchOne(0, Long.class);
@@ -405,6 +441,7 @@ public class EntryRepository {
                     field("e.occurred_at"),
                     field("e.description"),
                     field("e.transfer_id"),
+                    field("e.economic_event"),
                     field("e.created_at"),
                     field("e.deleted_at"),
                     field("w.name").as("wallet_name"),
@@ -458,6 +495,7 @@ public class EntryRepository {
                     field("e.occurred_at"),
                     field("e.description"),
                     field("e.transfer_id"),
+                    field("e.economic_event"),
                     field("e.created_at"),
                     field("e.deleted_at"),
                     field("w.name").as("wallet_name"),
@@ -494,6 +532,7 @@ public class EntryRepository {
                     field("e.occurred_at"),
                     field("e.description"),
                     field("e.transfer_id"),
+                    field("e.economic_event"),
                     field("e.created_at"),
                     field("e.deleted_at"),
                     field("w.name").as("wallet_name"),
@@ -626,6 +665,7 @@ public class EntryRepository {
 
     private Entry mapToEntry(Record record) {
         var transferId = record.get(field("e.transfer_id", Integer.class));
+        var economicEventStr = record.get(field("e.economic_event", String.class));
         return Entry.builder()
                 .id(record.get(field("e.id", Integer.class)).longValue())
                 .walletId(record.get(field("e.wallet_id", Integer.class)).longValue())
@@ -636,6 +676,7 @@ public class EntryRepository {
                 .occurredAt(parseDateTime(record.get(field("e.occurred_at", String.class))))
                 .description(record.get(field("e.description", String.class)))
                 .transferId(transferId != null ? transferId.longValue() : null)
+                .economicEvent(economicEventStr != null ? EconomicEvent.valueOf(economicEventStr) : null)
                 .createdAt(parseDateTime(record.get(field("e.created_at", String.class))))
                 .deletedAt(parseDateTime(record.get(field("e.deleted_at", String.class))))
                 .walletName(record.get(field("wallet_name", String.class)))
@@ -679,6 +720,7 @@ public class EntryRepository {
                     field("e.occurred_at"),
                     field("e.description"),
                     field("e.transfer_id"),
+                    field("e.economic_event"),
                     field("e.created_at"),
                     field("e.deleted_at"),
                     field("w.name").as("wallet_name"),
@@ -694,13 +736,14 @@ public class EntryRepository {
     }
 
     public void updateFields(long id, long walletId, long categoryId, EntryNature nature,
-                             EntryDirection direction, String description) {
+                             EntryDirection direction, String description, EconomicEvent economicEvent) {
         dsl.update(table("entry"))
                 .set(field("wallet_id"), walletId)
                 .set(field("category_id"), categoryId)
                 .set(field("nature"), nature.name())
                 .set(field("direction"), direction.name())
                 .set(field("description"), description)
+                .set(field("economic_event"), economicEvent != null ? economicEvent.name() : null)
                 .where(field("id").eq(id))
                 .execute();
     }
@@ -708,6 +751,7 @@ public class EntryRepository {
     public void updateTransferId(long entryId, long transferId) {
         dsl.update(table("entry"))
                 .set(field("transfer_id"), transferId)
+                .set(field("economic_event"), EconomicEvent.TRANSFER.name())
                 .where(field("id").eq(entryId))
                 .execute();
     }

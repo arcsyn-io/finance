@@ -70,7 +70,8 @@ public class ImportService {
                 command.source(),
                 command.walletId(),
                 command.categoryId(),
-                command.nature()
+                command.nature(),
+                command.economicEvent()
         );
 
         for (var row : rows) {
@@ -151,7 +152,8 @@ public class ImportService {
                 command.amount(),
                 command.categoryId(),
                 command.walletId(),
-                command.nature()
+                command.nature(),
+                command.economicEvent()
         );
 
         return importRepository.findRowById(command.id()).orElseThrow();
@@ -206,12 +208,17 @@ public class ImportService {
                 EntryNature nature = (value == null || value.isBlank()) ? null : EntryNature.valueOf(value);
                 importRepository.updateRowNature(rowId, nature);
             }
+            case "economicEvent" -> {
+                EconomicEvent economicEvent = (value == null || value.isBlank()) ? null : EconomicEvent.valueOf(value);
+                importRepository.updateRowEconomicEvent(rowId, economicEvent);
+            }
             default -> throw new InvalidImportException("Campo desconhecido: " + field);
         }
     }
 
     @Transactional
-    public void updateRowsBatch(long importRequestId, List<Long> rowIds, String walletId, String categoryId, String nature) {
+    public void updateRowsBatch(long importRequestId, List<Long> rowIds, String walletId,
+                                String categoryId, String nature, String economicEvent) {
         var request = importRepository.findRequestById(importRequestId)
                 .orElseThrow(() -> new ImportNotFoundException(importRequestId));
 
@@ -243,6 +250,12 @@ public class ImportService {
                 importRepository.updateRowNature(rowId, EntryNature.valueOf(nature));
             } else if (nature != null) {
                 importRepository.updateRowNature(rowId, null);
+            }
+
+            if (economicEvent != null && !economicEvent.isEmpty()) {
+                importRepository.updateRowEconomicEvent(rowId, EconomicEvent.valueOf(economicEvent));
+            } else if (economicEvent != null) {
+                importRepository.updateRowEconomicEvent(rowId, null);
             }
         }
     }
@@ -285,6 +298,7 @@ public class ImportService {
             var categoryId = row.getCategoryId() != null ? row.getCategoryId() : request.getCategoryId();
             var walletId = row.getWalletId() != null ? row.getWalletId() : request.getWalletId();
             var nature = row.getNature() != null ? row.getNature() : request.getNature();
+            var explicitEvent = row.getEconomicEvent() != null ? row.getEconomicEvent() : request.getEconomicEvent();
 
             // Verifica duplicata por external_id
             if (row.getExternalId() != null && entryRepository.existsByExternalIdAndWallet(row.getExternalId(), walletId)) {
@@ -292,10 +306,16 @@ public class ImportService {
                 continue;
             }
 
+            var wallet = walletRepository.findById(walletId)
+                    .orElseThrow(() -> new WalletNotFoundException(walletId));
+
             var category = categoryRepository.findById(categoryId)
                     .orElseThrow(CategoryNotFoundException::new);
 
             var direction = inferDirection(row.getDirection(), category.getType());
+            var economicEvent = explicitEvent != null
+                    ? explicitEvent
+                    : EntryService.inferEconomicEvent(wallet.getType(), nature, direction, null);
 
             entryRepository.insert(
                     walletId,
@@ -305,7 +325,8 @@ public class ImportService {
                     row.getAmount(),
                     row.getOccurredAt(),
                     row.getDescription(),
-                    row.getExternalId()
+                    row.getExternalId(),
+                    economicEvent
             );
             count++;
         }

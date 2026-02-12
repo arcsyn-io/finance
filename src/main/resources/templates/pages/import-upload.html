@@ -71,6 +71,18 @@
                     </select>
                 </label>
 
+                <label for="economicEvent">
+                    Evento Econômico padrão
+                    <select id="economicEvent" name="economicEvent">
+                        <option value="">Inferir automaticamente</option>
+                        <option th:each="ev : ${economicEvents}"
+                                th:value="${ev.name()}"
+                                th:text="${ev.name() == 'CONSUMPTION' ? 'Consumo' : ev.name() == 'LIQUIDATION' ? 'Liquidação' : ev.name() == 'INVESTMENT' ? 'Investimento' : 'Transferência'}"
+                                th:selected="${formEconomicEvent == ev}">
+                        </option>
+                    </select>
+                </label>
+
                 <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem; align-items: center;">
                     <a href="/entries" class="outline secondary" role="button" style="flex: 1; text-align: center;">
                         Cancelar
