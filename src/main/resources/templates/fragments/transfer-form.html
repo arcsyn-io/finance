@@ -3,13 +3,13 @@
 <body>
 <div th:fragment="form(wallets, expenseCategories, incomeCategories)">
     <div class="sidebar-header">
-        <h2>Nova Transferência</h2>
+        <h2 th:text="${isEdit ? 'Editar Transferência' : 'Nova Transferência'}">Nova Transferência</h2>
         <button class="sidebar-close" onclick="closeSidebar()" type="button">&times;</button>
     </div>
 
-    <form action="/transfers"
+    <form th:action="${isEdit ? '/transfers/' + transfer.id : '/transfers'}"
           method="post"
-          hx-post="/transfers"
+          th:attr="hx-post=${isEdit ? '/transfers/' + transfer.id : '/transfers'}"
           hx-target="#sidebarContent"
           hx-swap="innerHTML">
 
@@ -23,7 +23,7 @@
             <input type="date"
                    id="occurredAt"
                    name="occurredAt"
-                   th:value="${formOccurredAt != null ? formOccurredAt : #temporals.format(#temporals.createNow(), 'yyyy-MM-dd')}"
+                   th:value="${formOccurredAt != null ? formOccurredAt : (isEdit ? #temporals.format(transfer.occurredAt, 'yyyy-MM-dd') : #temporals.format(#temporals.createNow(), 'yyyy-MM-dd'))}"
                    required
                    autofocus>
         </label>
@@ -49,14 +49,14 @@
                     <option th:each="w : ${wallets}"
                             th:value="${w.id}"
                             th:text="${w.name}"
-                            th:selected="${formFromWalletId == w.id}">
+                            th:selected="${formFromWalletId != null ? formFromWalletId == w.id : (isEdit ? transfer.fromWalletId == w.id : false)}">
                     </option>
                 </select>
             </label>
 
             <label for="fromCategoryId">
                 Categoria
-                <th:block th:replace="~{fragments/category-select :: select(categories=${expenseCategories}, selectId='fromCategoryId', selectedId=${formFromCategoryId}, placeholder='Selecione a categoria...', required=${true})}"/>
+                <th:block th:replace="~{fragments/category-select :: select(categories=${expenseCategories}, selectId='fromCategoryId', selectedId=${formFromCategoryId != null ? formFromCategoryId : (isEdit ? transfer.fromCategoryId : null)}, placeholder='Selecione a categoria...', required=${true})}"/>
             </label>
         </fieldset>
 
@@ -70,14 +70,14 @@
                     <option th:each="w : ${wallets}"
                             th:value="${w.id}"
                             th:text="${w.name}"
-                            th:selected="${formToWalletId == w.id}">
+                            th:selected="${formToWalletId != null ? formToWalletId == w.id : (isEdit ? transfer.toWalletId == w.id : false)}">
                     </option>
                 </select>
             </label>
 
             <label for="toCategoryId">
                 Categoria
-                <th:block th:replace="~{fragments/category-select :: select(categories=${incomeCategories}, selectId='toCategoryId', selectedId=${formToCategoryId}, placeholder='Selecione a categoria...', required=${true})}"/>
+                <th:block th:replace="~{fragments/category-select :: select(categories=${incomeCategories}, selectId='toCategoryId', selectedId=${formToCategoryId != null ? formToCategoryId : (isEdit ? transfer.toCategoryId : null)}, placeholder='Selecione a categoria...', required=${true})}"/>
             </label>
         </fieldset>
 
@@ -86,7 +86,7 @@
             <input type="text"
                    id="description"
                    name="description"
-                   th:value="${formDescription}"
+                   th:value="${formDescription != null ? formDescription : (isEdit ? transfer.description : null)}"
                    placeholder="Ex: Resgate investimento, Aporte mensal...">
         </label>
 
@@ -94,11 +94,21 @@
             <button type="button" class="outline secondary" onclick="closeSidebar()" style="flex: 1;">
                 Cancelar
             </button>
-            <button type="submit" style="flex: 1;">
+            <button type="submit" style="flex: 1;"
+                    th:text="${isEdit ? 'Salvar' : 'Criar'}">
                 Criar
             </button>
         </div>
     </form>
+
+    <div th:if="${isEdit}" style="margin-top: 1rem; border-top: 1px solid var(--pico-muted-border-color); padding-top: 1rem;">
+        <button class="outline contrast" style="width: 100%;"
+                th:attr="hx-delete=@{/transfers/{id}(id=${transfer.id})}"
+                hx-confirm="Desvincular esta transferência? Os lançamentos serão mantidos como independentes.">
+            <i class="fa-solid fa-link-slash"></i>
+            Desvincular transferência
+        </button>
+    </div>
 </div>
 </body>
 </html>

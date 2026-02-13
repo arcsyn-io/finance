@@ -132,7 +132,7 @@
         </div>
         <div>
             <dt>Evento Economico padrao</dt>
-            <dd th:text="${importRequest.economicEvent != null ? (importRequest.economicEvent.name() == 'CONSUMPTION' ? 'Consumo' : importRequest.economicEvent.name() == 'LIQUIDATION' ? 'Liquidação' : importRequest.economicEvent.name() == 'INVESTMENT' ? 'Investimento' : 'Transferência') : 'Inferir auto.'}">Inferir auto.</dd>
+            <dd th:text="${importRequest.economicEvent != null ? (importRequest.economicEvent.name() == 'INCOME' ? 'Renda' : importRequest.economicEvent.name() == 'CAPITAL_INCOME' ? 'Renda de Capital' : importRequest.economicEvent.name() == 'CONSUMPTION' ? 'Consumo' : importRequest.economicEvent.name() == 'INVESTMENT' ? 'Investimento' : importRequest.economicEvent.name() == 'DIVESTMENT' ? 'Desinvestimento' : importRequest.economicEvent.name() == 'LIQUIDATION' ? 'Liquidação' : importRequest.economicEvent.name() == 'TRANSFER' ? 'Transferência' : importRequest.economicEvent.name() == 'ADJUSTMENT' ? 'Ajuste' : importRequest.economicEvent.name() == 'LOSS' ? 'Perda' : 'Saldo Inicial') : 'Inferir auto.'}">Inferir auto.</dd>
         </div>
         <div>
             <dt>Total de lancamentos</dt>
@@ -167,7 +167,7 @@
             <select id="batchEconomicEvent">
                 <option value="">-- Manter --</option>
                 <option value="__clear__">Inferir auto.</option>
-                <option th:each="ev : ${economicEvents}" th:value="${ev.name()}" th:text="${ev.name() == 'CONSUMPTION' ? 'Consumo' : ev.name() == 'LIQUIDATION' ? 'Liquidação' : ev.name() == 'INVESTMENT' ? 'Investimento' : 'Transferência'}"></option>
+                <option th:each="ev : ${economicEvents}" th:value="${ev.name()}" th:text="${ev.name() == 'INCOME' ? 'Renda' : ev.name() == 'CAPITAL_INCOME' ? 'Renda de Capital' : ev.name() == 'CONSUMPTION' ? 'Consumo' : ev.name() == 'INVESTMENT' ? 'Investimento' : ev.name() == 'DIVESTMENT' ? 'Desinvestimento' : ev.name() == 'LIQUIDATION' ? 'Liquidação' : ev.name() == 'TRANSFER' ? 'Transferência' : ev.name() == 'ADJUSTMENT' ? 'Ajuste' : ev.name() == 'LOSS' ? 'Perda' : 'Saldo Inicial'}"></option>
             </select>
         </label>
         <button type="button" onclick="applyBatchChanges()">Aplicar</button>

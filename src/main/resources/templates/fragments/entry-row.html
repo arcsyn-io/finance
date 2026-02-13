@@ -22,7 +22,7 @@
     <td>
         <span th:if="${entry.economicEvent != null}"
               th:class="'badge-' + ${entry.economicEvent.name().toLowerCase()}"
-              th:text="${entry.economicEvent.name() == 'CONSUMPTION' ? 'Consumo' : entry.economicEvent.name() == 'LIQUIDATION' ? 'Liquidação' : entry.economicEvent.name() == 'INVESTMENT' ? 'Investimento' : 'Transferência'}">Evento</span>
+              th:text="${entry.economicEvent.name() == 'INCOME' ? 'Renda' : entry.economicEvent.name() == 'CAPITAL_INCOME' ? 'Renda Capital' : entry.economicEvent.name() == 'CONSUMPTION' ? 'Consumo' : entry.economicEvent.name() == 'INVESTMENT' ? 'Investimento' : entry.economicEvent.name() == 'DIVESTMENT' ? 'Desinvest.' : entry.economicEvent.name() == 'LIQUIDATION' ? 'Liquidação' : entry.economicEvent.name() == 'TRANSFER' ? 'Transferência' : entry.economicEvent.name() == 'ADJUSTMENT' ? 'Ajuste' : entry.economicEvent.name() == 'LOSS' ? 'Perda' : 'Saldo Inicial'}">Evento</span>
     </td>
     <td style="text-align: right;">
         <span th:class="${entry.direction.name() == 'IN' ? 'amount-in' : 'amount-out'}"
@@ -47,10 +47,18 @@
                   title="Vinculado a transferencia">
                 <i class="fa-solid fa-right-left"></i>
             </span>
-            <button th:unless="${entry.deleted}"
+            <button th:if="${!entry.deleted and entry.transferId == null}"
                     class="icon-btn"
                     title="Editar"
                     th:attr="hx-get=@{/entries/{id}/edit(id=${entry.id})}"
+                    hx-target="#sidebarContent"
+                    hx-swap="innerHTML">
+                <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+            <button th:if="${!entry.deleted and entry.transferId != null}"
+                    class="icon-btn"
+                    title="Editar transferência"
+                    th:attr="hx-get=@{/transfers/{id}/edit(id=${entry.transferId})}"
                     hx-target="#sidebarContent"
                     hx-swap="innerHTML">
                 <i class="fa-solid fa-pen-to-square"></i>

@@ -80,6 +80,31 @@ public class EntryRepository {
                 .fetch(this::mapToEntry);
     }
 
+    public List<Entry> findByTransferId(long transferId) {
+        return dsl.select(
+                    field("e.id"),
+                    field("e.wallet_id"),
+                    field("e.category_id"),
+                    field("e.nature"),
+                    field("e.direction"),
+                    field("e.amount"),
+                    field("e.occurred_at"),
+                    field("e.description"),
+                    field("e.transfer_id"),
+                    field("e.economic_event"),
+                    field("e.created_at"),
+                    field("e.deleted_at"),
+                    field("w.name").as("wallet_name"),
+                    field("c.name").as("category_name")
+                )
+                .from(table("entry").as("e"))
+                .join(table("wallet").as("w")).on(field("e.wallet_id").eq(field("w.id")))
+                .join(table("category").as("c")).on(field("e.category_id").eq(field("c.id")))
+                .where(field("e.transfer_id").eq(transferId))
+                .orderBy(field("e.direction").asc())
+                .fetch(this::mapToEntry);
+    }
+
     public Optional<Entry> findById(long id) {
         return dsl.select(
                     field("e.id"),
@@ -752,6 +777,13 @@ public class EntryRepository {
         dsl.update(table("entry"))
                 .set(field("transfer_id"), transferId)
                 .set(field("economic_event"), EconomicEvent.TRANSFER.name())
+                .where(field("id").eq(entryId))
+                .execute();
+    }
+
+    public void clearTransferId(long entryId) {
+        dsl.update(table("entry"))
+                .setNull(field("transfer_id"))
                 .where(field("id").eq(entryId))
                 .execute();
     }
