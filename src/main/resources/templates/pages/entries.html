@@ -40,6 +40,24 @@
             background: #7c3aed33;
             color: #a78bfa;
         }
+        .badge-income {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #05966933;
+            color: #2dd4bf;
+        }
+        .badge-capital_income {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #0d946833;
+            color: #6ee7b7;
+        }
         .badge-consumption {
             display: inline-block;
             padding: 0.25rem 0.5rem;
@@ -48,15 +66,6 @@
             font-weight: 600;
             background: #f9731633;
             color: #fb923c;
-        }
-        .badge-liquidation {
-            display: inline-block;
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.25rem;
-            font-size: 0.75rem;
-            font-weight: 600;
-            background: #ef444433;
-            color: #f87171;
         }
         .badge-investment {
             display: inline-block;
@@ -67,6 +76,24 @@
             background: #10b98133;
             color: #34d399;
         }
+        .badge-divestment {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #f59e0b33;
+            color: #fbbf24;
+        }
+        .badge-liquidation {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #ef444433;
+            color: #f87171;
+        }
         .badge-transfer {
             display: inline-block;
             padding: 0.25rem 0.5rem;
@@ -75,6 +102,33 @@
             font-weight: 600;
             background: #6366f133;
             color: #818cf8;
+        }
+        .badge-adjustment {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #64748b33;
+            color: #94a3b8;
+        }
+        .badge-loss {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #dc262633;
+            color: #f87171;
+        }
+        .badge-initial_balance {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #0ea5e933;
+            color: #67e8f9;
         }
         .filters-form {
             display: grid;
@@ -630,7 +684,7 @@
             <select id="batchEconomicEvent">
                 <option value="">-- Manter --</option>
                 <option th:each="ev : ${economicEvents}" th:value="${ev.name()}"
-                        th:text="${ev.name() == 'CONSUMPTION' ? 'Consumo' : ev.name() == 'LIQUIDATION' ? 'Liquidação' : ev.name() == 'INVESTMENT' ? 'Investimento' : 'Transferência'}"></option>
+                        th:text="${ev.name() == 'INCOME' ? 'Renda' : ev.name() == 'CAPITAL_INCOME' ? 'Renda de Capital' : ev.name() == 'CONSUMPTION' ? 'Consumo' : ev.name() == 'INVESTMENT' ? 'Investimento' : ev.name() == 'DIVESTMENT' ? 'Desinvestimento' : ev.name() == 'LIQUIDATION' ? 'Liquidação' : ev.name() == 'TRANSFER' ? 'Transferência' : ev.name() == 'ADJUSTMENT' ? 'Ajuste' : ev.name() == 'LOSS' ? 'Perda' : 'Saldo Inicial'}"></option>
             </select>
         </label>
         <button type="button" onclick="applyBatchChanges()">Aplicar</button>

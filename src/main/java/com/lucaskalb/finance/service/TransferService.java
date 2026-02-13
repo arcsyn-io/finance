@@ -4,10 +4,7 @@ import com.lucaskalb.finance.dto.CreateTransferCommand;
 import com.lucaskalb.finance.exception.CategoryNotFoundException;
 import com.lucaskalb.finance.exception.InvalidTransferException;
 import com.lucaskalb.finance.exception.WalletNotFoundException;
-import com.lucaskalb.finance.model.CategoryType;
-import com.lucaskalb.finance.model.EntryDirection;
-import com.lucaskalb.finance.model.EntryNature;
-import com.lucaskalb.finance.model.Transfer;
+import com.lucaskalb.finance.model.*;
 import com.lucaskalb.finance.repository.CategoryRepository;
 import com.lucaskalb.finance.repository.EntryRepository;
 import com.lucaskalb.finance.repository.TransferRepository;
@@ -90,6 +87,81 @@ public class TransferService {
         );
 
         return transferRepository.findById(transferId).orElseThrow();
+    }
+
+    @Transactional(readOnly = true)
+    public Transfer findById(long id) {
+        return transferRepository.findById(id)
+                .orElseThrow(() -> new InvalidTransferException("Transferência não encontrada"));
+    }
+
+    @Transactional
+    public void unlink(long id) {
+        transferRepository.findById(id)
+                .orElseThrow(() -> new InvalidTransferException("Transferência não encontrada"));
+
+        var entries = entryRepository.findByTransferId(id);
+        for (var entry : entries) {
+            entryRepository.clearTransferId(entry.getId());
+        }
+
+        transferRepository.delete(id);
+    }
+
+    @Transactional
+    public Transfer update(long id, long fromWalletId, long toWalletId, long fromCategoryId, long toCategoryId,
+                           long amount, java.time.LocalDateTime occurredAt, String description) {
+        var transfer = transferRepository.findById(id)
+                .orElseThrow(() -> new InvalidTransferException("Transferência não encontrada"));
+
+        validateAmount(amount);
+        validateOccurredAt(occurredAt);
+        validateDifferentWallets(fromWalletId, toWalletId);
+
+        var fromWallet = walletRepository.findById(fromWalletId)
+                .orElseThrow(() -> new WalletNotFoundException(fromWalletId));
+        var toWallet = walletRepository.findById(toWalletId)
+                .orElseThrow(() -> new WalletNotFoundException(toWalletId));
+
+        if (!fromWallet.isActive()) {
+            throw new InvalidTransferException("Carteira de origem está inativa");
+        }
+        if (!toWallet.isActive()) {
+            throw new InvalidTransferException("Carteira de destino está inativa");
+        }
+
+        var fromCategory = categoryRepository.findById(fromCategoryId)
+                .orElseThrow(CategoryNotFoundException::new);
+        var toCategory = categoryRepository.findById(toCategoryId)
+                .orElseThrow(CategoryNotFoundException::new);
+
+        if (fromCategory.getType() != CategoryType.EXPENSE) {
+            throw new InvalidTransferException("Categoria de origem deve ser do tipo Despesa");
+        }
+        if (toCategory.getType() != CategoryType.INCOME) {
+            throw new InvalidTransferException("Categoria de destino deve ser do tipo Receita");
+        }
+
+        transferRepository.update(id, fromWalletId, toWalletId, fromCategoryId, toCategoryId,
+                amount, occurredAt, description);
+
+        // Atualiza os entries vinculados
+        var entries = entryRepository.findByTransferId(id);
+        for (var entry : entries) {
+            if (entry.getDirection() == EntryDirection.OUT) {
+                var outDescription = buildDescription(description, "para", toWallet.getName());
+                entryRepository.update(entry.getId(), fromWalletId, fromCategoryId,
+                        entry.getNature(), EntryDirection.OUT, amount, occurredAt,
+                        outDescription, EconomicEvent.TRANSFER);
+            } else {
+                var inDescription = buildDescription(description, "de", fromWallet.getName());
+                entryRepository.update(entry.getId(), toWalletId, toCategoryId,
+                        entry.getNature(), EntryDirection.IN, amount, occurredAt,
+                        inDescription, EconomicEvent.TRANSFER);
+            }
+        }
+
+        return transferRepository.findById(id).orElseThrow();
     }
 
     private void validateAmount(long amount) {

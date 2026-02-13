@@ -93,13 +93,13 @@
             <option value=""
                     th:if="${importRequest.economicEvent != null}"
                     th:selected="${row.economicEvent == null}"
-                    th:text="${(importRequest.economicEvent.name() == 'CONSUMPTION' ? 'Consumo' : importRequest.economicEvent.name() == 'LIQUIDATION' ? 'Liquid.' : importRequest.economicEvent.name() == 'INVESTMENT' ? 'Invest.' : 'Transf.') + ' (padrao)'}">Padrao</option>
+                    th:text="${(importRequest.economicEvent.name() == 'INCOME' ? 'Renda' : importRequest.economicEvent.name() == 'CAPITAL_INCOME' ? 'R. Capital' : importRequest.economicEvent.name() == 'CONSUMPTION' ? 'Consumo' : importRequest.economicEvent.name() == 'INVESTMENT' ? 'Invest.' : importRequest.economicEvent.name() == 'DIVESTMENT' ? 'Desinv.' : importRequest.economicEvent.name() == 'LIQUIDATION' ? 'Liquid.' : importRequest.economicEvent.name() == 'TRANSFER' ? 'Transf.' : importRequest.economicEvent.name() == 'ADJUSTMENT' ? 'Ajuste' : importRequest.economicEvent.name() == 'LOSS' ? 'Perda' : 'S. Inicial') + ' (padrao)'}">Padrao</option>
             <option value=""
                     th:if="${importRequest.economicEvent == null}"
                     th:selected="${row.economicEvent == null}">Inferir auto.</option>
             <option th:each="ev : ${economicEvents}"
                     th:value="${ev.name()}"
-                    th:text="${ev.name() == 'CONSUMPTION' ? 'Consumo' : ev.name() == 'LIQUIDATION' ? 'Liquidação' : ev.name() == 'INVESTMENT' ? 'Investimento' : 'Transferência'}"
+                    th:text="${ev.name() == 'INCOME' ? 'Renda' : ev.name() == 'CAPITAL_INCOME' ? 'Renda de Capital' : ev.name() == 'CONSUMPTION' ? 'Consumo' : ev.name() == 'INVESTMENT' ? 'Investimento' : ev.name() == 'DIVESTMENT' ? 'Desinvestimento' : ev.name() == 'LIQUIDATION' ? 'Liquidação' : ev.name() == 'TRANSFER' ? 'Transferência' : ev.name() == 'ADJUSTMENT' ? 'Ajuste' : ev.name() == 'LOSS' ? 'Perda' : 'Saldo Inicial'}"
                     th:selected="${row.economicEvent == ev}">
             </option>
         </select>

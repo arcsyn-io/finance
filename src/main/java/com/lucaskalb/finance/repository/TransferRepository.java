@@ -48,6 +48,20 @@ public class TransferRepository {
                 .fetchOne(0, Long.class);
     }
 
+    public void update(long id, long fromWalletId, long toWalletId, long fromCategoryId, long toCategoryId,
+                       long amount, LocalDateTime occurredAt, String description) {
+        dsl.update(table("transfer"))
+                .set(field("from_wallet_id"), fromWalletId)
+                .set(field("to_wallet_id"), toWalletId)
+                .set(field("from_category_id"), fromCategoryId)
+                .set(field("to_category_id"), toCategoryId)
+                .set(field("amount"), amount)
+                .set(field("occurred_at"), occurredAt.format(SQLITE_DATETIME))
+                .set(field("description"), description)
+                .where(field("id").eq(id))
+                .execute();
+    }
+
     public Optional<Transfer> findById(long id) {
         return dsl.select(
                     field("t.id"),
@@ -71,6 +85,12 @@ public class TransferRepository {
                 .join(table("category").as("tc")).on(field("t.to_category_id").eq(field("tc.id")))
                 .where(field("t.id").eq(id))
                 .fetchOptional(this::mapToTransfer);
+    }
+
+    public void delete(long id) {
+        dsl.deleteFrom(table("transfer"))
+                .where(field("id").eq(id))
+                .execute();
     }
 
     private Transfer mapToTransfer(Record record) {

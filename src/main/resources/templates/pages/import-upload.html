@@ -77,7 +77,7 @@
                         <option value="">Inferir automaticamente</option>
                         <option th:each="ev : ${economicEvents}"
                                 th:value="${ev.name()}"
-                                th:text="${ev.name() == 'CONSUMPTION' ? 'Consumo' : ev.name() == 'LIQUIDATION' ? 'Liquidação' : ev.name() == 'INVESTMENT' ? 'Investimento' : 'Transferência'}"
+                                th:text="${ev.name() == 'INCOME' ? 'Renda' : ev.name() == 'CAPITAL_INCOME' ? 'Renda de Capital' : ev.name() == 'CONSUMPTION' ? 'Consumo' : ev.name() == 'INVESTMENT' ? 'Investimento' : ev.name() == 'DIVESTMENT' ? 'Desinvestimento' : ev.name() == 'LIQUIDATION' ? 'Liquidação' : ev.name() == 'TRANSFER' ? 'Transferência' : ev.name() == 'ADJUSTMENT' ? 'Ajuste' : ev.name() == 'LOSS' ? 'Perda' : 'Saldo Inicial'}"
                                 th:selected="${formEconomicEvent == ev}">
                         </option>
                     </select>
