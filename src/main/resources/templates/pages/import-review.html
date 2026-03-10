@@ -171,6 +171,9 @@
             </select>
         </label>
         <button type="button" onclick="applyBatchChanges()">Aplicar</button>
+        <button type="button" class="outline secondary" style="color: var(--pico-del-color);" onclick="deleteBatchRows()">
+            <i class="fa-solid fa-trash"></i> Deletar selecionados
+        </button>
         <button type="button" class="outline" onclick="clearSelection()">Limpar</button>
     </div>
 
@@ -286,6 +289,36 @@
                         if (economicEventValue) selects[3].value = economicEventValue === '__clear__' ? '' : economicEventValue;
                     });
                     clearSelection();
+                }
+            });
+        }
+
+        function deleteBatchRows() {
+            var selected = document.querySelectorAll('#import-rows tr input.row-checkbox:checked');
+            if (selected.length === 0) return;
+
+            if (!confirm('Deletar ' + selected.length + ' lançamento(s) selecionado(s)?')) return;
+
+            var rowIds = [];
+            var rows = [];
+            selected.forEach(function(cb) {
+                var row = cb.closest('tr');
+                rowIds.push(parseInt(row.id.replace('row-', '')));
+                rows.push(row);
+            });
+
+            fetch('/imports/' + importId + '/rows/batch', {
+                method: 'DELETE',
+                body: JSON.stringify({ rowIds: rowIds }),
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]').content
+                }
+            }).then(function(response) {
+                if (response.ok) {
+                    rows.forEach(function(row) { row.remove(); });
+                    document.getElementById('selectAll').checked = false;
+                    updateBatchActions();
                 }
             });
         }

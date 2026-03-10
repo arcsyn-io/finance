@@ -161,6 +161,13 @@ public class ImportRepository {
                 .execute();
     }
 
+    public void deleteRows(long importRequestId, java.util.List<Long> ids) {
+        dsl.deleteFrom(table("import_row"))
+                .where(field("import_request_id").eq(importRequestId))
+                .and(field("id").in(ids))
+                .execute();
+    }
+
     public void updateRowDescription(long id, String description) {
         dsl.update(table("import_row"))
                 .set(field("description"), description)
