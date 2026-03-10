@@ -377,8 +377,13 @@
     </script>
 
     <section>
-        <h2>Detalhamento Mensal</h2>
-        <figure style="overflow-x: auto;">
+        <h2>Comparativo Mensal</h2>
+        <div th:if="${#lists.size(months) <= 1}"
+             style="text-align: center; padding: 3rem 1rem; color: var(--pico-muted-color);">
+            <i class="fa-solid fa-calendar-days" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
+            <p style="margin: 0; font-size: 0.95rem;">Selecione um período que cubra mais de um mês para visualizar o comparativo.</p>
+        </div>
+        <figure th:if="${#lists.size(months) > 1}" style="overflow-x: auto;">
             <table>
                 <thead>
                     <tr>
@@ -394,7 +399,13 @@
                         <td th:each="month, mStat : ${months}" style="text-align: right;"
                             th:with="key=${cat.categoryId + '-' + month.toString()},
                                      value=${monthlyMatrix.get(key)},
-                                     prevValue=${mStat.index > 0 ? monthlyMatrix.get(cat.categoryId + '-' + months[mStat.index - 1].toString()) : null}">
+                                     prevValue=${mStat.index > 0 ? monthlyMatrix.get(cat.categoryId + '-' + months[mStat.index - 1].toString()) : null},
+                                     monthStart=${#temporals.format(month.atDay(1), 'yyyy-MM-dd')},
+                                     monthEnd=${#temporals.format(month.atEndOfMonth(), 'yyyy-MM-dd')}"
+                            th:classappend="${value != null ? 'category-link' : ''}"
+                            th:attr="hx-get=${value != null ? '/consumption/category/' + cat.categoryId + '?startDate=' + monthStart + '&endDate=' + monthEnd : null}"
+                            hx-target="#consumptionCategoryModal"
+                            hx-swap="innerHTML">
                             <span th:if="${value != null}"
                                   th:text="'R$ ' + ${#numbers.formatDecimal(value / 100.0, 1, 'POINT', 2, 'COMMA')}">R$ 0,00</span>
                             <span th:if="${value == null}"

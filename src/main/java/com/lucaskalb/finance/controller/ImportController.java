@@ -216,6 +216,23 @@ public class ImportController {
         }
     }
 
+    @DeleteMapping("/{id}/rows/batch")
+    @ResponseBody
+    public void deleteRowsBatch(
+            @PathVariable long id,
+            @RequestBody BatchDeleteRequest request,
+            HttpServletResponse response
+    ) {
+        try {
+            importService.deleteRowsBatch(id, request.rowIds());
+            response.setStatus(200);
+        } catch (Exception e) {
+            response.setStatus(400);
+        }
+    }
+
+    public record BatchDeleteRequest(java.util.List<Long> rowIds) {}
+
     @PostMapping("/{id}/rows/batch")
     @ResponseBody
     public void updateRowsBatch(

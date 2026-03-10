@@ -160,6 +160,18 @@ public class ImportService {
     }
 
     @Transactional
+    public void deleteRowsBatch(long importRequestId, java.util.List<Long> rowIds) {
+        var request = importRepository.findRequestById(importRequestId)
+                .orElseThrow(() -> new ImportNotFoundException(importRequestId));
+
+        if (request.getStatus() == ImportStatus.CONFIRMED) {
+            throw new InvalidImportException("Importação já confirmada");
+        }
+
+        importRepository.deleteRows(importRequestId, rowIds);
+    }
+
+    @Transactional
     public void deleteRow(long importRequestId, long rowId) {
         var request = importRepository.findRequestById(importRequestId)
                 .orElseThrow(() -> new ImportNotFoundException(importRequestId));
