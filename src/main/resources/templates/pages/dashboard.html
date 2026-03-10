@@ -39,7 +39,7 @@
                     <span th:text="${#numbers.formatDecimal((liquidBalance < 0 ? -liquidBalance : liquidBalance) / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
                 </strong>
             </p>
-            <footer><small>CASH + Títulos Negociáveis</small></footer>
+            <footer><small>Caixa + Títulos Negociáveis</small></footer>
         </article>
 
         <article>
@@ -69,7 +69,7 @@
 
     <div class="grid" style="margin-top: 1rem;">
         <article>
-            <header>Receitas do Mês</header>
+            <header>Recebimentos do Mês</header>
             <p>
                 <strong style="font-size: 2rem; color: var(--pico-ins-color);">
                     R$ <span th:text="${#numbers.formatDecimal(monthIncome / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>

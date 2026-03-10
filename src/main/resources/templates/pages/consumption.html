@@ -227,6 +227,11 @@
 
     <section style="margin-bottom: 2rem;">
         <h2>Resumo por Categoria</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start;" th:if="${!#lists.isEmpty(consumptionByCategory)}">
+            <div style="position: sticky; top: 1rem; display: flex; justify-content: center;">
+                <canvas id="consumptionPieChart" style="width: 100%; max-width: 420px; height: auto; cursor: pointer;"></canvas>
+            </div>
+        <div>
         <figure>
             <table>
                 <thead>
@@ -275,7 +280,101 @@
                 </tfoot>
             </table>
         </figure>
+        </div>
+        </div>
     </section>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script th:inline="javascript">
+        (function () {
+            var labels = /*[[${consumptionByCategory.![categoryName]}]]*/ [];
+            var values = /*[[${consumptionByCategory.![totalConsumed]}]]*/ [];
+            var categoryIds = /*[[${consumptionByCategory.![categoryId]}]]*/ [];
+            var startDate = /*[[${#temporals.format(startDate, 'yyyy-MM-dd')}]]*/ '';
+            var endDate = /*[[${#temporals.format(endDate, 'yyyy-MM-dd')}]]*/ '';
+
+            if (!labels.length) return;
+
+            var palette = [
+                '#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f',
+                '#edc948','#b07aa1','#ff9da7','#9c755f','#bab0ac',
+                '#6889c4','#f5a94c','#e87676','#8fcfca','#72bc68'
+            ];
+            var colors = labels.map(function(_, i) { return palette[i % palette.length]; });
+
+            var centerTextPlugin = {
+                id: 'centerText',
+                afterDraw: function(chart) {
+                    var visibleTotal = chart.data.datasets[0].data.reduce(function(sum, val, i) {
+                        return chart.getDataVisibility(i) ? sum + val : sum;
+                    }, 0);
+
+                    var formatted = 'R$ ' + (visibleTotal / 100).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    var c = chart.ctx;
+                    var cx = (chart.chartArea.left + chart.chartArea.right) / 2;
+                    var cy = (chart.chartArea.top + chart.chartArea.bottom) / 2;
+
+                    c.save();
+                    c.textAlign = 'center';
+                    c.textBaseline = 'middle';
+                    c.fillStyle = '#ccc';
+                    c.font = 'bold 14px sans-serif';
+                    c.fillText(formatted, cx, cy);
+                    c.restore();
+                }
+            };
+
+            var ctx = document.getElementById('consumptionPieChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: colors,
+                        borderColor: 'rgba(0,0,0,0.15)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    cutout: '65%',
+                    onClick: function(event, elements) {
+                        if (!elements.length) return;
+                        var idx = elements[0].index;
+                        var categoryId = categoryIds[idx];
+                        var url = '/consumption/category/' + categoryId + '?startDate=' + startDate + '&endDate=' + endDate;
+                        htmx.ajax('GET', url, { target: '#consumptionCategoryModal', swap: 'innerHTML' });
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#aaa',
+                                boxWidth: 12,
+                                font: { size: 12 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    var val = ctx.parsed;
+                                    var visibleTotal = ctx.dataset.data.reduce(function(sum, v, i) {
+                                        return ctx.chart.getDataVisibility(i) ? sum + v : sum;
+                                    }, 0);
+                                    var pct = visibleTotal > 0 ? (val * 100 / visibleTotal).toFixed(1) : 0;
+                                    var formatted = 'R$ ' + (val / 100).toLocaleString('pt-BR', {minimumFractionDigits:2});
+                                    return ctx.label + ': ' + formatted + ' (' + pct + '%)';
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: [centerTextPlugin]
+            });
+        })();
+    </script>
 
     <section>
         <h2>Detalhamento Mensal</h2>
@@ -292,12 +391,26 @@
                 <tbody>
                     <tr th:each="cat : ${consumptionByCategory}">
                         <td th:text="${cat.categoryName}">Categoria</td>
-                        <td th:each="month : ${months}" style="text-align: right;"
-                            th:with="key=${cat.categoryId + '-' + month.toString()}, value=${monthlyMatrix.get(key)}">
+                        <td th:each="month, mStat : ${months}" style="text-align: right;"
+                            th:with="key=${cat.categoryId + '-' + month.toString()},
+                                     value=${monthlyMatrix.get(key)},
+                                     prevValue=${mStat.index > 0 ? monthlyMatrix.get(cat.categoryId + '-' + months[mStat.index - 1].toString()) : null}">
                             <span th:if="${value != null}"
                                   th:text="'R$ ' + ${#numbers.formatDecimal(value / 100.0, 1, 'POINT', 2, 'COMMA')}">R$ 0,00</span>
                             <span th:if="${value == null}"
                                   style="color: var(--pico-muted-color);">-</span>
+                            <th:block th:if="${value != null and prevValue != null and prevValue > 0}">
+                                <br>
+                                <span th:if="${value > prevValue}" style="color: #ef4444; font-size: 0.75rem; white-space: nowrap;">
+                                    <i class="fa-solid fa-arrow-up"></i>
+                                    <span th:text="${#numbers.formatDecimal((value - prevValue) * 100.0 / prevValue, 1, 'POINT', 1, 'COMMA') + '%'}"></span>
+                                </span>
+                                <span th:if="${value < prevValue}" style="color: #10b981; font-size: 0.75rem; white-space: nowrap;">
+                                    <i class="fa-solid fa-arrow-down"></i>
+                                    <span th:text="${#numbers.formatDecimal((prevValue - value) * 100.0 / prevValue, 1, 'POINT', 1, 'COMMA') + '%'}"></span>
+                                </span>
+                                <span th:if="${value == prevValue}" style="color: var(--pico-muted-color); font-size: 0.75rem;">-</span>
+                            </th:block>
                         </td>
                         <td style="text-align: right; font-weight: 600;">
                             R$ <span th:text="${#numbers.formatDecimal(cat.totalConsumed / 100.0, 1, 'POINT', 2, 'COMMA')}">0,00</span>
