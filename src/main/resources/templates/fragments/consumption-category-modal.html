@@ -103,8 +103,20 @@
     </div>
 
     <script>
+        window._consumptionDirty = false;
+
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            if (evt.detail.target && evt.detail.target.id === 'categoryEntriesContent') {
+                window._consumptionDirty = true;
+            }
+        });
+
         function closeCategoryModal() {
-            window.location.reload();
+            document.getElementById('consumptionCategoryModal').innerHTML = '';
+            if (window._consumptionDirty) {
+                window._consumptionDirty = false;
+                window.location.reload();
+            }
         }
     </script>
 </div>

@@ -1,5 +1,6 @@
 package com.lucaskalb.finance.controller;
 
+import com.lucaskalb.finance.repository.EntryRepository;
 import com.lucaskalb.finance.service.EntryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -15,6 +16,7 @@ import java.util.Locale;
 public class DashboardController {
 
     private final EntryService entryService;
+    private final EntryRepository entryRepository;
 
     @GetMapping("/dashboard")
     public String dashboard(Model model) {
@@ -34,11 +36,11 @@ public class DashboardController {
         // Periodo do mes atual
         var now = LocalDate.now();
         var startOfMonth = now.withDayOfMonth(1).atStartOfDay();
-        var endOfMonth = now.withDayOfMonth(now.lengthOfMonth()).atTime(23, 59, 59);
+        var endOfNextMonth = now.plusMonths(1).withDayOfMonth(1).atStartOfDay();
 
-        // Receitas e despesas do mes
-        var monthIncome = entryService.calculatePeriodIncome(startOfMonth, endOfMonth);
-        var monthExpense = entryService.calculatePeriodExpense(startOfMonth, endOfMonth);
+        // Recebimentos e despesas operacionais do mes (carteiras CASH, sem transferencias)
+        var monthIncome = entryRepository.calculateMonthlyCashFlowReceipts(startOfMonth, endOfNextMonth);
+        var monthExpense = entryRepository.calculateMonthlyCashFlowExpenses(startOfMonth, endOfNextMonth);
         model.addAttribute("monthIncome", monthIncome);
         model.addAttribute("monthExpense", monthExpense);
 
