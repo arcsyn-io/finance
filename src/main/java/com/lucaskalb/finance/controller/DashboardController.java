@@ -18,6 +18,11 @@ public class DashboardController {
     private final EntryService entryService;
     private final EntryRepository entryRepository;
 
+    @GetMapping("/")
+    public String home() {
+        return "redirect:/dashboard";
+    }
+
     @GetMapping("/dashboard")
     public String dashboard(Model model) {
         model.addAttribute("title", "Dashboard - Finance");

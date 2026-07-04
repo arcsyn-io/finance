@@ -65,6 +65,27 @@
         #import-rows tr.selected {
             background: var(--pico-primary-background);
         }
+        #import-rows tr.import-row-incomplete,
+        #import-rows tr.import-row-incomplete td {
+            --import-row-incomplete-bg: var(--pico-secondary-background);
+            --import-row-incomplete-focus-bg: color-mix(in srgb, var(--pico-secondary-background) 78%, var(--pico-primary) 22%);
+            background: var(--import-row-incomplete-bg);
+            transition: background-color 120ms ease, box-shadow 120ms ease;
+        }
+        #import-rows tr.import-row-incomplete td:first-child {
+            border-left: 3px solid var(--pico-primary);
+        }
+        #import-rows tr.import-row-incomplete.selected,
+        #import-rows tr.import-row-incomplete.selected td {
+            background: color-mix(in srgb, var(--pico-secondary-background) 72%, var(--pico-primary) 28%);
+        }
+        #import-rows tr.import-row-incomplete:focus-within,
+        #import-rows tr.import-row-incomplete:focus-within td {
+            background: var(--import-row-incomplete-focus-bg);
+        }
+        #import-rows tr.import-row-incomplete:focus-within td:first-child {
+            box-shadow: inset 4px 0 0 var(--pico-primary);
+        }
         .batch-actions {
             display: flex;
             align-items: center;
@@ -95,6 +116,22 @@
             height: 1.25rem;
             margin: 0;
         }
+        .import-list-tools {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .import-list-tools button {
+            margin: 0;
+            width: auto;
+        }
+        .import-list-summary {
+            color: var(--pico-muted-color);
+            font-size: 0.875rem;
+        }
     </style>
 
     <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
@@ -110,12 +147,21 @@
                 Cancelar
             </button>
             <button hx-post="/imports/{id}/confirm(id=${importRequest.id})"
-                    th:attr="hx-post=@{/imports/{id}/confirm(id=${importRequest.id})}">
+                    th:attr="hx-post=@{/imports/{id}/confirm(id=${importRequest.id})}"
+                    hx-target="#importReviewMessage"
+                    hx-swap="innerHTML">
                 <i class="fa-solid fa-check"></i>
                 Confirmar Importacao
             </button>
         </div>
     </header>
+
+    <div id="importReviewMessage" th:fragment="message">
+        <article th:if="${errorMessage != null}" style="border-left: 4px solid var(--pico-del-color);">
+            <strong>Erro ao confirmar importacao</strong>
+            <p th:text="${errorMessage}" style="margin-bottom: 0;">Erro</p>
+        </article>
+    </div>
 
     <dl class="import-info">
         <div>
@@ -177,6 +223,14 @@
         <button type="button" class="outline" onclick="clearSelection()">Limpar</button>
     </div>
 
+    <div class="import-list-tools">
+        <button type="button" class="outline secondary" id="groupImportRowsBtn" onclick="toggleImportRowGrouping()">
+            <i class="fa-solid fa-layer-group"></i>
+            Agrupar pendentes
+        </button>
+        <span class="import-list-summary" id="importCompletionSummary"></span>
+    </div>
+
     <figure>
         <table>
             <thead>
@@ -207,6 +261,173 @@
 
     <script th:inline="javascript">
         var importId = [[${importRequest.id}]];
+        var importRowsGrouped = false;
+        var importDefaults = {
+            walletId: [[${importRequest.walletId != null}]],
+            categoryId: [[${importRequest.categoryId != null}]],
+            nature: [[${importRequest.nature != null}]]
+        };
+        var lastImportRangeCheckbox = null;
+
+        function getImportRows() {
+            return Array.from(document.querySelectorAll('#import-rows tr[id^="row-"]'));
+        }
+
+        function initializeImportRows() {
+            getImportRows().forEach(function(row, index) {
+                if (!row.dataset.originalIndex) {
+                    row.dataset.originalIndex = index.toString();
+                }
+                refreshImportRowState(row);
+            });
+            updateImportCompletionSummary();
+        }
+
+        function rowFieldValue(row, field) {
+            var input = row.querySelector('[data-import-field="' + field + '"]');
+            return input ? input.value : '';
+        }
+
+        function isImportRowIncomplete(row) {
+            return (!importDefaults.walletId && !rowFieldValue(row, 'walletId')) ||
+                (!importDefaults.categoryId && !rowFieldValue(row, 'categoryId')) ||
+                (!importDefaults.nature && !rowFieldValue(row, 'nature'));
+        }
+
+        function refreshImportRowState(row) {
+            row.classList.toggle('import-row-incomplete', isImportRowIncomplete(row));
+        }
+
+        function updateImportCompletionSummary() {
+            var rows = getImportRows();
+            var pending = rows.filter(isImportRowIncomplete).length;
+            var complete = rows.length - pending;
+            var summary = document.getElementById('importCompletionSummary');
+            if (summary) {
+                summary.textContent = complete + ' completo(s), ' + pending + ' pendente(s)';
+            }
+        }
+
+        function sortImportRows() {
+            var tbody = document.getElementById('import-rows');
+            var rows = getImportRows();
+
+            rows.sort(function(a, b) {
+                if (importRowsGrouped) {
+                    var pendingDiff = Number(isImportRowIncomplete(b)) - Number(isImportRowIncomplete(a));
+                    if (pendingDiff !== 0) return pendingDiff;
+                }
+                return Number(a.dataset.originalIndex) - Number(b.dataset.originalIndex);
+            });
+
+            rows.forEach(function(row) {
+                tbody.appendChild(row);
+            });
+        }
+
+        function toggleImportRowGrouping() {
+            importRowsGrouped = !importRowsGrouped;
+            var button = document.getElementById('groupImportRowsBtn');
+            if (button) {
+                button.innerHTML = importRowsGrouped
+                    ? '<i class="fa-solid fa-arrow-down-short-wide"></i> Ordem original'
+                    : '<i class="fa-solid fa-layer-group"></i> Agrupar pendentes';
+            }
+            sortImportRows();
+        }
+
+        function refreshImportRowsView(options) {
+            var shouldSort = !options || options.sort !== false;
+            getImportRows().forEach(refreshImportRowState);
+            updateImportCompletionSummary();
+            if (shouldSort && importRowsGrouped) {
+                sortImportRows();
+            }
+        }
+
+        function setImportRowSelected(checkbox, selected) {
+            checkbox.checked = selected;
+            checkbox.closest('tr').classList.toggle('selected', selected);
+        }
+
+        function toggleFocusedImportRowSelection(activeElement) {
+            var row = activeElement.closest('#import-rows tr[id^="row-"]');
+            if (!row) return;
+
+            var checkbox = row.querySelector('.row-checkbox');
+            if (!checkbox) return;
+
+            setImportRowSelected(checkbox, !checkbox.checked);
+            lastImportRangeCheckbox = checkbox;
+            updateBatchActions();
+        }
+
+        function selectImportCheckboxRange(anchorCheckbox, targetCheckbox) {
+            var checkboxes = Array.from(document.querySelectorAll('#import-rows tr input.row-checkbox'));
+            var anchorIndex = checkboxes.indexOf(anchorCheckbox);
+            var targetIndex = checkboxes.indexOf(targetCheckbox);
+            if (anchorIndex === -1 || targetIndex === -1) return false;
+
+            var start = Math.min(anchorIndex, targetIndex);
+            var end = Math.max(anchorIndex, targetIndex);
+            var selected = targetCheckbox.checked;
+
+            checkboxes.slice(start, end + 1).forEach(function(checkbox) {
+                setImportRowSelected(checkbox, selected);
+            });
+            updateBatchActions();
+            return true;
+        }
+
+        function navigableImportFieldSelector(field) {
+            return field
+                ? '[data-import-field="' + field + '"]'
+                : '.row-checkbox';
+        }
+
+        function focusImportRowField(row, selector) {
+            var target = row.querySelector(selector);
+            if (!target) return false;
+
+            target.focus();
+            if (target.tagName === 'TEXTAREA') {
+                target.select();
+            }
+            target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            return true;
+        }
+
+        function navigateImportRowFocus(currentField, direction) {
+            var currentRow = currentField.closest('#import-rows tr[id^="row-"]');
+            if (!currentRow) return;
+
+            var rows = getImportRows();
+            var currentIndex = rows.indexOf(currentRow);
+            var nextRow = rows[currentIndex + direction];
+            if (!nextRow) return;
+
+            var selector = navigableImportFieldSelector(currentField.dataset.importField);
+            focusImportRowField(nextRow, selector);
+        }
+
+        function getNavigableImportFields() {
+            return Array.from(document.querySelectorAll(
+                '#import-rows tr[id^="row-"] .row-checkbox, #import-rows tr[id^="row-"] [data-import-field]'
+            ));
+        }
+
+        function navigateImportField(currentField, direction) {
+            var fields = getNavigableImportFields();
+            var currentIndex = fields.indexOf(currentField);
+            var nextField = fields[currentIndex + direction];
+            if (!nextField) return;
+
+            nextField.focus();
+            if (nextField.tagName === 'TEXTAREA') {
+                nextField.select();
+            }
+            nextField.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
 
         function updateBatchActions() {
             var selected = document.querySelectorAll('#import-rows tr input.row-checkbox:checked');
@@ -282,12 +503,12 @@
                     // Atualizar os selects nas linhas
                     selected.forEach(function(cb) {
                         var row = cb.closest('tr');
-                        var selects = row.querySelectorAll('select');
-                        if (walletValue) selects[0].value = walletValue === '__clear__' ? '' : walletValue;
-                        if (categoryValue) selects[1].value = categoryValue === '__clear__' ? '' : categoryValue;
-                        if (natureValue) selects[2].value = natureValue === '__clear__' ? '' : natureValue;
-                        if (economicEventValue) selects[3].value = economicEventValue === '__clear__' ? '' : economicEventValue;
+                        if (walletValue) row.querySelector('[data-import-field="walletId"]').value = walletValue === '__clear__' ? '' : walletValue;
+                        if (categoryValue) row.querySelector('[data-import-field="categoryId"]').value = categoryValue === '__clear__' ? '' : categoryValue;
+                        if (natureValue) row.querySelector('[data-import-field="nature"]').value = natureValue === '__clear__' ? '' : natureValue;
+                        if (economicEventValue) row.querySelector('[data-import-field="economicEvent"]').value = economicEventValue === '__clear__' ? '' : economicEventValue;
                     });
+                    refreshImportRowsView();
                     clearSelection();
                 }
             });
@@ -318,6 +539,7 @@
                 if (response.ok) {
                     rows.forEach(function(row) { row.remove(); });
                     document.getElementById('selectAll').checked = false;
+                    refreshImportRowsView();
                     updateBatchActions();
                 }
             });
@@ -327,8 +549,51 @@
             if (e.target.classList.contains('row-checkbox') && e.target.id !== 'selectAll') {
                 e.target.closest('tr').classList.toggle('selected', e.target.checked);
                 updateBatchActions();
+            } else if (e.target.matches('[data-import-field="walletId"], [data-import-field="categoryId"], [data-import-field="nature"]')) {
+                refreshImportRowsView({ sort: false });
             }
         });
+
+        document.addEventListener('focusout', function(e) {
+            var row = e.target.closest('#import-rows tr[id^="row-"]');
+            if (!row) return;
+
+            setTimeout(function() {
+                if (!row.contains(document.activeElement)) {
+                    refreshImportRowsView();
+                }
+            }, 0);
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.matches('#import-rows tr input.row-checkbox')) return;
+
+            if (e.shiftKey && lastImportRangeCheckbox) {
+                selectImportCheckboxRange(lastImportRangeCheckbox, e.target);
+            }
+            lastImportRangeCheckbox = e.target;
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (!e.altKey || e.ctrlKey || e.shiftKey || e.metaKey) return;
+
+            var key = e.key.toLowerCase();
+            if (key !== 'n' && key !== 'p' && key !== 'f' && key !== 'b' && key !== ' ') return;
+
+            var target = e.target;
+            if (!target.matches('#import-rows [data-import-field], #import-rows .row-checkbox')) return;
+
+            e.preventDefault();
+            if (key === ' ') {
+                toggleFocusedImportRowSelection(target);
+            } else if (key === 'f' || key === 'b') {
+                navigateImportField(target, key === 'f' ? 1 : -1);
+            } else {
+                navigateImportRowFocus(target, key === 'n' ? 1 : -1);
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', initializeImportRows);
     </script>
 </div>
 </body>

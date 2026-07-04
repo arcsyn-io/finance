@@ -49,6 +49,12 @@ public class ImportRepository {
 
     public void insertRow(long importRequestId, String description, LocalDateTime occurredAt,
                           long amount, EntryDirection direction, String externalId) {
+        insertRow(importRequestId, description, occurredAt, amount, direction, externalId, null, null, null);
+    }
+
+    public void insertRow(long importRequestId, String description, LocalDateTime occurredAt,
+                          long amount, EntryDirection direction, String externalId,
+                          Long categoryId, EntryNature nature, EconomicEvent economicEvent) {
         dsl.insertInto(table("import_row"))
                 .columns(
                     field("import_request_id"),
@@ -56,7 +62,10 @@ public class ImportRepository {
                     field("occurred_at"),
                     field("amount"),
                     field("direction"),
-                    field("external_id")
+                    field("external_id"),
+                    field("category_id"),
+                    field("nature"),
+                    field("economic_event")
                 )
                 .values(
                     importRequestId,
@@ -64,7 +73,10 @@ public class ImportRepository {
                     occurredAt.format(SQLITE_DATETIME),
                     amount,
                     direction.name(),
-                    externalId
+                    externalId,
+                    categoryId,
+                    nature != null ? nature.name() : null,
+                    economicEvent != null ? economicEvent.name() : null
                 )
                 .execute();
     }
