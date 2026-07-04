@@ -11,7 +11,7 @@
 <body>
     <th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
 
-    <main class="container">
+    <main class="layout-content">
         <th:block th:replace="~{fragments/flash :: flash}"></th:block>
         <th:block th:replace="${content}"></th:block>
     </main>
@@ -46,6 +46,11 @@
         }
         :root {
             --pico-font-size: 100%;
+        }
+        .layout-content {
+            width: 100%;
+            max-width: none;
+            padding: var(--pico-spacing);
         }
         * {
             scrollbar-width: thin;
@@ -243,7 +248,7 @@
 <body>
     <th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
 
-    <main class="container">
+    <main class="layout-content">
         <th:block th:replace="~{fragments/flash :: flash}"></th:block>
         <th:block th:replace="${content}"></th:block>
     </main>

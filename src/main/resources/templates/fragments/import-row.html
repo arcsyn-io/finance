@@ -2,11 +2,13 @@
 <html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
 <body>
 <tr th:fragment="row(row, importRequest, wallets, categories, natures, economicEvents)"
-    th:id="${'row-' + row.id}">
+    th:id="${'row-' + row.id}"
+    th:classappend="${(row.walletId == null and importRequest.walletId == null) or (row.categoryId == null and importRequest.categoryId == null) or (row.nature == null and importRequest.nature == null)} ? ' import-row-incomplete' : ''">
     <td><input type="checkbox" class="row-checkbox"></td>
     <td th:text="${#temporals.format(row.occurredAt, 'dd/MM/yyyy')}">01/01/2024</td>
     <td>
         <textarea name="value"
+                  data-import-field="description"
                   th:hx-post="@{/imports/{id}/rows/{rowId}/field(id=${importRequest.id}, rowId=${row.id})}"
                   hx-trigger="change"
                   hx-vals='{"field":"description"}'
@@ -14,7 +16,8 @@
                   th:text="${row.description}"></textarea>
     </td>
     <td>
-        <select                 name="value"
+        <select name="value"
+                data-import-field="walletId"
                 th:hx-post="@{/imports/{id}/rows/{rowId}/field(id=${importRequest.id}, rowId=${row.id})}"
                 hx-trigger="change"
                 hx-vals='{"field":"walletId"}'
@@ -35,6 +38,7 @@
     </td>
     <td>
         <select name="value"
+                data-import-field="categoryId"
                 th:hx-post="@{/imports/{id}/rows/{rowId}/field(id=${importRequest.id}, rowId=${row.id})}"
                 hx-trigger="change"
                 hx-vals='{"field":"categoryId"}'
@@ -65,7 +69,8 @@
         </select>
     </td>
     <td>
-        <select                 name="value"
+        <select name="value"
+                data-import-field="nature"
                 th:hx-post="@{/imports/{id}/rows/{rowId}/field(id=${importRequest.id}, rowId=${row.id})}"
                 hx-trigger="change"
                 hx-vals='{"field":"nature"}'
@@ -86,6 +91,7 @@
     </td>
     <td>
         <select name="value"
+                data-import-field="economicEvent"
                 th:hx-post="@{/imports/{id}/rows/{rowId}/field(id=${importRequest.id}, rowId=${row.id})}"
                 hx-trigger="change"
                 hx-vals='{"field":"economicEvent"}'

@@ -264,6 +264,41 @@ public class EntryRepository {
                 .fetch(this::mapToEntry);
     }
 
+    public List<Entry> listSuggestionHistory(EntryDirection direction, Long walletId, int limit) {
+        Condition condition = trueCondition()
+                .and(field("e.deleted_at").isNull())
+                .and(field("e.transfer_id").isNull())
+                .and(field("e.direction").eq(direction.name()));
+
+        if (walletId != null) {
+            condition = condition.and(field("e.wallet_id").eq(walletId));
+        }
+
+        return dsl.select(
+                    field("e.id"),
+                    field("e.wallet_id"),
+                    field("e.category_id"),
+                    field("e.nature"),
+                    field("e.direction"),
+                    field("e.amount"),
+                    field("e.occurred_at"),
+                    field("e.description"),
+                    field("e.transfer_id"),
+                    field("e.economic_event"),
+                    field("e.created_at"),
+                    field("e.deleted_at"),
+                    field("w.name").as("wallet_name"),
+                    field("c.name").as("category_name")
+                )
+                .from(table("entry").as("e"))
+                .join(table("wallet").as("w")).on(field("e.wallet_id").eq(field("w.id")))
+                .join(table("category").as("c")).on(field("e.category_id").eq(field("c.id")))
+                .where(condition)
+                .orderBy(field("e.occurred_at").desc(), field("e.id").desc())
+                .limit(limit)
+                .fetch(this::mapToEntry);
+    }
+
     public long calculateTotalBalance() {
         var inTotal = dsl.select(field("COALESCE(SUM(amount), 0)"))
                 .from(table("entry"))

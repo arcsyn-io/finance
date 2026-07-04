@@ -260,19 +260,24 @@ public class ImportController {
     @PostMapping("/{id}/confirm")
     public String confirm(
             @PathVariable long id,
+            Model model,
             HttpServletResponse response,
             HttpSession session
     ) {
         try {
-            var count = importService.confirm(id);
-            session.setAttribute("successMessage", count + " lançamento(s) importado(s) com sucesso");
-            response.setHeader("HX-Redirect", "/entries");
+            var result = importService.confirm(id);
+            var message = result.importedCount() + " lancamento(s) importado(s) com sucesso";
+            if (result.skippedCount() > 0) {
+                message += " (" + result.skippedCount() + " duplicado(s) ignorado(s))";
+            }
+            session.setAttribute("successMessage", message);
+            response.setHeader("HX-Redirect", "/entries?period=CUSTOM&customStart="
+                    + result.startDate() + "&customEnd=" + result.endDate());
             return null;
 
         } catch (ImportNotFoundException | InvalidImportException | CategoryNotFoundException e) {
-            session.setAttribute("errorMessage", e.getMessage());
-            response.setHeader("HX-Redirect", "/imports/" + id + "/review");
-            return null;
+            model.addAttribute("errorMessage", e.getMessage());
+            return "pages/import-review :: message";
         }
     }
 
@@ -314,3 +319,4 @@ public class ImportController {
         return String.format("%.2f", cents / 100.0).replace(".", ",");
     }
 }
+
