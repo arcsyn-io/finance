@@ -67,17 +67,37 @@
         }
         #import-rows tr.import-row-incomplete,
         #import-rows tr.import-row-incomplete td {
-            --import-row-incomplete-bg: var(--pico-secondary-background);
-            --import-row-incomplete-focus-bg: color-mix(in srgb, var(--pico-secondary-background) 78%, var(--pico-primary) 22%);
+            --import-row-incomplete-bg: color-mix(in srgb, var(--pico-card-background-color) 84%, var(--pico-primary) 16%);
+            --import-row-incomplete-focus-bg: color-mix(in srgb, var(--pico-card-background-color) 76%, var(--pico-primary) 24%);
             background: var(--import-row-incomplete-bg);
             transition: background-color 120ms ease, box-shadow 120ms ease;
+        }
+        #import-rows tr.import-row-incomplete input,
+        #import-rows tr.import-row-incomplete select,
+        #import-rows tr.import-row-incomplete textarea {
+            background-color: color-mix(in srgb, var(--pico-background-color) 88%, var(--pico-primary) 12%);
+            border-color: color-mix(in srgb, var(--pico-muted-border-color) 70%, var(--pico-primary) 30%);
+            color: var(--pico-color);
+        }
+        #import-rows tr.import-row-incomplete input:focus,
+        #import-rows tr.import-row-incomplete select:focus,
+        #import-rows tr.import-row-incomplete textarea:focus {
+            background-color: color-mix(in srgb, var(--pico-background-color) 80%, var(--pico-primary) 20%);
+            border-color: var(--pico-primary);
+            box-shadow: 0 0 0 0.125rem color-mix(in srgb, var(--pico-primary) 35%, transparent);
+        }
+        #import-rows tr.import-row-incomplete .amount-out {
+            color: #fca5a5;
+        }
+        #import-rows tr.import-row-incomplete .amount-in {
+            color: #86efac;
         }
         #import-rows tr.import-row-incomplete td:first-child {
             border-left: 3px solid var(--pico-primary);
         }
         #import-rows tr.import-row-incomplete.selected,
         #import-rows tr.import-row-incomplete.selected td {
-            background: color-mix(in srgb, var(--pico-secondary-background) 72%, var(--pico-primary) 28%);
+            background: color-mix(in srgb, var(--pico-card-background-color) 70%, var(--pico-primary) 30%);
         }
         #import-rows tr.import-row-incomplete:focus-within,
         #import-rows tr.import-row-incomplete:focus-within td {
@@ -325,6 +345,25 @@
             });
         }
 
+        function importFocusReference(element) {
+            if (!element) return null;
+
+            var row = element.closest('#import-rows tr[id^="row-"]');
+            if (!row) return null;
+
+            return {
+                rowId: row.id,
+                selector: navigableImportFieldSelector(element.dataset.importField)
+            };
+        }
+
+        function restoreImportFocus(reference) {
+            if (!reference) return false;
+
+            var row = document.getElementById(reference.rowId);
+            return row ? focusImportRowField(row, reference.selector) : false;
+        }
+
         function toggleImportRowGrouping() {
             importRowsGrouped = !importRowsGrouped;
             var button = document.getElementById('groupImportRowsBtn');
@@ -338,10 +377,12 @@
 
         function refreshImportRowsView(options) {
             var shouldSort = !options || options.sort !== false;
+            var focusReference = importFocusReference(document.activeElement);
             getImportRows().forEach(refreshImportRowState);
             updateImportCompletionSummary();
             if (shouldSort && importRowsGrouped) {
                 sortImportRows();
+                restoreImportFocus(focusReference);
             }
         }
 
@@ -427,6 +468,22 @@
                 nextField.select();
             }
             nextField.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
+
+        function pressEnterOnImportField(field) {
+            var enterEvent = new KeyboardEvent('keydown', {
+                key: 'Enter',
+                code: 'Enter',
+                keyCode: 13,
+                which: 13,
+                bubbles: true,
+                cancelable: true
+            });
+
+            var wasCanceled = !field.dispatchEvent(enterEvent);
+            if (!wasCanceled && typeof field.click === 'function') {
+                field.click();
+            }
         }
 
         function updateBatchActions() {
@@ -578,7 +635,7 @@
             if (!e.altKey || e.ctrlKey || e.shiftKey || e.metaKey) return;
 
             var key = e.key.toLowerCase();
-            if (key !== 'n' && key !== 'p' && key !== 'f' && key !== 'b' && key !== ' ') return;
+            if (key !== 'n' && key !== 'p' && key !== 'f' && key !== 'b' && key !== 'm' && key !== ' ') return;
 
             var target = e.target;
             if (!target.matches('#import-rows [data-import-field], #import-rows .row-checkbox')) return;
@@ -586,6 +643,8 @@
             e.preventDefault();
             if (key === ' ') {
                 toggleFocusedImportRowSelection(target);
+            } else if (key === 'm') {
+                pressEnterOnImportField(target);
             } else if (key === 'f' || key === 'b') {
                 navigateImportField(target, key === 'f' ? 1 : -1);
             } else {
