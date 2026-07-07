@@ -1,4 +1,11 @@
 HELP.md
+.env
+.env*.local
+.next/
+node_modules/
+tsconfig.tsbuildinfo
+.dev-server.log
+.dev-server.log.err
 target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
@@ -34,3 +41,4 @@ build/
 
 ### Data ###
 data/*.db
+**/data/*.db
