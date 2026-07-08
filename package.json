@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "tsc --noEmit false --outDir .tmp/test-build --module NodeNext --moduleResolution NodeNext --jsx react-jsx && node --test .tmp/test-build/src/test/*.test.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
