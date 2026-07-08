@@ -1,9 +1,6 @@
-import { and, asc, eq, sql } from "drizzle-orm";
-import { db } from "@/db/client";
-import { categories } from "@/db/schema";
 import { Category, CategoryType } from "@/domain/category/category";
 import { ApplicationContext } from "@/server/context/application-context";
-import { resolveDatabaseClient } from "@/server/repositories/database-client";
+import { createClient } from "@/lib/supabase/server";
 
 export type CreateCategoryData = {
   readonly name: string;
@@ -52,24 +49,42 @@ export interface CategoryRepository {
   ): Promise<Category>;
 }
 
-export class DrizzleCategoryRepository implements CategoryRepository {
+type CategoryRow = {
+  id: string;
+  user_id: string;
+  legacy_id: number | null;
+  name: string;
+  type: CategoryType;
+  active: boolean;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export class SupabaseCategoryRepository implements CategoryRepository {
   async list(
     context: ApplicationContext,
     options: { includeInactive: boolean },
   ): Promise<Category[]> {
     const userId = context.requireUserPrincipal().id;
-    const client = resolveDatabaseClient(context, db);
-    const rows = await client
-      .select()
-      .from(categories)
-      .where(
-        options.includeInactive
-          ? eq(categories.userId, userId)
-          : and(eq(categories.userId, userId), eq(categories.active, true)),
-      )
-      .orderBy(asc(categories.name));
+    const supabase = await createClient();
+    let query = supabase
+      .from("categories")
+      .select("*")
+      .eq("user_id", userId)
+      .order("name", { ascending: true });
 
-    return rows.map(mapRowToCategory);
+    if (!options.includeInactive) {
+      query = query.eq("active", true);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return (data as CategoryRow[]).map(mapRowToCategory);
   }
 
   async listActiveByType(
@@ -77,20 +92,20 @@ export class DrizzleCategoryRepository implements CategoryRepository {
     type: CategoryType,
   ): Promise<Category[]> {
     const userId = context.requireUserPrincipal().id;
-    const client = resolveDatabaseClient(context, db);
-    const rows = await client
-      .select()
-      .from(categories)
-      .where(
-        and(
-          eq(categories.userId, userId),
-          eq(categories.active, true),
-          eq(categories.type, type),
-        ),
-      )
-      .orderBy(asc(categories.name));
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("categories")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("active", true)
+      .eq("type", type)
+      .order("name", { ascending: true });
 
-    return rows.map(mapRowToCategory);
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return (data as CategoryRow[]).map(mapRowToCategory);
   }
 
   async findById(
@@ -98,34 +113,33 @@ export class DrizzleCategoryRepository implements CategoryRepository {
     id: string,
   ): Promise<Category | null> {
     const userId = context.requireUserPrincipal().id;
-    const client = resolveDatabaseClient(context, db);
-    const [row] = await client
-      .select()
-      .from(categories)
-      .where(and(eq(categories.userId, userId), eq(categories.id, id)))
-      .limit(1);
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("categories")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("id", id)
+      .maybeSingle();
 
-    return row ? mapRowToCategory(row) : null;
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data ? mapRowToCategory(data as CategoryRow) : null;
   }
 
   async findByName(
     context: ApplicationContext,
     name: string,
   ): Promise<Category | null> {
-    const userId = context.requireUserPrincipal().id;
-    const client = resolveDatabaseClient(context, db);
-    const [row] = await client
-      .select()
-      .from(categories)
-      .where(
-        and(
-          eq(categories.userId, userId),
-          sql`lower(${categories.name}) = ${name.toLowerCase()}`,
-        ),
-      )
-      .limit(1);
+    const categories = await this.list(context, { includeInactive: true });
+    const normalizedName = name.toLowerCase();
 
-    return row ? mapRowToCategory(row) : null;
+    return (
+      categories.find(
+        (category) => category.name.toLowerCase() === normalizedName,
+      ) ?? null
+    );
   }
 
   async create(
@@ -133,19 +147,24 @@ export class DrizzleCategoryRepository implements CategoryRepository {
     data: CreateCategoryData,
   ): Promise<Category> {
     const userId = context.requireUserPrincipal().id;
-    const client = resolveDatabaseClient(context, db);
-    const [row] = await client
-      .insert(categories)
-      .values({
-        userId,
+    const supabase = await createClient();
+    const { data: row, error } = await supabase
+      .from("categories")
+      .insert({
+        user_id: userId,
         name: data.name,
         type: data.type,
         active: true,
-        archivedAt: null,
+        archived_at: null,
       })
-      .returning();
+      .select("*")
+      .single();
 
-    return mapRowToCategory(row);
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return mapRowToCategory(row as CategoryRow);
   }
 
   async update(
@@ -154,20 +173,26 @@ export class DrizzleCategoryRepository implements CategoryRepository {
     data: UpdateCategoryData,
   ): Promise<Category> {
     const userId = context.requireUserPrincipal().id;
-    const client = resolveDatabaseClient(context, db);
-    const [row] = await client
-      .update(categories)
-      .set({
+    const supabase = await createClient();
+    const { data: row, error } = await supabase
+      .from("categories")
+      .update({
         name: data.name,
         type: data.type,
         active: data.active,
-        archivedAt: data.active ? null : context.now,
-        updatedAt: context.now,
+        archived_at: data.active ? null : context.now.toISOString(),
+        updated_at: context.now.toISOString(),
       })
-      .where(and(eq(categories.userId, userId), eq(categories.id, id)))
-      .returning();
+      .eq("user_id", userId)
+      .eq("id", id)
+      .select("*")
+      .single();
 
-    return mapRowToCategory(row);
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return mapRowToCategory(row as CategoryRow);
   }
 
   async setActive(
@@ -176,33 +201,39 @@ export class DrizzleCategoryRepository implements CategoryRepository {
     active: boolean,
   ): Promise<Category> {
     const userId = context.requireUserPrincipal().id;
-    const client = resolveDatabaseClient(context, db);
-    const [row] = await client
-      .update(categories)
-      .set({
+    const supabase = await createClient();
+    const { data: row, error } = await supabase
+      .from("categories")
+      .update({
         active,
-        archivedAt: active ? null : context.now,
-        updatedAt: context.now,
+        archived_at: active ? null : context.now.toISOString(),
+        updated_at: context.now.toISOString(),
       })
-      .where(and(eq(categories.userId, userId), eq(categories.id, id)))
-      .returning();
+      .eq("user_id", userId)
+      .eq("id", id)
+      .select("*")
+      .single();
 
-    return mapRowToCategory(row);
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return mapRowToCategory(row as CategoryRow);
   }
 }
 
-function mapRowToCategory(row: typeof categories.$inferSelect): Category {
+function mapRowToCategory(row: CategoryRow): Category {
   return {
     id: row.id,
-    userId: row.userId,
-    legacyId: row.legacyId,
+    userId: row.user_id,
+    legacyId: row.legacy_id,
     name: row.name,
     type: row.type,
     active: row.active,
-    archivedAt: row.archivedAt,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
+    archivedAt: row.archived_at ? new Date(row.archived_at) : null,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
   };
 }
 
-export const categoryRepository = new DrizzleCategoryRepository();
+export const categoryRepository = new SupabaseCategoryRepository();
