@@ -1,4 +1,5 @@
-import { ArrowUpRight, Landmark, ReceiptText, Wallet } from "lucide-react";
+import Link from "next/link";
+import { ArrowUpRight, Landmark, ReceiptText, Tags, Wallet } from "lucide-react";
 
 const metrics = [
   {
@@ -34,10 +35,19 @@ export default function Home() {
               Visão financeira
             </h1>
           </div>
-          <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-accent px-4 text-sm font-semibold text-background transition hover:brightness-110">
-            Novo lançamento
-            <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-accent px-4 text-sm font-semibold text-background transition hover:brightness-110"
+              href="/categories"
+            >
+              Categorias
+              <Tags className="h-4 w-4" aria-hidden="true" />
+            </Link>
+            <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border px-4 text-sm font-semibold text-foreground transition hover:border-accent">
+              Novo lançamento
+              <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
         </header>
 
         <div className="grid gap-4 md:grid-cols-3">
