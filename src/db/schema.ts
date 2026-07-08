@@ -3,6 +3,7 @@ import {
   index,
   integer,
   pgEnum,
+  pgSchema,
   pgTable,
   text,
   timestamp,
@@ -37,6 +38,12 @@ export const importSourceEnum = pgEnum("import_source", [
   "NUBANK_CREDIT_CARD",
 ]);
 
+export const authSchema = pgSchema("auth");
+
+export const authUsers = authSchema.table("users", {
+  id: uuid("id").primaryKey(),
+});
+
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -47,7 +54,9 @@ const timestamps = {
 };
 
 export const profiles = pgTable("profiles", {
-  id: uuid("id").primaryKey(),
+  id: uuid("id")
+    .primaryKey()
+    .references(() => authUsers.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -58,7 +67,9 @@ export const wallets = pgTable(
   "wallets",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     type: walletTypeEnum("type").notNull(),
     initialBalanceCents: integer("initial_balance_cents").notNull().default(0),
@@ -78,7 +89,9 @@ export const categories = pgTable(
   "categories",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     type: categoryTypeEnum("type").notNull(),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
@@ -97,7 +110,9 @@ export const economicEvents = pgTable(
   "economic_events",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
     description: text("description").notNull(),
     occurredOn: date("occurred_on").notNull(),
     ...timestamps,
@@ -114,7 +129,9 @@ export const transfers = pgTable(
   "transfers",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
     fromWalletId: uuid("from_wallet_id")
       .notNull()
       .references(() => wallets.id),
@@ -138,7 +155,9 @@ export const entries = pgTable(
   "entries",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
     walletId: uuid("wallet_id")
       .notNull()
       .references(() => wallets.id),
@@ -177,7 +196,9 @@ export const importRequests = pgTable(
   "import_requests",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
     source: importSourceEnum("source").notNull(),
     status: importStatusEnum("status").notNull().default("PENDING"),
     fileName: text("file_name").notNull(),
@@ -201,8 +222,10 @@ export const importRows = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     importRequestId: uuid("import_request_id")
       .notNull()
-      .references(() => importRequests.id),
-    userId: uuid("user_id").notNull(),
+      .references(() => importRequests.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
     rowNumber: integer("row_number").notNull(),
     occurredOn: date("occurred_on").notNull(),
     description: text("description").notNull(),
