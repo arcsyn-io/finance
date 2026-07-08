@@ -30,8 +30,6 @@ const categoryStatusMessages: Record<string, string> = {
   deactivated: "Categoria desativada com sucesso",
 };
 
-const categoryService = createCategoryService();
-
 export const dynamic = "force-dynamic";
 
 export default async function CategoriesPage({
@@ -40,6 +38,7 @@ export default async function CategoriesPage({
   const params = (await searchParams) ?? {};
   const showInactive = params.showInactive === "true";
   const context = await getCurrentApplicationContext();
+  const categoryService = await createCategoryService();
   const categories = await categoryService.list(context, {
     includeInactive: showInactive,
   });
