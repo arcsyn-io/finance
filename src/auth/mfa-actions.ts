@@ -24,6 +24,11 @@ export async function enrollTotp() {
   });
 
   if (error || !data || data.type !== "totp") {
+    console.error("MFA enroll failed", {
+      code: error?.code,
+      message: error?.message,
+      status: error?.status,
+    });
     redirect("/mfa?error=enroll_failed");
   }
 
@@ -33,6 +38,11 @@ export async function enrollTotp() {
     });
 
   if (challengeError || !challenge) {
+    console.error("MFA enrollment challenge failed", {
+      code: challengeError?.code,
+      message: challengeError?.message,
+      status: challengeError?.status,
+    });
     redirect("/mfa?error=challenge_failed");
   }
 
@@ -62,6 +72,11 @@ export async function verifyEnrollment(formData: FormData) {
   });
 
   if (error) {
+    console.error("MFA enrollment verification failed", {
+      code: error.code,
+      message: error.message,
+      status: error.status,
+    });
     redirect("/mfa?mode=enroll&error=invalid_code");
   }
 
@@ -80,6 +95,11 @@ export async function challengeTotp(formData: FormData) {
   });
 
   if (error) {
+    console.error("MFA challenge verification failed", {
+      code: error.code,
+      message: error.message,
+      status: error.status,
+    });
     redirect("/mfa?error=invalid_code");
   }
 
