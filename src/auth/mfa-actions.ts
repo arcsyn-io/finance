@@ -15,12 +15,48 @@ const codeSchema = z
   .regex(/^\d{6}$/, "Informe o codigo de 6 digitos.");
 
 const factorIdSchema = z.string().uuid();
+const totpFriendlyName = "Finance";
 
 export async function enrollTotp() {
   const supabase = await createClient();
+  const { data: factorsData, error: factorsError } =
+    await supabase.auth.mfa.listFactors();
+
+  if (factorsError) {
+    console.error("MFA factor listing failed", {
+      code: factorsError.code,
+      message: factorsError.message,
+      status: factorsError.status,
+    });
+    redirect("/mfa?error=enroll_failed");
+  }
+
+  const existingTotpFactor = factorsData.totp.find(
+    (factor) => factor.friendly_name === totpFriendlyName,
+  );
+
+  if (existingTotpFactor?.status === "verified") {
+    redirect("/mfa");
+  }
+
+  if (existingTotpFactor) {
+    const { error: unenrollError } = await supabase.auth.mfa.unenroll({
+      factorId: existingTotpFactor.id,
+    });
+
+    if (unenrollError) {
+      console.error("MFA stale factor unenroll failed", {
+        code: unenrollError.code,
+        message: unenrollError.message,
+        status: unenrollError.status,
+      });
+      redirect("/mfa?error=enroll_failed");
+    }
+  }
+
   const { data, error } = await supabase.auth.mfa.enroll({
     factorType: "totp",
-    friendlyName: "Finance",
+    friendlyName: totpFriendlyName,
   });
 
   if (error || !data || data.type !== "totp") {

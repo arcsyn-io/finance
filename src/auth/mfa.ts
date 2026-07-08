@@ -19,7 +19,8 @@ export const getMfaState = cache(async () => {
       };
     }
 
-    const verifiedTotpFactors = factorsData?.totp ?? [];
+    const verifiedTotpFactors =
+      factorsData?.totp.filter((factor) => factor.status === "verified") ?? [];
 
     return {
       currentLevel: assurance.currentLevel,
