@@ -6,6 +6,16 @@ import { getCurrentUser } from "@/auth/user";
 
 export const dynamic = "force-dynamic";
 
+const errorMessages: Record<string, string> = {
+  enroll_failed:
+    "Nao foi possivel iniciar o cadastro do MFA. Confira se TOTP esta habilitado no Supabase.",
+  challenge_failed:
+    "Nao foi possivel gerar o desafio do autenticador. Tente novamente.",
+  enrollment_expired:
+    "A configuracao expirou. Inicie o cadastro do autenticador novamente.",
+  invalid_code: "Codigo invalido ou expirado. Confira o horario do dispositivo e tente novamente.",
+};
+
 export default async function MfaPage({
   searchParams,
 }: {
@@ -44,7 +54,7 @@ export default async function MfaPage({
 
         {error ? (
           <p className="mt-5 rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
-            Nao foi possivel validar o codigo. Tente novamente.
+            {errorMessages[error] ?? "Nao foi possivel validar o MFA. Tente novamente."}
           </p>
         ) : null}
 
