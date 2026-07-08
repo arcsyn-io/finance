@@ -8,7 +8,6 @@ const enrollmentCookieName = "finance_mfa_enrollment";
 const pendingTotpEnrollmentSchema = z.object({
   factorId: z.string().uuid(),
   challengeId: z.string().uuid(),
-  qrCode: z.string().min(1),
   secret: z.string().min(1),
 });
 

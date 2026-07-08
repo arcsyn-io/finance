@@ -85,7 +85,6 @@ export async function enrollTotp() {
   await setPendingTotpEnrollment({
     factorId: data.id,
     challengeId: challenge.id,
-    qrCode: data.totp.qr_code,
     secret: data.totp.secret,
   });
 
