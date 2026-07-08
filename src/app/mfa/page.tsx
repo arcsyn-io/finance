@@ -61,13 +61,10 @@ export default async function MfaPage({
         {mode === "enroll" && pendingEnrollment ? (
           <form action={verifyEnrollment} className="mt-6 space-y-4">
             <div className="rounded-md border border-border bg-background p-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                alt="QR Code para configurar MFA"
-                className="mx-auto h-48 w-48 bg-white p-2"
-                src={pendingEnrollment.qrCode}
-              />
-              <p className="mt-4 break-all text-xs text-muted">
+              <p className="text-sm font-medium text-foreground">
+                Chave para configuracao manual
+              </p>
+              <p className="mt-3 break-all rounded-md border border-border bg-panel p-3 font-mono text-sm text-muted">
                 {pendingEnrollment.secret}
               </p>
             </div>
