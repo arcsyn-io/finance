@@ -20,10 +20,9 @@ import {
 } from "@/server/schemas/category-schema";
 import { createCategoryService } from "@/server/services/category-service-factory";
 
-const categoryService = createCategoryService();
-
 export async function createCategory(formData: FormData): Promise<void> {
   const context = await getCurrentApplicationContext();
+  const categoryService = await createCategoryService();
   const result = createCategoryRequestSchema.safeParse({
     name: String(formData.get("name") ?? ""),
     type: emptyToUndefined(formData.get("type")),
@@ -48,6 +47,7 @@ export async function createCategory(formData: FormData): Promise<void> {
 
 export async function updateCategory(formData: FormData): Promise<void> {
   const context = await getCurrentApplicationContext();
+  const categoryService = await createCategoryService();
   const result = updateCategoryRequestSchema.safeParse({
     id: String(formData.get("id") ?? ""),
     name: String(formData.get("name") ?? ""),
@@ -85,6 +85,7 @@ async function setCategoryActive(
   active: boolean,
 ): Promise<void> {
   const context = await getCurrentApplicationContext();
+  const categoryService = await createCategoryService();
   const result = setCategoryActiveRequestSchema.safeParse({
     id: String(formData.get("id") ?? ""),
   });
