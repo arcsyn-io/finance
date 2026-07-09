@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import {
   BarChart3,
   CircleDollarSign,
@@ -34,7 +34,31 @@ const operationLinks = [
 
 export function AppShell({ children }: { readonly children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [logoutPending, startLogoutTransition] = useTransition();
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleLogout() {
+    setLogoutError(null);
+
+    const response = await fetch("/api/auth/sign-out", {
+      method: "POST",
+    });
+    const body = (await response.json()) as {
+      readonly redirectTo?: string;
+      readonly error?: string;
+    };
+
+    if (!response.ok) {
+      setLogoutError(body.error ?? "Nao foi possivel sair da conta");
+      return;
+    }
+
+    setMenuOpen(false);
+    router.replace(body.redirectTo ?? "/login");
+    router.refresh();
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground lg:grid lg:grid-cols-[224px_minmax(0,1fr)]">
@@ -82,10 +106,20 @@ export function AppShell({ children }: { readonly children: React.ReactNode }) {
             <Settings className="h-3.5 w-3.5" aria-hidden="true" />
             Configuracoes
           </button>
-          <button className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-xs font-medium text-muted transition hover:bg-negative/10 hover:text-negative">
+          <button
+            className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-xs font-medium text-muted transition hover:bg-negative/10 hover:text-negative disabled:opacity-60"
+            disabled={logoutPending}
+            onClick={() => startLogoutTransition(() => void handleLogout())}
+            type="button"
+          >
             <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
-            Sair
+            {logoutPending ? "Saindo..." : "Sair"}
           </button>
+          {logoutError ? (
+            <p className="px-2 py-1 text-[10px] leading-4 text-negative">
+              {logoutError}
+            </p>
+          ) : null}
           <div className="mt-1 flex items-center gap-2.5 px-2 py-2">
             <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent/15 text-[10px] font-bold text-accent">
               LC
