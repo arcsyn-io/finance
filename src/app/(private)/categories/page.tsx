@@ -1,5 +1,13 @@
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Category, categoryTypes, CategoryType } from "@/domain/category/category";
 import {
   CategoryRowForms,
@@ -60,37 +68,36 @@ export default async function CategoriesPage({
             operacionais com liquidez ou patrimonio.
           </p>
         </div>
-        <Link
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border px-4 text-sm font-semibold text-foreground transition hover:border-accent"
-          href={showInactive ? "/categories" : "/categories?showInactive=true"}
-        >
-          {showInactive ? (
-            <EyeOff className="h-4 w-4" aria-hidden="true" />
-          ) : (
-            <Eye className="h-4 w-4" aria-hidden="true" />
-          )}
-          {showInactive ? "Ocultar inativas" : "Mostrar inativas"}
-        </Link>
+        <Button asChild variant="outline">
+          <Link href={showInactive ? "/categories" : "/categories?showInactive=true"}>
+            {showInactive ? (
+              <EyeOff aria-hidden="true" />
+            ) : (
+              <Eye aria-hidden="true" />
+            )}
+            {showInactive ? "Ocultar inativas" : "Mostrar inativas"}
+          </Link>
+        </Button>
       </header>
 
       {params.status ? (
-        <p className="rounded-md border border-positive/40 bg-positive/10 px-4 py-3 text-sm text-emerald-100">
+        <div className="rounded-md border border-positive/40 bg-positive/10 px-4 py-3 text-sm text-emerald-100">
           {categoryStatusMessages[params.status] ?? "Operacao concluida"}
-        </p>
+        </div>
       ) : null}
 
       {params.error ? (
-        <p className="rounded-md border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-red-100">
+        <div className="rounded-md border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-red-100">
           {params.error}
-        </p>
+        </div>
       ) : null}
 
-      <section className="rounded-md border border-border bg-panel">
-        <div className="border-b border-border px-5 py-4">
-          <h2 className="text-base font-semibold">Nova categoria</h2>
-        </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Nova categoria</CardTitle>
+        </CardHeader>
         <CreateCategoryForm categoryTypes={categoryTypes} />
-      </section>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {categoryTypes.map((type) => (
@@ -116,14 +123,12 @@ function CategorySection({
   title: string;
 }) {
   return (
-    <section className="rounded-md border border-border bg-panel">
-      <div className="flex items-center justify-between border-b border-border px-5 py-4">
-        <h2 className="text-base font-semibold">{title}</h2>
-        <span className="rounded-full border border-border px-2 py-1 text-xs font-bold text-muted">
-          {categories.length}
-        </span>
-      </div>
-      <div className="divide-y divide-border">
+    <Card>
+      <CardHeader className="flex-row items-center justify-between">
+        <CardTitle>{title}</CardTitle>
+        <Badge>{categories.length}</Badge>
+      </CardHeader>
+      <CardContent className="divide-y divide-border p-0">
         {categories.length === 0 ? (
           <p className="p-5 text-sm text-muted">Nenhuma categoria cadastrada.</p>
         ) : (
@@ -135,7 +140,7 @@ function CategorySection({
             />
           ))
         )}
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   );
 }

@@ -3,6 +3,10 @@
 import { FormEvent, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Check, Plus, RotateCcw, Save } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import type { Category, CategoryType } from "@/domain/category/category";
 
 type CategoryFormProps = {
@@ -51,18 +55,16 @@ export function CreateCategoryForm({ categoryTypes }: CategoryFormProps) {
       onSubmit={(event) => startTransition(() => void handleSubmit(event))}
       className="grid gap-3 p-5 md:grid-cols-[1fr_220px_auto]"
     >
-      <label className="flex flex-col gap-2 text-xs text-muted">
+      <Label className="flex flex-col gap-2">
         Nome
-        <input
-          className="h-10 rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-accent focus:shadow-[0_0_0_3px_rgba(14,165,233,0.18)]"
+        <Input
           name="name"
           placeholder="Ex.: Alimentacao"
         />
-      </label>
-      <label className="flex flex-col gap-2 text-xs text-muted">
+      </Label>
+      <Label className="flex flex-col gap-2">
         Tipo
-        <select
-          className="h-10 rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-accent focus:shadow-[0_0_0_3px_rgba(14,165,233,0.18)]"
+        <Select
           name="type"
           defaultValue="EXPENSE"
         >
@@ -71,15 +73,15 @@ export function CreateCategoryForm({ categoryTypes }: CategoryFormProps) {
               {type === "INCOME" ? "Receita" : "Despesa"}
             </option>
           ))}
-        </select>
-      </label>
-      <button
-        className="inline-flex h-10 items-center justify-center gap-2 self-end rounded-md bg-accent px-4 text-sm font-semibold text-accent-foreground transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+        </Select>
+      </Label>
+      <Button
+        className="self-end"
         disabled={pending}
       >
-        <Plus className="h-4 w-4" aria-hidden="true" />
+        <Plus aria-hidden="true" />
         Criar
-      </button>
+      </Button>
     </form>
   );
 }
@@ -147,18 +149,16 @@ export function CategoryRowForms({
         onSubmit={(event) => startTransition(() => void handleUpdate(event))}
         className="grid gap-3 md:grid-cols-[1fr_150px_90px_auto]"
       >
-        <label className="flex flex-col gap-2 text-xs text-muted">
+        <Label className="flex flex-col gap-2">
           Nome
-          <input
-            className="h-10 rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-accent focus:shadow-[0_0_0_3px_rgba(14,165,233,0.18)]"
+          <Input
             defaultValue={category.name}
             name="name"
           />
-        </label>
-        <label className="flex flex-col gap-2 text-xs text-muted">
+        </Label>
+        <Label className="flex flex-col gap-2">
           Tipo
-          <select
-            className="h-10 rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-accent focus:shadow-[0_0_0_3px_rgba(14,165,233,0.18)]"
+          <Select
             defaultValue={category.type}
             name="type"
           >
@@ -167,9 +167,9 @@ export function CategoryRowForms({
                 {type === "INCOME" ? "Receita" : "Despesa"}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="flex h-10 items-center gap-2 self-end text-sm text-muted">
+          </Select>
+        </Label>
+        <Label className="flex h-10 items-center gap-2 self-end text-sm">
           <input
             className="h-4 w-4 accent-[hsl(var(--accent))]"
             defaultChecked={category.active}
@@ -177,30 +177,32 @@ export function CategoryRowForms({
             type="checkbox"
           />
           Ativa
-        </label>
-        <button
-          className="inline-flex h-10 items-center justify-center gap-2 self-end rounded-md border border-border px-3 text-sm font-semibold transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-70"
+        </Label>
+        <Button
+          className="self-end"
           disabled={pending}
+          variant="outline"
         >
-          <Save className="h-4 w-4" aria-hidden="true" />
+          <Save aria-hidden="true" />
           Salvar
-        </button>
+        </Button>
       </form>
       <form
         onSubmit={(event) => startTransition(() => void handleStatus(event))}
         className="flex justify-end"
       >
-        <button
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm text-muted transition hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-70"
+        <Button
           disabled={pending}
+          size="sm"
+          variant="ghost"
         >
           {category.active ? (
-            <Check className="h-4 w-4" aria-hidden="true" />
+            <Check aria-hidden="true" />
           ) : (
-            <RotateCcw className="h-4 w-4" aria-hidden="true" />
+            <RotateCcw aria-hidden="true" />
           )}
           {category.active ? "Desativar" : "Ativar"}
-        </button>
+        </Button>
       </form>
     </article>
   );

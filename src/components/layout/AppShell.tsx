@@ -10,6 +10,7 @@ import {
   Tags,
   Wallet,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const analysisLinks = [
   { href: "/", label: "Visao geral", icon: LayoutDashboard },
@@ -48,12 +49,9 @@ export function AppShell({ children }: { readonly children: React.ReactNode }) {
             <strong className="block leading-none">Finance</strong>
             <span className="text-xs text-muted">Analise financeira pessoal</span>
           </div>
-          <Link
-            className="inline-flex h-9 items-center justify-center rounded-md border border-border px-3 text-sm font-semibold text-foreground"
-            href="/categories"
-          >
-            Categorias
-          </Link>
+          <Button asChild size="sm" variant="outline">
+            <Link href="/categories">Categorias</Link>
+          </Button>
         </header>
         <main className="min-w-0 px-4 py-5 sm:px-6 lg:px-7 lg:py-7">
           {children}
