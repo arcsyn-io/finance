@@ -7,6 +7,8 @@ node_modules/
 tsconfig.tsbuildinfo
 .dev-server.log
 .dev-server.log.err
+supabase/.branches/
+supabase/.temp/
 target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
