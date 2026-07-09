@@ -2,6 +2,9 @@
 
 import { FormEvent, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type MfaApiResponse = {
   readonly redirectTo?: string;
@@ -56,12 +59,12 @@ export function EnrollTotpForm() {
       onSubmit={(event) => startTransition(() => void handleSubmit(event))}
       className="mt-6"
     >
-      <button
-        className="h-10 w-full rounded-md bg-accent px-4 text-sm font-semibold text-accent-foreground transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+      <Button
+        className="w-full"
         disabled={pending}
       >
         Configurar app autenticador
-      </button>
+      </Button>
     </form>
   );
 }
@@ -115,23 +118,23 @@ function MfaCodeForm({
         </div>
       ) : null}
 
-      <label className="block text-sm">
-        <span className="text-muted">Codigo de 6 digitos</span>
-        <input
-          className="mt-2 h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none transition focus:border-accent focus:shadow-[0_0_0_3px_rgba(14,165,233,0.18)]"
+      <Label className="block text-sm">
+        Codigo de 6 digitos
+        <Input
+          className="mt-2"
           inputMode="numeric"
           maxLength={6}
           name="code"
           required
         />
-      </label>
+      </Label>
 
-      <button
-        className="h-10 w-full rounded-md bg-accent px-4 text-sm font-semibold text-accent-foreground transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+      <Button
+        className="w-full"
         disabled={pending}
       >
         {buttonLabel}
-      </button>
+      </Button>
     </form>
   );
 }

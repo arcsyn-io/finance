@@ -1,5 +1,16 @@
 import Link from "next/link";
 import { ArrowDownToLine, Plus, Tags } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 
 const metrics = [
   {
@@ -75,28 +86,25 @@ export default function Home() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Link
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border px-4 text-sm font-semibold text-foreground transition hover:border-accent"
-            href="/categories"
-          >
-            <Tags className="h-4 w-4" aria-hidden="true" />
-            Categorias
-          </Link>
-          <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-accent px-4 text-sm font-semibold text-accent-foreground transition hover:brightness-110">
-            <Plus className="h-4 w-4" aria-hidden="true" />
+          <Button asChild variant="outline">
+            <Link href="/categories">
+              <Tags aria-hidden="true" />
+              Categorias
+            </Link>
+          </Button>
+          <Button>
+            <Plus aria-hidden="true" />
             Novo lancamento
-          </button>
+          </Button>
         </div>
       </header>
 
-      <section
-        className="grid gap-3 rounded-md border border-border bg-surface p-3 md:grid-cols-4"
-        aria-label="Filtros"
-      >
+      <Card aria-label="Filtros">
+        <CardContent className="grid gap-3 p-3 md:grid-cols-4">
         {["Ano", "Carteira", "Natureza", "Modo"].map((label) => (
-          <label className="grid gap-2 text-xs text-muted" key={label}>
+          <Label className="grid gap-2" key={label}>
             {label}
-            <select className="h-10 rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-accent">
+            <Select>
               <option>
                 {label === "Ano"
                   ? "2026"
@@ -106,23 +114,23 @@ export default function Home() {
                       ? "Operacional"
                       : "Mensal"}
               </option>
-            </select>
-          </label>
+            </Select>
+          </Label>
         ))}
-      </section>
+        </CardContent>
+      </Card>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric) => (
-          <article
-            className="rounded-md border border-border bg-panel p-4"
-            key={metric.label}
-          >
-            <p className="text-sm text-muted">{metric.label}</p>
+          <Card key={metric.label}>
+            <CardContent className="p-4">
+            <CardDescription>{metric.label}</CardDescription>
             <strong className={`mt-3 block text-2xl font-semibold ${metric.tone}`}>
               {metric.value}
             </strong>
             <p className="mt-3 text-sm leading-6 text-muted">{metric.detail}</p>
-          </article>
+            </CardContent>
+          </Card>
         ))}
       </section>
 
@@ -138,19 +146,19 @@ export default function Home() {
         </ChartPanel>
       </section>
 
-      <section className="rounded-md border border-border bg-panel">
-        <div className="flex flex-col gap-2 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <Card>
+        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-base font-semibold">Matriz mensal</h2>
-            <p className="mt-1 text-sm text-muted">
+            <CardTitle>Matriz mensal</CardTitle>
+            <CardDescription className="mt-1">
               Separacao entre fluxo operacional, liquidez real e excedente.
-            </p>
+            </CardDescription>
           </div>
-          <button className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border px-3 text-sm font-semibold text-foreground transition hover:border-accent">
-            <ArrowDownToLine className="h-4 w-4" aria-hidden="true" />
+          <Button size="sm" variant="outline">
+            <ArrowDownToLine aria-hidden="true" />
             Exportar
-          </button>
-        </div>
+          </Button>
+        </CardHeader>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] border-collapse">
             <thead>
@@ -190,7 +198,7 @@ export default function Home() {
             </tbody>
           </table>
         </div>
-      </section>
+      </Card>
     </div>
   );
 }
@@ -214,15 +222,13 @@ function ChartPanel({
         : "border-border text-muted";
 
   return (
-    <article className="rounded-md border border-border bg-panel">
-      <div className="flex items-center justify-between gap-4 border-b border-border px-4 py-4">
-        <h2 className="text-base font-semibold">{title}</h2>
-        <span className={`rounded-full border px-2 py-1 text-xs font-bold ${badgeClass}`}>
-          {badge}
-        </span>
-      </div>
-      <div className="p-4">{children}</div>
-    </article>
+    <Card>
+      <CardHeader className="flex-row items-center justify-between gap-4">
+        <CardTitle>{title}</CardTitle>
+        <Badge className={badgeClass}>{badge}</Badge>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
   );
 }
 

@@ -2,6 +2,10 @@
 
 import { FormEvent, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type AuthApiResponse = {
   readonly redirectTo?: string;
@@ -32,48 +36,51 @@ export function LoginForm() {
   }
 
   return (
-    <form
-      onSubmit={(event) => startTransition(() => void handleSubmit(event))}
-      className="w-full max-w-sm rounded-md border border-border bg-panel p-6 shadow-2xl shadow-black/20"
-    >
-      <div>
+    <Card className="w-full max-w-sm shadow-2xl shadow-black/20">
+      <CardHeader className="border-b-0 pb-0">
         <p className="text-xs font-bold uppercase text-accent">
           Finance
         </p>
-        <h1 className="mt-2 text-2xl font-semibold">Entrar</h1>
+        <CardTitle className="mt-2 text-2xl">Entrar</CardTitle>
         <p className="mt-3 text-sm leading-6 text-muted">
           Acesse seu painel financeiro com MFA obrigatorio.
         </p>
-      </div>
+      </CardHeader>
+      <CardContent>
+    <form
+      onSubmit={(event) => startTransition(() => void handleSubmit(event))}
+    >
 
-      <label className="mt-6 block text-sm">
-        <span className="text-muted">E-mail</span>
-        <input
-          className="mt-2 h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none transition focus:border-accent focus:shadow-[0_0_0_3px_rgba(14,165,233,0.18)]"
+      <Label className="mt-6 block text-sm">
+        E-mail
+        <Input
+          className="mt-2"
           name="email"
           type="email"
           autoComplete="email"
           required
         />
-      </label>
+      </Label>
 
-      <label className="mt-4 block text-sm">
-        <span className="text-muted">Senha</span>
-        <input
-          className="mt-2 h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none transition focus:border-accent focus:shadow-[0_0_0_3px_rgba(14,165,233,0.18)]"
+      <Label className="mt-4 block text-sm">
+        Senha
+        <Input
+          className="mt-2"
           name="password"
           type="password"
           autoComplete="current-password"
           required
         />
-      </label>
+      </Label>
 
-      <button
-        className="mt-6 h-10 w-full rounded-md bg-accent px-4 text-sm font-semibold text-accent-foreground transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+      <Button
+        className="mt-6 w-full"
         disabled={pending}
       >
         Entrar
-      </button>
+      </Button>
     </form>
+      </CardContent>
+    </Card>
   );
 }
