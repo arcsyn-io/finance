@@ -2,12 +2,12 @@ import {
   CreateCategoryCommand,
   SetCategoryActiveCommand,
   UpdateCategoryCommand,
-} from "@/server/commands/category-commands";
+} from "../commands/category-commands";
 import {
   CreateCategoryRequest,
   SetCategoryActiveRequest,
   UpdateCategoryRequest,
-} from "@/server/schemas/category-schema";
+} from "../schemas/category-schema";
 
 export function createCategoryRequestToCommand(
   request: CreateCategoryRequest,

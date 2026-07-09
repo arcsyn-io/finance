@@ -1,9 +1,8 @@
 import { z } from "zod";
-import { categoryTypes } from "@/domain/category/category";
+import { categoryTypes } from "../../domain/category/category";
 
 export const categoryTypeSchema = z.enum(categoryTypes, {
-  required_error: "Tipo da categoria e obrigatorio",
-  invalid_type_error: "Tipo da categoria e obrigatorio",
+  errorMap: () => ({ message: "Tipo da categoria e obrigatorio" }),
 });
 
 export const createCategoryRequestSchema = z.object({

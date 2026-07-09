@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
-import { enrollTotp, challengeTotp, verifyEnrollment } from "@/auth/mfa-actions";
 import { getPendingTotpEnrollment } from "@/auth/mfa-enrollment";
+import {
+  ChallengeTotpForm,
+  EnrollTotpForm,
+  VerifyEnrollmentForm,
+} from "@/auth/mfa-forms";
 import { getMfaState } from "@/auth/mfa";
 import { getCurrentUser } from "@/auth/user";
 
@@ -41,9 +45,9 @@ export default async function MfaPage({
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4 text-foreground">
-      <section className="w-full max-w-md rounded-lg border border-border bg-panel p-6">
+      <section className="w-full max-w-md rounded-md border border-border bg-panel p-6 shadow-2xl shadow-black/20">
         <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-accent">
+          <p className="text-xs font-bold uppercase text-accent">
             Finance
           </p>
           <h1 className="mt-2 text-2xl font-semibold">Verificacao em duas etapas</h1>
@@ -59,54 +63,11 @@ export default async function MfaPage({
         ) : null}
 
         {mode === "enroll" && pendingEnrollment ? (
-          <form action={verifyEnrollment} className="mt-6 space-y-4">
-            <div className="rounded-md border border-border bg-background p-4">
-              <p className="text-sm font-medium text-foreground">
-                Chave para configuracao manual
-              </p>
-              <p className="mt-3 break-all rounded-md border border-border bg-panel p-3 font-mono text-sm text-muted">
-                {pendingEnrollment.secret}
-              </p>
-            </div>
-
-            <label className="block text-sm">
-              <span className="text-muted">Codigo de 6 digitos</span>
-              <input
-                className="mt-2 h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-accent"
-                inputMode="numeric"
-                maxLength={6}
-                name="code"
-                required
-              />
-            </label>
-
-            <button className="h-10 w-full rounded-md bg-accent px-4 text-sm font-semibold text-background transition hover:brightness-110">
-              Ativar MFA
-            </button>
-          </form>
+          <VerifyEnrollmentForm secret={pendingEnrollment.secret} />
         ) : firstTotpFactor ? (
-          <form action={challengeTotp} className="mt-6 space-y-4">
-            <input type="hidden" name="factorId" value={firstTotpFactor.id} />
-            <label className="block text-sm">
-              <span className="text-muted">Codigo de 6 digitos</span>
-              <input
-                className="mt-2 h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-accent"
-                inputMode="numeric"
-                maxLength={6}
-                name="code"
-                required
-              />
-            </label>
-            <button className="h-10 w-full rounded-md bg-accent px-4 text-sm font-semibold text-background transition hover:brightness-110">
-              Verificar
-            </button>
-          </form>
+          <ChallengeTotpForm factorId={firstTotpFactor.id} />
         ) : (
-          <form action={enrollTotp} className="mt-6">
-            <button className="h-10 w-full rounded-md bg-accent px-4 text-sm font-semibold text-background transition hover:brightness-110">
-              Configurar app autenticador
-            </button>
-          </form>
+          <EnrollTotpForm />
         )}
       </section>
     </main>

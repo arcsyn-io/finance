@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Finance - Consumo por categoria</title>
+    <link rel="stylesheet" href="./prototipo.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Navegacao principal">
+        <div class="brand">
+          <strong>Finance</strong>
+          <span>Analise financeira pessoal</span>
+        </div>
+        <nav>
+          <section class="nav-section">
+            <p class="nav-title">Analises</p>
+            <a class="nav-link" href="./fluxo-caixa-mensal.html">Fluxo de caixa</a>
+            <a class="nav-link active" href="./consumo-categoria.html">Consumo por categoria</a>
+            <a class="nav-link" href="#">Liquidez</a>
+            <a class="nav-link" href="#">Patrimonio</a>
+          </section>
+          <section class="nav-section">
+            <p class="nav-title">Operacao</p>
+            <a class="nav-link" href="#">Lancamentos</a>
+            <a class="nav-link" href="./importacao-csv.html">Importar CSV</a>
+            <a class="nav-link" href="#">Categorias</a>
+          </section>
+        </nav>
+      </aside>
+
+      <div>
+        <header class="mobile-topbar">
+          <strong>Consumo</strong>
+          <a class="button" href="./index.html">Prototipos</a>
+        </header>
+        <main class="main">
+          <header class="page-header">
+            <div>
+              <p class="eyebrow">Consumo operacional</p>
+              <h1>Consumo por categoria</h1>
+              <p class="description">
+                Analise dos gastos operacionais classificados como consumo, com ranking,
+                composicao e evolucao mensal usando os mesmos filtros.
+              </p>
+            </div>
+            <div class="toolbar">
+              <button class="button">Exportar</button>
+              <button class="button primary">Ver lancamentos</button>
+            </div>
+          </header>
+
+          <section class="filter-bar" aria-label="Filtros">
+            <div class="field">
+              <label for="periodo">Periodo</label>
+              <select class="select" id="periodo">
+                <option>Jan-Jun/2026</option>
+                <option>Ultimos 12 meses</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="carteira">Carteira</label>
+              <select class="select" id="carteira">
+                <option>Todas as carteiras</option>
+                <option>NuConta</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="categoria">Categoria</label>
+              <select class="select" id="categoria">
+                <option>Todas as categorias</option>
+                <option>Supermercado</option>
+                <option>Refeicao</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="comparacao">Comparacao</label>
+              <select class="select" id="comparacao">
+                <option>Periodo anterior</option>
+                <option>Sem comparacao</option>
+              </select>
+            </div>
+          </section>
+
+          <section class="content-grid grid-3">
+            <article class="panel">
+              <div class="panel-body metric">
+                <span class="metric-label">Total consumido</span>
+                <strong class="metric-value amount">R$ 28.640,00</strong>
+                <span class="metric-detail">Somente consumo operacional</span>
+              </div>
+            </article>
+            <article class="panel">
+              <div class="panel-body metric">
+                <span class="metric-label">Variacao vs periodo anterior</span>
+                <strong class="metric-value amount negative">+R$ 1.820,00</strong>
+                <span class="metric-detail">6,8% acima do periodo anterior</span>
+              </div>
+            </article>
+            <article class="panel">
+              <div class="panel-body metric">
+                <span class="metric-label">Maior categoria</span>
+                <strong class="metric-value">Supermercado</strong>
+                <span class="metric-detail">32% do total consumido</span>
+              </div>
+            </article>
+          </section>
+
+          <section class="content-grid grid-2" style="margin-top: 18px;">
+            <article class="panel">
+              <div class="panel-header">
+                <h2 class="panel-title">Ranking de categorias</h2>
+                <span class="badge">Clique para selecionar</span>
+              </div>
+              <div class="panel-body ranking" id="ranking">
+                <button class="ranking-row active" data-category="Supermercado">
+                  <span>Supermercado<div class="bar-track"><div class="bar-fill" style="width: 82%;"></div></div></span>
+                  <strong class="amount">R$ 9.140</strong>
+                  <span>32%</span>
+                </button>
+                <button class="ranking-row" data-category="Refeicao">
+                  <span>Refeicao<div class="bar-track"><div class="bar-fill" style="width: 58%;"></div></div></span>
+                  <strong class="amount">R$ 6.480</strong>
+                  <span>23%</span>
+                </button>
+                <button class="ranking-row" data-category="Saude">
+                  <span>Saude<div class="bar-track"><div class="bar-fill" style="width: 34%;"></div></div></span>
+                  <strong class="amount">R$ 3.810</strong>
+                  <span>13%</span>
+                </button>
+                <button class="ranking-row" data-category="Transporte">
+                  <span>Transporte<div class="bar-track"><div class="bar-fill" style="width: 25%;"></div></div></span>
+                  <strong class="amount">R$ 2.850</strong>
+                  <span>10%</span>
+                </button>
+                <button class="ranking-row" data-category="Outros">
+                  <span>Outros<div class="bar-track"><div class="bar-fill" style="width: 40%;"></div></div></span>
+                  <strong class="amount">R$ 6.360</strong>
+                  <span>22%</span>
+                </button>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <h2 class="panel-title">Composicao do consumo</h2>
+                <span class="badge">Top 5 + Outros</span>
+              </div>
+              <div class="panel-body">
+                <div class="donut" aria-label="Donut de composicao por categoria"></div>
+                <div class="legend">
+                  <div class="legend-item"><span><span class="dot"></span> Supermercado</span><strong>32%</strong></div>
+                  <div class="legend-item"><span><span class="dot" style="background:#818cf8;"></span> Refeicao</span><strong>23%</strong></div>
+                  <div class="legend-item"><span><span class="dot" style="background:#22c55e;"></span> Saude</span><strong>13%</strong></div>
+                  <div class="legend-item"><span><span class="dot" style="background:#f59e0b;"></span> Transporte</span><strong>10%</strong></div>
+                  <div class="legend-item"><span><span class="dot" style="background:#54657d;"></span> Outros</span><strong>22%</strong></div>
+                </div>
+              </div>
+            </article>
+          </section>
+
+          <section class="panel" style="margin-top: 18px;">
+            <div class="panel-header">
+              <h2 class="panel-title" id="evolution-title">Evolucao mensal - Supermercado</h2>
+              <span class="badge success">Comparado com media</span>
+            </div>
+            <div class="panel-body">
+              <div class="chart" aria-label="Grafico de evolucao mensal">
+                <div class="bar net" style="height: 52%;"></div>
+                <div class="bar net" style="height: 61%;"></div>
+                <div class="bar net" style="height: 48%;"></div>
+                <div class="bar net" style="height: 74%;"></div>
+                <div class="bar net" style="height: 66%;"></div>
+                <div class="bar net" style="height: 80%;"></div>
+              </div>
+              <div class="chart-labels"><span>Jan</span><span>Fev</span><span>Mar</span><span>Abr</span><span>Mai</span><span>Jun</span></div>
+            </div>
+          </section>
+
+          <section class="panel" style="margin-top: 18px;">
+            <div class="panel-header">
+              <h2 class="panel-title">Tabela categoria x mes</h2>
+              <span class="badge">Total e media fixos em desktop</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Categoria</th><th>Jan</th><th>Fev</th><th>Mar</th><th>Abr</th><th>Mai</th><th>Jun</th><th>Total</th><th>Media</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>Supermercado</td><td>R$ 1.420</td><td>R$ 1.590</td><td>R$ 1.240</td><td>R$ 1.720</td><td>R$ 1.530</td><td>R$ 1.640</td><td><strong>R$ 9.140</strong></td><td>R$ 1.523</td></tr>
+                  <tr><td>Refeicao</td><td>R$ 980</td><td>R$ 1.060</td><td>R$ 1.140</td><td>R$ 1.220</td><td>R$ 980</td><td>R$ 1.100</td><td><strong>R$ 6.480</strong></td><td>R$ 1.080</td></tr>
+                  <tr><td>Saude</td><td>R$ 310</td><td>R$ 820</td><td>R$ 420</td><td>R$ 780</td><td>R$ 690</td><td>R$ 790</td><td><strong>R$ 3.810</strong></td><td>R$ 635</td></tr>
+                  <tr><td>Transporte</td><td>R$ 460</td><td>R$ 470</td><td>R$ 480</td><td>R$ 480</td><td>R$ 480</td><td>R$ 480</td><td><strong>R$ 2.850</strong></td><td>R$ 475</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <script>
+      const rows = document.querySelectorAll(".ranking-row");
+      const title = document.getElementById("evolution-title");
+
+      rows.forEach((row) => {
+        row.addEventListener("click", () => {
+          rows.forEach((item) => item.classList.remove("active"));
+          row.classList.add("active");
+          title.textContent = `Evolucao mensal - ${row.dataset.category}`;
+        });
+      });
+    </script>
+  </body>
+</html>

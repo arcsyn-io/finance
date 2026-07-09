@@ -26,7 +26,7 @@ export async function setPendingTotpEnrollment(
     httpOnly: true,
     sameSite: "strict",
     secure: process.env.NODE_ENV === "production",
-    path: "/mfa",
+    path: "/",
     maxAge: 60 * 10,
   });
 }
@@ -48,5 +48,13 @@ export async function getPendingTotpEnrollment() {
 
 export async function clearPendingTotpEnrollment() {
   const cookieStore = await cookies();
-  cookieStore.delete(enrollmentCookieName);
+  cookieStore.set({
+    name: enrollmentCookieName,
+    value: "",
+    httpOnly: true,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 0,
+  });
 }

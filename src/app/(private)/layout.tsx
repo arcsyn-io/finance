@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getMfaState } from "@/auth/mfa";
 import { getCurrentUser } from "@/auth/user";
+import { AppShell } from "@/components/layout/AppShell";
 
 export const dynamic = "force-dynamic";
 
@@ -21,5 +22,5 @@ export default async function PrivateLayout({
     redirect("/mfa");
   }
 
-  return children;
+  return <AppShell>{children}</AppShell>;
 }
