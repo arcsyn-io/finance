@@ -3,20 +3,20 @@
 @tailwind utilities;
 
 :root {
-  --background: 220 28% 8%;
-  --foreground: 220 28% 96%;
-  --surface: 220 24% 11%;
-  --surface-elevated: 222 18% 16%;
-  --muted: 220 12% 68%;
-  --subtle: 219 10% 47%;
-  --border: 220 14% 22%;
-  --panel: 220 22% 13%;
-  --accent: 205 70% 64%;
-  --accent-foreground: 220 28% 8%;
-  --positive: 158 58% 55%;
-  --negative: 8 82% 65%;
-  --warning: 42 84% 61%;
-  --asset: 253 82% 70%;
+  --background: 210 45% 3%;
+  --foreground: 214 24% 92%;
+  --surface: 208 15% 10%;
+  --surface-elevated: 208 14% 14%;
+  --muted: 214 8% 57%;
+  --subtle: 214 8% 43%;
+  --border: 210 14% 15%;
+  --panel: 207 27% 7%;
+  --accent: 201 51% 59%;
+  --accent-foreground: 210 45% 3%;
+  --positive: 153 52% 58%;
+  --negative: 8 76% 62%;
+  --warning: 42 82% 61%;
+  --asset: 253 70% 68%;
 }
 
 * {
@@ -39,9 +39,7 @@ body {
     sans-serif;
   line-height: 1.45;
   font-variant-numeric: tabular-nums;
-  background:
-    radial-gradient(circle at top left, hsl(var(--accent) / 0.1), transparent 30rem),
-    hsl(var(--background));
+  background: hsl(var(--background));
 }
 
 a {
@@ -58,4 +56,28 @@ select {
 input,
 select {
   color-scheme: dark;
+}
+
+::selection {
+  background: hsl(var(--accent) / 0.25);
+  color: hsl(var(--foreground));
+}
+
+.login-shell {
+  background: hsl(var(--background));
+}
+
+.login-hero-panel {
+  background:
+    radial-gradient(
+      circle at 86% 86%,
+      hsl(var(--positive) / 0.11),
+      transparent 25rem
+    ),
+    radial-gradient(
+      circle at 0% 0%,
+      hsl(var(--accent) / 0.08),
+      transparent 34rem
+    ),
+    hsl(var(--panel));
 }
