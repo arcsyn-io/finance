@@ -1,9 +1,9 @@
 "use client";
 
-import { FormEvent, useTransition } from "react";
+import { FormEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff, FolderTree, Lock, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -14,6 +14,7 @@ type AuthApiResponse = {
 
 export function LoginForm() {
   const router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
   const [pending, startTransition] = useTransition();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -36,51 +37,91 @@ export function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-sm shadow-2xl shadow-black/20">
-      <CardHeader className="border-b-0 pb-0">
-        <p className="text-xs font-bold uppercase text-accent">
-          Finance
+    <div className="w-full max-w-sm">
+      <div className="mb-8 flex items-center gap-2.5 lg:hidden">
+        <div className="flex size-7 items-center justify-center rounded-md bg-accent/15 text-accent">
+          <FolderTree className="size-3.5" aria-hidden="true" />
+        </div>
+        <span className="text-sm font-bold">Finance</span>
+      </div>
+
+      <div className="mb-8">
+        <h2 className="text-xl font-bold tracking-tight">Bem-vindo de volta</h2>
+        <p className="mt-1 text-xs text-muted">
+          Entre com suas credenciais para continuar.
         </p>
-        <CardTitle className="mt-2 text-2xl">Entrar</CardTitle>
-        <p className="mt-3 text-sm leading-6 text-muted">
-          Acesse seu painel financeiro com MFA obrigatorio.
-        </p>
-      </CardHeader>
-      <CardContent>
+      </div>
+
     <form
       onSubmit={(event) => startTransition(() => void handleSubmit(event))}
+      className="flex flex-col gap-4"
     >
 
-      <Label className="mt-6 block text-sm">
+      <Label className="flex flex-col gap-1.5 text-[10px] font-semibold uppercase tracking-wider">
         E-mail
-        <Input
-          className="mt-2"
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-        />
+        <span className="relative">
+          <Mail className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted" aria-hidden="true" />
+          <Input
+            className="pl-9"
+            name="email"
+            type="email"
+            autoComplete="email"
+            placeholder="seu@email.com"
+            required
+          />
+        </span>
       </Label>
 
-      <Label className="mt-4 block text-sm">
-        Senha
-        <Input
-          className="mt-2"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-        />
+      <Label className="flex flex-col gap-1.5 text-[10px] font-semibold uppercase tracking-wider">
+        <span className="flex items-center justify-between">
+          Senha
+          <button className="text-[10px] normal-case tracking-normal text-accent hover:underline" type="button">
+            Esqueceu a senha?
+          </button>
+        </span>
+        <span className="relative">
+          <Lock className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted" aria-hidden="true" />
+          <Input
+            className="pl-9 pr-10"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            autoComplete="current-password"
+            placeholder="********"
+            required
+          />
+          <button
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted transition hover:text-foreground"
+            onClick={() => setShowPassword((value) => !value)}
+            type="button"
+          >
+            {showPassword ? <EyeOff className="size-3.5" aria-hidden="true" /> : <Eye className="size-3.5" aria-hidden="true" />}
+            <span className="sr-only">{showPassword ? "Ocultar senha" : "Mostrar senha"}</span>
+          </button>
+        </span>
       </Label>
 
       <Button
-        className="mt-6 w-full"
+        className="mt-2 w-full"
         disabled={pending}
       >
-        Entrar
+        {pending ? "Entrando..." : "Entrar"}
       </Button>
     </form>
-      </CardContent>
-    </Card>
+
+      <div className="my-6 flex items-center gap-3">
+        <div className="h-px flex-1 bg-border" />
+        <span className="text-[10px] text-muted">ou</span>
+        <div className="h-px flex-1 bg-border" />
+      </div>
+
+      <Button className="w-full" type="button" variant="outline">
+        Entrar com SSO corporativo
+      </Button>
+
+      <p className="mt-6 text-center text-[10px] leading-5 text-muted">
+        Ao entrar, voce concorda com os termos de uso e politica de
+        privacidade.
+      </p>
+    </div>
   );
 }

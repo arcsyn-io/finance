@@ -53,16 +53,16 @@ export function CreateCategoryForm({ categoryTypes }: CategoryFormProps) {
   return (
     <form
       onSubmit={(event) => startTransition(() => void handleSubmit(event))}
-      className="grid gap-3 p-5 md:grid-cols-[1fr_220px_auto]"
+      className="grid gap-3 p-4 md:grid-cols-[1fr_220px_auto]"
     >
-      <Label className="flex flex-col gap-2">
+      <Label className="flex flex-col gap-1.5 text-[10px] font-semibold uppercase tracking-wider">
         Nome
         <Input
           name="name"
           placeholder="Ex.: Alimentacao"
         />
       </Label>
-      <Label className="flex flex-col gap-2">
+      <Label className="flex flex-col gap-1.5 text-[10px] font-semibold uppercase tracking-wider">
         Tipo
         <Select
           name="type"
@@ -147,16 +147,16 @@ export function CategoryRowForms({
     <article className="grid gap-3 p-4 transition hover:bg-white/[0.018]">
       <form
         onSubmit={(event) => startTransition(() => void handleUpdate(event))}
-        className="grid gap-3 md:grid-cols-[1fr_150px_90px_auto]"
+        className="grid gap-3 md:grid-cols-[1fr_150px_94px_auto]"
       >
-        <Label className="flex flex-col gap-2">
+        <Label className="flex flex-col gap-1.5 text-[10px] font-semibold uppercase tracking-wider">
           Nome
           <Input
             defaultValue={category.name}
             name="name"
           />
         </Label>
-        <Label className="flex flex-col gap-2">
+        <Label className="flex flex-col gap-1.5 text-[10px] font-semibold uppercase tracking-wider">
           Tipo
           <Select
             defaultValue={category.type}
@@ -169,7 +169,7 @@ export function CategoryRowForms({
             ))}
           </Select>
         </Label>
-        <Label className="flex h-10 items-center gap-2 self-end text-sm">
+        <Label className="flex h-10 items-center gap-2 self-end text-xs">
           <input
             className="h-4 w-4 accent-[hsl(var(--accent))]"
             defaultChecked={category.active}

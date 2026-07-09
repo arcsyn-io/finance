@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,16 +54,16 @@ export default async function CategoriesPage({
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-      <header className="flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-end md:justify-between">
+    <div className="flex w-full flex-col gap-5 lg:gap-6">
+      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <Link className="text-xs font-bold uppercase text-accent" href="/">
+          <Link className="text-[10px] font-semibold uppercase tracking-widest text-accent" href="/">
             Operacao
           </Link>
-          <h1 className="mt-2 text-3xl font-semibold leading-tight sm:text-4xl">
+          <h1 className="mt-2 text-xl font-semibold tracking-tight">
             Categorias
           </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-muted">
+          <p className="mt-1 max-w-3xl text-xs leading-5 text-muted">
             Organize receitas e despesas sem misturar classificacoes
             operacionais com liquidez ou patrimonio.
           </p>
@@ -81,25 +81,33 @@ export default async function CategoriesPage({
       </header>
 
       {params.status ? (
-        <div className="rounded-md border border-positive/40 bg-positive/10 px-4 py-3 text-sm text-emerald-100">
+        <div className="rounded-lg border border-positive/40 bg-positive/10 px-4 py-3 text-xs text-positive">
           {categoryStatusMessages[params.status] ?? "Operacao concluida"}
         </div>
       ) : null}
 
       {params.error ? (
-        <div className="rounded-md border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-red-100">
+        <div className="rounded-lg border border-negative/40 bg-negative/10 px-4 py-3 text-xs text-negative">
           {params.error}
         </div>
       ) : null}
 
       <Card>
-        <CardHeader>
-          <CardTitle>Nova categoria</CardTitle>
+        <CardHeader className="flex-row items-center gap-3">
+          <div className="flex size-8 items-center justify-center rounded-md bg-accent/15 text-accent">
+            <Plus className="size-4" aria-hidden="true" />
+          </div>
+          <div>
+            <CardTitle>Nova categoria</CardTitle>
+            <p className="mt-1 text-xs text-muted">
+              Cadastre uma classificacao operacional para receitas ou despesas.
+            </p>
+          </div>
         </CardHeader>
         <CreateCategoryForm categoryTypes={categoryTypes} />
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         {categoryTypes.map((type) => (
           <CategorySection
             categories={groupedCategories[type]}
@@ -130,7 +138,7 @@ function CategorySection({
       </CardHeader>
       <CardContent className="divide-y divide-border p-0">
         {categories.length === 0 ? (
-          <p className="p-5 text-sm text-muted">Nenhuma categoria cadastrada.</p>
+          <p className="p-5 text-xs text-muted">Nenhuma categoria cadastrada.</p>
         ) : (
           categories.map((category) => (
             <CategoryRowForms

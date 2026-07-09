@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { ArrowDownToLine, Plus, Tags } from "lucide-react";
+import type { ReactNode } from "react";
+import {
+  ArrowDownToLine,
+  Plus,
+  SlidersHorizontal,
+  Tags,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,78 +20,83 @@ import { Select } from "@/components/ui/select";
 
 const metrics = [
   {
-    label: "Recebimentos",
-    value: "R$ 59.750",
-    detail: "Acumulado operacional em 2026",
-    tone: "text-positive",
+    label: "Recebimentos no ano",
+    value: "R$ 2.319.000",
+    detail: "Entradas operacionais recorrentes",
   },
   {
-    label: "Despesas",
-    value: "-R$ 48.840",
-    detail: "Consumo e compromissos recorrentes",
-    tone: "text-negative",
+    label: "Despesas no ano",
+    value: "R$ 2.021.000",
+    detail: "Saidas operacionais e compromissos",
   },
   {
-    label: "Fluxo liquido",
-    value: "R$ 10.910",
+    label: "Fluxo acumulado",
+    value: "+R$ 298.000",
     detail: "Excedente antes de decisoes patrimoniais",
-    tone: "text-accent",
+    tone: "positive",
   },
   {
-    label: "Liquidez real",
-    value: "R$ 23.310",
-    detail: "Saldo final acima do caixa minimo",
-    tone: "text-asset",
+    label: "Saldo final",
+    value: "R$ 443.000",
+    detail: "Liquidez projetada para dezembro",
   },
 ];
 
-const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun"];
+const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago"];
+
+const monthlyData = [
+  { month: "Jan", income: 82, expense: 70, flow: 44, decision: 38 },
+  { month: "Fev", income: 74, expense: 78, flow: -12, decision: 20 },
+  { month: "Mar", income: 92, expense: 66, flow: 68, decision: 46 },
+  { month: "Abr", income: 87, expense: 63, flow: 64, decision: 44 },
+  { month: "Mai", income: 79, expense: 65, flow: 35, decision: 34 },
+  { month: "Jun", income: 68, expense: 74, flow: -18, decision: 18 },
+  { month: "Jul", income: 67, expense: 68, flow: -28, decision: 26 },
+  { month: "Ago", income: 84, expense: 66, flow: 48, decision: 40 },
+];
 
 const matrixRows = [
   {
     label: "Recebimentos",
-    values: ["R$ 9.820", "R$ 9.420", "R$ 10.050", "R$ 10.300", "R$ 9.360", "R$ 10.800"],
+    values: ["R$ 182k", "R$ 165k", "R$ 205k", "R$ 194k", "R$ 176k", "R$ 150k", "R$ 149k", "R$ 187k"],
   },
   {
     label: "Despesas",
-    values: ["-R$ 7.120", "-R$ 8.430", "-R$ 7.300", "-R$ 8.050", "-R$ 10.180", "-R$ 7.760"],
+    values: ["R$ 164k", "R$ 171k", "R$ 155k", "R$ 149k", "R$ 152k", "R$ 174k", "R$ 160k", "R$ 155k"],
     tone: "text-negative",
   },
   {
     label: "Fluxo liquido",
-    values: ["R$ 2.700", "R$ 990", "R$ 2.750", "R$ 2.250", "-R$ 820", "R$ 3.040"],
+    values: ["R$ 15k", "-R$ 3k", "R$ 47k", "R$ 45k", "R$ 24k", "-R$ 6k", "-R$ 16k", "R$ 19k"],
     decision: true,
   },
   {
     label: "Saldo final",
-    values: ["R$ 15.100", "R$ 16.090", "R$ 18.840", "R$ 21.090", "R$ 20.270", "R$ 23.310"],
+    values: ["R$ 165k", "R$ 162k", "R$ 209k", "R$ 254k", "R$ 278k", "R$ 272k", "R$ 256k", "R$ 275k"],
     decision: true,
     tone: "text-positive",
   },
   {
     label: "Excedente / Resgate",
-    values: ["R$ 6.100", "R$ 7.090", "R$ 9.840", "R$ 12.090", "R$ 820", "R$ 14.310"],
+    values: ["R$ 15k", "-R$ 3k", "R$ 47k", "R$ 45k", "R$ 24k", "-R$ 6k", "-R$ 16k", "R$ 19k"],
     decision: true,
   },
 ];
 
 export default function Home() {
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-      <header className="flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-end md:justify-between">
+    <div className="flex w-full flex-col gap-5 lg:gap-6">
+      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase text-accent">
-            Analise operacional
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold leading-tight sm:text-4xl">
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">
             Fluxo de caixa mensal
           </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-muted">
-            Acompanhe recebimentos, despesas, liquidez e patrimonio sem misturar
-            as dimensoes financeiras do dominio.
+          <p className="mt-1 max-w-3xl text-xs leading-5 text-muted">
+            Analise da sustentabilidade mensal considerando recebimentos,
+            despesas operacionais e necessidade de resgate ou excedente.
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline">
             <Link href="/categories">
               <Tags aria-hidden="true" />
@@ -99,55 +110,82 @@ export default function Home() {
         </div>
       </header>
 
-      <Card aria-label="Filtros">
-        <CardContent className="grid gap-3 p-3 md:grid-cols-4">
-        {["Ano", "Carteira", "Natureza", "Modo"].map((label) => (
-          <Label className="grid gap-2" key={label}>
-            {label}
-            <Select>
-              <option>
-                {label === "Ano"
-                  ? "2026"
-                  : label === "Carteira"
-                    ? "Todas as carteiras"
-                    : label === "Natureza"
-                      ? "Operacional"
-                      : "Mensal"}
-              </option>
-            </Select>
-          </Label>
-        ))}
+      <Card>
+        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="size-3.5 text-muted" aria-hidden="true" />
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted">
+              Filtros
+            </span>
+          </div>
+          <div className="grid flex-1 grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
+            {["Ano", "Carteira", "Natureza", "Comparacao"].map((label) => (
+              <Label className="grid min-w-32 gap-1" key={label}>
+                <span className="text-[10px] uppercase tracking-wider">{label}</span>
+                <Select>
+                  <option>
+                    {label === "Ano"
+                      ? "2026"
+                      : label === "Carteira"
+                        ? "Todas"
+                        : label === "Natureza"
+                          ? "Todas"
+                          : "Nenhuma"}
+                  </option>
+                </Select>
+              </Label>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {metrics.map((metric) => (
-          <Card key={metric.label}>
+          <Card
+            className={metric.tone === "positive" ? "border-positive/25 bg-positive/10" : ""}
+            key={metric.label}
+          >
             <CardContent className="p-4">
-            <CardDescription>{metric.label}</CardDescription>
-            <strong className={`mt-3 block text-2xl font-semibold ${metric.tone}`}>
-              {metric.value}
-            </strong>
-            <p className="mt-3 text-sm leading-6 text-muted">{metric.detail}</p>
+              <p className={`mb-2 text-[10px] uppercase tracking-wider ${metric.tone === "positive" ? "text-positive" : "text-muted"}`}>
+                {metric.label}
+              </p>
+              <strong className={`block text-lg font-bold tabular-nums md:text-2xl ${metric.tone === "positive" ? "text-positive" : "text-foreground"}`}>
+                {metric.value}
+              </strong>
+              <p className="mt-2 text-[11px] leading-5 text-muted">{metric.detail}</p>
             </CardContent>
           </Card>
         ))}
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-3">
-        <ChartPanel title="Receitas x despesas" badge="Barras agrupadas">
-          <GroupedBars />
-        </ChartPanel>
-        <ChartPanel title="Fluxo liquido" badge="Positivo no ano" badgeTone="success">
-          <SingleBars />
-        </ChartPanel>
-        <ChartPanel title="Excedente / resgate" badge="Maio exige revisao" badgeTone="warning">
-          <DecisionBars />
-        </ChartPanel>
+      <section>
+        <h2 className="mb-3 text-sm font-semibold">Visao grafica</h2>
+        <div className="grid gap-3 lg:grid-cols-3">
+          <ChartPanel
+            description="Comparativo mensal de entradas e saidas"
+            title="Receitas x despesas"
+          >
+            <GroupedBars />
+          </ChartPanel>
+          <ChartPanel
+            badge={<Badge variant="success">Positivo no ano</Badge>}
+            description="Linha operacional antes das decisoes patrimoniais"
+            title="Fluxo liquido"
+          >
+            <FlowBars />
+          </ChartPanel>
+          <ChartPanel
+            badge={<Badge variant="warning">Jul exige revisao</Badge>}
+            description="Quando ha excedente ou necessidade de resgate"
+            title="Excedente / resgate"
+          >
+            <DecisionBars />
+          </ChartPanel>
+        </div>
       </section>
 
       <Card>
-        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <CardHeader className="flex-row items-center justify-between gap-4">
           <div>
             <CardTitle>Matriz mensal</CardTitle>
             <CardDescription className="mt-1">
@@ -160,15 +198,15 @@ export default function Home() {
           </Button>
         </CardHeader>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] border-collapse">
+          <table className="w-full min-w-[880px] border-collapse">
             <thead>
               <tr>
-                <th className="sticky left-0 bg-panel px-4 py-3 text-left text-xs font-bold text-muted">
+                <th className="sticky left-0 bg-panel px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted">
                   Linha
                 </th>
                 {months.map((month) => (
                   <th
-                    className="px-4 py-3 text-right text-xs font-bold text-muted"
+                    className="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-muted"
                     key={month}
                   >
                     {month}
@@ -182,12 +220,12 @@ export default function Home() {
                   className={row.decision ? "bg-white/[0.025] font-semibold" : ""}
                   key={row.label}
                 >
-                  <td className="sticky left-0 border-t border-border bg-panel px-4 py-3 text-left text-sm">
+                  <td className="sticky left-0 border-t border-border bg-panel px-4 py-3 text-left text-xs">
                     {row.label}
                   </td>
                   {row.values.map((value, index) => (
                     <td
-                      className={`border-t border-border px-4 py-3 text-right text-sm ${row.tone ?? (value.startsWith("-") ? "text-negative" : "text-foreground")}`}
+                      className={`border-t border-border px-4 py-3 text-right text-xs ${row.tone ?? (value.startsWith("-") ? "text-negative" : "text-foreground")}`}
                       key={`${row.label}-${months[index]}`}
                     >
                       {value}
@@ -205,27 +243,23 @@ export default function Home() {
 
 function ChartPanel({
   badge,
-  badgeTone,
   children,
+  description,
   title,
 }: {
-  readonly badge: string;
-  readonly badgeTone?: "success" | "warning";
-  readonly children: React.ReactNode;
+  readonly badge?: ReactNode;
+  readonly children: ReactNode;
+  readonly description: string;
   readonly title: string;
 }) {
-  const badgeClass =
-    badgeTone === "success"
-      ? "border-positive/40 bg-positive/10 text-emerald-100"
-      : badgeTone === "warning"
-        ? "border-warning/40 bg-warning/10 text-amber-100"
-        : "border-border text-muted";
-
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-4">
-        <CardTitle>{title}</CardTitle>
-        <Badge className={badgeClass}>{badge}</Badge>
+      <CardHeader className="flex-row items-start justify-between gap-4 border-b-0 pb-0">
+        <div>
+          <CardTitle>{title}</CardTitle>
+          <CardDescription className="mt-0.5">{description}</CardDescription>
+        </div>
+        {badge}
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
@@ -233,22 +267,13 @@ function ChartPanel({
 }
 
 function GroupedBars() {
-  const data = [
-    [82, 70],
-    [78, 75],
-    [84, 72],
-    [86, 80],
-    [78, 88],
-    [90, 71],
-  ];
-
   return (
     <div>
-      <div className="grid min-h-[210px] grid-cols-6 items-end gap-3 border-b border-border pt-2">
-        {data.map(([income, expense], index) => (
-          <div className="grid h-44 grid-cols-2 items-end gap-1" key={months[index]}>
-            <span className="rounded-t bg-positive/75" style={{ height: `${income}%` }} />
-            <span className="rounded-t bg-negative/75" style={{ height: `${expense}%` }} />
+      <div className="grid min-h-[200px] grid-cols-8 items-end gap-2 border-b border-border pt-2">
+        {monthlyData.map((item) => (
+          <div className="grid h-44 grid-cols-2 items-end gap-1" key={item.month}>
+            <span className="rounded-t-sm bg-accent/75" style={{ height: `${item.income}%` }} />
+            <span className="rounded-t-sm bg-muted/45" style={{ height: `${item.expense}%` }} />
           </div>
         ))}
       </div>
@@ -257,18 +282,20 @@ function GroupedBars() {
   );
 }
 
-function SingleBars() {
-  const data = [48, 18, 52, 27, 34, 70];
-
+function FlowBars() {
   return (
     <div>
-      <div className="grid min-h-[210px] grid-cols-6 items-end gap-3 border-b border-border pt-2">
-        {data.map((height, index) => (
-          <span
-            className={`rounded-t ${index === 4 ? "bg-negative/80" : "bg-accent"}`}
-            key={months[index]}
-            style={{ height: `${height}%` }}
-          />
+      <div className="grid min-h-[200px] grid-cols-8 items-center gap-2 border-b border-border pt-2">
+        {monthlyData.map((item) => (
+          <div className="flex h-44 items-center" key={item.month}>
+            <span
+              className={`w-full rounded-sm ${item.flow < 0 ? "bg-negative" : "bg-accent"}`}
+              style={{
+                height: `${Math.max(Math.abs(item.flow), 10)}%`,
+                transform: item.flow < 0 ? "translateY(42%)" : "translateY(-18%)",
+              }}
+            />
+          </div>
         ))}
       </div>
       <ChartLabels />
@@ -277,16 +304,14 @@ function SingleBars() {
 }
 
 function DecisionBars() {
-  const data = [38, 20, 45, 28, 55, 68];
-
   return (
     <div>
-      <div className="grid min-h-[210px] grid-cols-6 items-end gap-3 border-b border-border pt-2">
-        {data.map((height, index) => (
+      <div className="grid min-h-[200px] grid-cols-8 items-end gap-2 border-b border-border pt-2">
+        {monthlyData.map((item) => (
           <span
-            className={`rounded-t ${index === 4 ? "bg-warning" : "bg-positive/80"}`}
-            key={months[index]}
-            style={{ height: `${height}%` }}
+            className={`rounded-t-sm ${item.flow < 0 ? "bg-negative" : "bg-positive/80"}`}
+            key={item.month}
+            style={{ height: `${Math.max(item.decision, 12)}%` }}
           />
         ))}
       </div>
@@ -297,9 +322,9 @@ function DecisionBars() {
 
 function ChartLabels() {
   return (
-    <div className="grid grid-cols-6 gap-3 pt-2 text-center text-xs text-muted">
-      {months.map((month) => (
-        <span key={month}>{month}</span>
+    <div className="grid grid-cols-8 gap-2 pt-2 text-center text-[10px] text-muted">
+      {monthlyData.map((item) => (
+        <span key={item.month}>{item.month}</span>
       ))}
     </div>
   );

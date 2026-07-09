@@ -21,6 +21,7 @@ Antes de alterar o projeto, leia:
 - Siga TDD com Red -> Green -> Refactor sempre que aplicavel.
 - Valores monetarios devem ser tratados como inteiros em centavos.
 - As tres dimensoes do dominio financeiro nao devem ser misturadas: fluxo de caixa operacional, liquidez real e patrimonio liquido.
+- Nunca extraia arquivos compactados dentro deste projeto; arquivos compactados devem ser extraidos no diretorio temporario do sistema operacional.
 
 ## Stack Atual
 
