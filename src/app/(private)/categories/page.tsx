@@ -1,18 +1,7 @@
 import Link from "next/link";
-import { Eye, EyeOff, Plus } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Category, categoryTypes, CategoryType } from "@/domain/category/category";
-import {
-  CategoryRowForms,
-  CreateCategoryForm,
-} from "@/modules/categories/components/CategoryForms";
+import { CategoryGroups } from "@/modules/categories/components/CategoryForms";
 import { getCurrentApplicationContext } from "@/server/context/current-application-context";
 import { createCategoryService } from "@/server/services/category-service-factory";
 
@@ -22,11 +11,6 @@ type CategoriesPageProps = {
     status?: string;
     error?: string;
   }>;
-};
-
-const categoryTypeLabels: Record<CategoryType, string> = {
-  INCOME: "Receitas",
-  EXPENSE: "Despesas",
 };
 
 const categoryStatusMessages: Record<string, string> = {
@@ -48,10 +32,6 @@ export default async function CategoriesPage({
   const categories = await categoryService.list(context, {
     includeInactive: showInactive,
   });
-  const groupedCategories = {
-    INCOME: categories.filter((category) => category.type === "INCOME"),
-    EXPENSE: categories.filter((category) => category.type === "EXPENSE"),
-  };
 
   return (
     <div className="flex w-full flex-col gap-5 lg:gap-6">
@@ -64,8 +44,8 @@ export default async function CategoriesPage({
             Categorias
           </h1>
           <p className="mt-1 max-w-3xl text-xs leading-5 text-muted">
-            Organize receitas e despesas sem misturar classificacoes
-            operacionais com liquidez ou patrimonio.
+            Gerencie as categorias de receitas e despesas utilizadas nas
+            transacoes.
           </p>
         </div>
         <Button asChild variant="outline">
@@ -92,63 +72,7 @@ export default async function CategoriesPage({
         </div>
       ) : null}
 
-      <Card>
-        <CardHeader className="flex-row items-center gap-3">
-          <div className="flex size-8 items-center justify-center rounded-md bg-accent/15 text-accent">
-            <Plus className="size-4" aria-hidden="true" />
-          </div>
-          <div>
-            <CardTitle>Nova categoria</CardTitle>
-            <p className="mt-1 text-xs text-muted">
-              Cadastre uma classificacao operacional para receitas ou despesas.
-            </p>
-          </div>
-        </CardHeader>
-        <CreateCategoryForm categoryTypes={categoryTypes} />
-      </Card>
-
-      <div className="grid gap-3 lg:grid-cols-2">
-        {categoryTypes.map((type) => (
-          <CategorySection
-            categories={groupedCategories[type]}
-            categoryTypes={categoryTypes}
-            key={type}
-            title={categoryTypeLabels[type]}
-          />
-        ))}
-      </div>
+      <CategoryGroups initialCategories={categories} />
     </div>
-  );
-}
-
-function CategorySection({
-  categories,
-  categoryTypes,
-  title,
-}: {
-  categories: Category[];
-  categoryTypes: readonly CategoryType[];
-  title: string;
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between">
-        <CardTitle>{title}</CardTitle>
-        <Badge>{categories.length}</Badge>
-      </CardHeader>
-      <CardContent className="divide-y divide-border p-0">
-        {categories.length === 0 ? (
-          <p className="p-5 text-xs text-muted">Nenhuma categoria cadastrada.</p>
-        ) : (
-          categories.map((category) => (
-            <CategoryRowForms
-              category={category}
-              categoryTypes={categoryTypes}
-              key={category.id}
-            />
-          ))
-        )}
-      </CardContent>
-    </Card>
   );
 }
