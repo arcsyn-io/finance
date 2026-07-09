@@ -2,7 +2,7 @@
 
 **Feature Branch**: `codex/category-migration`  
 **Created**: 2026-07-08  
-**Status**: Draft  
+**Status**: Done  
 **Input**: "Migrar categorias do `old/` para a stack Next.js, usando o `old/` como fonte de verdade de regra de negocio."
 
 ## User Scenarios & Testing
@@ -89,6 +89,7 @@ Como usuario autenticado, quero desativar e reativar categorias, para ocultar ca
 - **FR-013**: Services MUST receber apenas `ApplicationContext` e command especifico.
 - **FR-014**: Repositories MUST receber `ApplicationContext` e resolver o client pelo `TransactionContext`.
 - **FR-015**: A tela `/categories` MUST permitir criar, editar, ativar e desativar categorias.
+- **FR-016**: Tabelas financeiras protegidas por RLS MUST conceder privilegios SQL explicitos ao role `authenticated`, mantendo o isolamento por usuario nas policies.
 
 ### Key Entities
 

@@ -4,32 +4,41 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
-  BarChart3,
-  CircleDollarSign,
-  FileUp,
-  FolderTree,
-  Landmark,
-  LayoutDashboard,
+  ArrowUpDown,
+  BarChart2,
+  CreditCard,
+  LayoutGrid,
+  List,
   LogOut,
   Menu,
-  ReceiptText,
+  PieChart,
   Settings,
-  Tags,
-  Wallet,
+  Tag,
+  TrendingUp,
+  type LucideIcon,
 } from "lucide-react";
 
-const analysisLinks = [
-  { href: "/", label: "Visao geral", icon: LayoutDashboard },
-  { href: "/", label: "Fluxo de caixa", icon: BarChart3 },
-  { href: "/", label: "Liquidez", icon: Wallet },
-  { href: "/", label: "Patrimonio", icon: Landmark },
+type ShellLink = {
+  readonly href: string;
+  readonly label: string;
+  readonly icon: LucideIcon;
+};
+
+const overviewLinks: ShellLink[] = [
+  { href: "/", label: "Painel", icon: LayoutGrid },
 ];
 
-const operationLinks = [
-  { href: "/", label: "Lancamentos", icon: ReceiptText },
-  { href: "/", label: "Carteiras", icon: CircleDollarSign },
-  { href: "/categories", label: "Categorias", icon: Tags },
-  { href: "/", label: "Importar CSV", icon: FileUp },
+const analysisLinks: ShellLink[] = [
+  { href: "/", label: "Fluxo de caixa mensal", icon: BarChart2 },
+  { href: "/", label: "Receitas x Despesas", icon: ArrowUpDown },
+  { href: "/", label: "Composição de despesas", icon: PieChart },
+  { href: "/", label: "Projeção de saldo", icon: TrendingUp },
+];
+
+const registryLinks: ShellLink[] = [
+  { href: "/", label: "Transações", icon: List },
+  { href: "/", label: "Carteiras", icon: CreditCard },
+  { href: "/categories", label: "Categorias", icon: Tag },
 ];
 
 export function AppShell({ children }: { readonly children: React.ReactNode }) {
@@ -78,33 +87,39 @@ export function AppShell({ children }: { readonly children: React.ReactNode }) {
       >
         <div className="flex shrink-0 items-center gap-2.5 px-4 py-5">
           <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-accent/15 text-accent">
-            <FolderTree className="size-3.5" aria-hidden="true" />
+            <LayoutGrid className="size-3.5" aria-hidden="true" />
           </div>
           <div>
             <strong className="block text-sm leading-none">Finance</strong>
             <span className="mt-1 block text-[10px] text-muted">
-              Analise financeira
+              Análise financeira
             </span>
           </div>
         </div>
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-2 pb-4">
           <ShellNav
+            links={overviewLinks}
+            onNavigate={() => setMenuOpen(false)}
+            pathname={pathname}
+            title="VISÃO GERAL"
+          />
+          <ShellNav
             links={analysisLinks}
             onNavigate={() => setMenuOpen(false)}
             pathname={pathname}
-            title="Visao geral"
+            title="ANÁLISES"
           />
           <ShellNav
-            links={operationLinks}
+            links={registryLinks}
             onNavigate={() => setMenuOpen(false)}
             pathname={pathname}
-            title="Registros"
+            title="REGISTROS"
           />
         </div>
         <div className="border-t border-border px-2 py-3">
           <button className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-xs font-medium text-muted transition hover:bg-surface-elevated hover:text-foreground">
             <Settings className="h-3.5 w-3.5" aria-hidden="true" />
-            Configuracoes
+            Configurações
           </button>
           <button
             className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-xs font-medium text-muted transition hover:bg-negative/10 hover:text-negative disabled:opacity-60"
@@ -144,7 +159,7 @@ export function AppShell({ children }: { readonly children: React.ReactNode }) {
               <Menu className="size-4" aria-hidden="true" />
             </button>
             <div className="flex size-6 items-center justify-center rounded-md bg-accent/15 text-accent">
-              <FolderTree className="h-3 w-3" aria-hidden="true" />
+              <LayoutGrid className="h-3 w-3" aria-hidden="true" />
             </div>
             <strong className="text-sm leading-none">Finance</strong>
           </div>
@@ -166,7 +181,7 @@ function ShellNav({
   pathname,
   title,
 }: {
-  readonly links: typeof analysisLinks;
+  readonly links: readonly ShellLink[];
   readonly onNavigate: () => void;
   readonly pathname: string;
   readonly title: string;
@@ -182,7 +197,7 @@ function ShellNav({
           const isActive =
             link.href === "/categories"
               ? pathname === "/categories"
-              : pathname === "/" && link.label === "Visao geral";
+              : pathname === "/" && link.label === "Painel";
 
           return (
             <Link
