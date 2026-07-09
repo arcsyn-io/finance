@@ -3,20 +3,20 @@
 @tailwind utilities;
 
 :root {
-  --background: 216 63% 7%;
-  --foreground: 210 40% 97%;
-  --surface: 218 45% 10%;
-  --surface-elevated: 218 39% 15%;
-  --muted: 214 18% 67%;
-  --subtle: 216 14% 51%;
-  --border: 217 29% 23%;
-  --panel: 218 45% 10%;
-  --accent: 199 89% 48%;
-  --accent-foreground: 216 63% 7%;
-  --positive: 142 71% 45%;
-  --negative: 349 75% 64%;
-  --warning: 38 92% 50%;
-  --asset: 239 84% 67%;
+  --background: 220 28% 8%;
+  --foreground: 220 28% 96%;
+  --surface: 220 24% 11%;
+  --surface-elevated: 222 18% 16%;
+  --muted: 220 12% 68%;
+  --subtle: 219 10% 47%;
+  --border: 220 14% 22%;
+  --panel: 220 22% 13%;
+  --accent: 205 70% 64%;
+  --accent-foreground: 220 28% 8%;
+  --positive: 158 58% 55%;
+  --negative: 8 82% 65%;
+  --warning: 42 84% 61%;
+  --asset: 253 82% 70%;
 }
 
 * {
@@ -32,11 +32,16 @@ body {
   min-height: 100vh;
   margin: 0;
   font-family:
-    Arial,
-    Helvetica,
+    var(--font-geist-sans),
+    Inter,
+    ui-sans-serif,
+    system-ui,
     sans-serif;
   line-height: 1.45;
   font-variant-numeric: tabular-nums;
+  background:
+    radial-gradient(circle at top left, hsl(var(--accent) / 0.1), transparent 30rem),
+    hsl(var(--background));
 }
 
 a {
