@@ -67,8 +67,22 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
 
-      - name: Push database migrations
-        run: supabase db push
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Apply wallet migration
+        run: |
+          export PGHOST="db.${SUPABASE_PROJECT_ID}.supabase.co"
+          export PGPORT="5432"
+          export PGDATABASE="postgres"
+          export PGUSER="postgres"
+          export PGPASSWORD="${SUPABASE_DB_PASSWORD}"
+          psql "sslmode=require" -v ON_ERROR_STOP=1 -f supabase/migrations/000600_create_wallets_contract.sql
+          psql "sslmode=require" -v ON_ERROR_STOP=1 -c "
+            insert into supabase_migrations.schema_migrations (version, name, statements)
+            values ('000600', 'create_wallets_contract', array[]::text[])
+            on conflict (version) do nothing;
+          "
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
