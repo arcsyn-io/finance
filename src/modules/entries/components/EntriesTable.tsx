@@ -11,7 +11,10 @@ import {
   useTransition,
 } from "react";
 import {
+  AlertTriangle,
+  ArrowLeftRight,
   Check,
+  Link2Off,
   Pencil,
   Plus,
   RotateCcw,
@@ -106,6 +109,7 @@ export function EntriesTable({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [savingRow, setSavingRow] = useState<"add" | string | null>(null);
   const [errorRow, setErrorRow] = useState<"add" | string | null>(null);
+  const [deleteCandidate, setDeleteCandidate] = useState<Entry | null>(null);
   const [form, setForm] = useState<EntryForm>(() =>
     defaultForm(wallets, categories),
   );
@@ -341,6 +345,7 @@ export function EntriesTable({
     }
 
     showToast("success", successMessage(response.body.status));
+    setDeleteCandidate(null);
   }
 
   async function restore(entry: Entry) {
@@ -369,6 +374,16 @@ export function EntriesTable({
   return (
     <div className="flex w-full flex-col gap-4 lg:gap-6">
       {toast ? <SystemToast onDismiss={() => setToast(null)} toast={toast} /> : null}
+      {deleteCandidate ? (
+        <DeleteEntryDialog
+          entry={deleteCandidate}
+          onCancel={() => setDeleteCandidate(null)}
+          onConfirm={() =>
+            startTransition(() => void softDelete(deleteCandidate))
+          }
+          pending={pending}
+        />
+      ) : null}
 
       <div className="flex flex-wrap items-end gap-2">
         <PeriodFilter
@@ -504,7 +519,7 @@ export function EntriesTable({
                     category={entry.categoryId ? categoriesById.get(entry.categoryId) : undefined}
                     entry={entry}
                     key={entry.id}
-                    onDelete={() => startTransition(() => void softDelete(entry))}
+                    onDelete={() => setDeleteCandidate(entry)}
                     onEdit={() => startEdit(entry)}
                     onRestore={() => startTransition(() => void restore(entry))}
                     pending={pending}
@@ -601,24 +616,118 @@ function EntryDisplayRow({
         {formatMoney(signedAmount)}
       </td>
       <td className="px-4 py-3">
-        <div className="flex items-center justify-end gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
+        <div className="flex items-center justify-end gap-1">
+          <TransferIndicator linked={Boolean(entry.transferId)} />
           {deleted ? (
-            <IconButton disabled={pending} label="Restaurar lancamento" onClick={onRestore} tone="positive">
-              <RotateCcw className="size-3.5" aria-hidden="true" />
-            </IconButton>
+            <div className="opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
+              <IconButton disabled={pending} label="Restaurar lancamento" onClick={onRestore} tone="positive">
+                <RotateCcw className="size-3.5" aria-hidden="true" />
+              </IconButton>
+            </div>
           ) : (
-            <>
+            <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
               <IconButton label="Editar lancamento" onClick={onEdit} tone="muted">
                 <Pencil className="size-3.5" aria-hidden="true" />
               </IconButton>
               <IconButton disabled={pending} label="Excluir lancamento" onClick={onDelete} tone="negative">
                 <Trash2 className="size-3.5" aria-hidden="true" />
               </IconButton>
-            </>
+            </div>
           )}
         </div>
       </td>
     </tr>
+  );
+}
+
+function TransferIndicator({ linked }: { readonly linked: boolean }) {
+  return (
+    <span
+      className={`flex size-7 shrink-0 items-center justify-center rounded-md transition ${
+        linked
+          ? "bg-accent/10 text-accent"
+          : "text-muted opacity-0 group-hover:opacity-100"
+      }`}
+      title={linked ? "Vinculada a transferencia" : "Sem transferencia vinculada"}
+    >
+      <ArrowLeftRight className="size-3.5" aria-hidden="true" />
+      <span className="sr-only">
+        {linked ? "Vinculada a transferencia" : "Sem transferencia vinculada"}
+      </span>
+    </span>
+  );
+}
+
+function DeleteEntryDialog({
+  entry,
+  onCancel,
+  onConfirm,
+  pending,
+}: {
+  readonly entry: Entry;
+  readonly onCancel: () => void;
+  readonly onConfirm: () => void;
+  readonly pending: boolean;
+}) {
+  const linkedToTransfer = Boolean(entry.transferId);
+  const title = linkedToTransfer
+    ? "Transacao vinculada a transferencia"
+    : "Excluir transacao";
+  const description = linkedToTransfer
+    ? `"${entryLabel(entry)}" esta vinculada a uma transferencia. Ao remover, a transferencia tambem sera desvinculada. Deseja continuar?`
+    : `Tem certeza que deseja excluir "${entryLabel(entry)}"? A transacao sera marcada como excluida.`;
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-background/70 px-4 backdrop-blur-sm"
+      role="presentation"
+    >
+      <div
+        aria-modal="true"
+        className="flex w-[min(385px,calc(100vw-2rem))] gap-4 rounded-xl border border-border bg-surface-elevated p-5 shadow-2xl shadow-black/55"
+        role="dialog"
+      >
+        <span
+          className={`flex size-9 shrink-0 items-center justify-center rounded-full ${
+            linkedToTransfer
+              ? "bg-warning/15 text-warning"
+              : "bg-negative/15 text-negative"
+          }`}
+        >
+          {linkedToTransfer ? (
+            <Link2Off className="size-4" aria-hidden="true" />
+          ) : (
+            <AlertTriangle className="size-4" aria-hidden="true" />
+          )}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-bold text-foreground">{title}</h2>
+          <p className="mt-2 text-xs leading-5 text-muted">{description}</p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              className="h-9 rounded-lg border border-border bg-panel px-4 text-xs font-semibold text-foreground transition hover:bg-surface disabled:opacity-60"
+              disabled={pending}
+              onClick={onCancel}
+              type="button"
+            >
+              Cancelar
+            </button>
+            <button
+              className={`h-9 rounded-lg px-4 text-xs font-bold transition disabled:opacity-60 ${
+                linkedToTransfer
+                  ? "bg-warning text-background hover:bg-warning/90"
+                  : "bg-negative text-foreground hover:bg-negative/90"
+              }`}
+              disabled={pending}
+              onClick={onConfirm}
+              type="button"
+            >
+              {linkedToTransfer ? "Desvincular e excluir" : "Excluir"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -931,6 +1040,10 @@ function formatMoney(cents: number): string {
     currency: "BRL",
     style: "currency",
   }).format(cents / 100);
+}
+
+function entryLabel(entry: Entry): string {
+  return entry.description || entry.categoryName || "Transacao sem descricao";
 }
 
 function formatDate(value: string): string {
