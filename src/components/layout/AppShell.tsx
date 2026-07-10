@@ -36,7 +36,7 @@ const analysisLinks: ShellLink[] = [
 ];
 
 const registryLinks: ShellLink[] = [
-  { href: "/", label: "Transações", icon: List },
+  { href: "/transactions", label: "Transações", icon: List },
   { href: "/wallets", label: "Carteiras", icon: CreditCard },
   { href: "/categories", label: "Categorias", icon: Tag },
 ];
@@ -164,7 +164,9 @@ export function AppShell({ children }: { readonly children: React.ReactNode }) {
             <strong className="text-sm leading-none">Finance</strong>
           </div>
           <span className="max-w-[150px] truncate text-xs text-muted">
-            {pathname === "/wallets"
+            {pathname === "/transactions"
+              ? "Transacoes"
+              : pathname === "/wallets"
               ? "Carteiras"
               : pathname === "/categories"
                 ? "Categorias"
