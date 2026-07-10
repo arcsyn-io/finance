@@ -45,6 +45,10 @@ build/
 ### Data ###
 data/*.db
 **/data/*.db
+*.db
+*.sqlite
+*.sqlite3
+*.csv
 
 ### Codex ###
 .codex-remote-attachments/
