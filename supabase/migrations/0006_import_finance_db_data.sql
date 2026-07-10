@@ -1,0 +1,5 @@
+-- Migration historica removida por conter dados reais de importacao.
+-- Mantida como placeholder para preservar o historico de versions do Supabase
+-- entre ambientes que ja registraram 0006_import_finance_db_data.
+--
+-- Nao adicionar dados financeiros reais, extratos, CSVs ou dumps neste arquivo.
