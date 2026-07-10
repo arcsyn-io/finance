@@ -37,7 +37,7 @@ const analysisLinks: ShellLink[] = [
 
 const registryLinks: ShellLink[] = [
   { href: "/", label: "Transações", icon: List },
-  { href: "/", label: "Carteiras", icon: CreditCard },
+  { href: "/wallets", label: "Carteiras", icon: CreditCard },
   { href: "/categories", label: "Categorias", icon: Tag },
 ];
 
@@ -164,7 +164,11 @@ export function AppShell({ children }: { readonly children: React.ReactNode }) {
             <strong className="text-sm leading-none">Finance</strong>
           </div>
           <span className="max-w-[150px] truncate text-xs text-muted">
-            {pathname === "/categories" ? "Categorias" : "Painel"}
+            {pathname === "/wallets"
+              ? "Carteiras"
+              : pathname === "/categories"
+                ? "Categorias"
+                : "Painel"}
           </span>
         </header>
         <main className="mx-auto min-w-0 max-w-[1400px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
@@ -195,9 +199,9 @@ function ShellNav({
         {links.map((link) => {
           const Icon = link.icon;
           const isActive =
-            link.href === "/categories"
-              ? pathname === "/categories"
-              : pathname === "/" && link.label === "Painel";
+            link.href === "/"
+              ? pathname === "/" && link.label === "Painel"
+              : pathname === link.href;
 
           return (
             <Link
