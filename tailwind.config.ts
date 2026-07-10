@@ -15,6 +15,7 @@ const config: Config = {
         panel: "hsl(var(--panel))",
         accent: "hsl(var(--accent))",
         "accent-foreground": "hsl(var(--accent-foreground))",
+        "calendar-range": "hsl(var(--calendar-range))",
         positive: "hsl(var(--positive))",
         negative: "hsl(var(--negative))",
         warning: "hsl(var(--warning))",

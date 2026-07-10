@@ -9,7 +9,6 @@ import {
   useTransition,
 } from "react";
 import {
-  Calendar,
   Check,
   Pencil,
   Plus,
@@ -34,6 +33,10 @@ import {
   SystemToast,
   type SystemToastMessage,
 } from "@/components/ui/system-toast";
+import {
+  PeriodFilter,
+  type PeriodFilterRange,
+} from "@/components/ui/PeriodFilter";
 import { CategoryBadge } from "@/modules/categories/components/CategoryBadge";
 
 type EntriesTableProps = {
@@ -126,10 +129,10 @@ export function EntriesTable({
     return status ? statusMessages[status] ?? "Operacao concluida" : "Operacao concluida";
   }
 
-  async function refreshEntries() {
+  async function refreshEntries(nextRange?: Pick<PeriodFilterRange, "endDate" | "startDate">) {
     const params = new URLSearchParams();
-    params.set("startDate", startDate);
-    params.set("endDate", endDate);
+    params.set("startDate", nextRange?.startDate ?? startDate);
+    params.set("endDate", nextRange?.endDate ?? endDate);
     params.set("includeDeleted", String(includeDeleted));
 
     if (walletFilter) params.set("walletIds", walletFilter);
@@ -146,6 +149,12 @@ export function EntriesTable({
     }
 
     setEntries(body.entries ?? []);
+  }
+
+  function changePeriod(range: PeriodFilterRange) {
+    setStartDate(range.startDate);
+    setEndDate(range.endDate);
+    startTransition(() => void refreshEntries(range));
   }
 
   function startAdd() {
@@ -271,8 +280,12 @@ export function EntriesTable({
       {toast ? <SystemToast onDismiss={() => setToast(null)} toast={toast} /> : null}
 
       <div className="flex flex-wrap items-end gap-2">
-        <DateInput label="Inicio" onChange={setStartDate} value={startDate} />
-        <DateInput label="Fim" onChange={setEndDate} value={endDate} />
+        <PeriodFilter
+          initialEndDate={initialEndDate}
+          initialPreset="current-month"
+          initialStartDate={initialStartDate}
+          onChange={changePeriod}
+        />
         <SelectFilter label="Carteira" onChange={setWalletFilter} value={walletFilter}>
           <option value="">Todas</option>
           {wallets.map((wallet) => (
@@ -319,7 +332,6 @@ export function EntriesTable({
           onClick={() => startTransition(() => void refreshEntries())}
           type="button"
         >
-          <Calendar className="size-3.5" aria-hidden="true" />
           Filtrar
         </button>
         <div className="flex-1" />
@@ -593,23 +605,6 @@ function EntryFormRow({
         </form>
       </td>
     </tr>
-  );
-}
-
-function DateInput({
-  label,
-  onChange,
-  value,
-}: {
-  readonly label: string;
-  readonly onChange: (value: string) => void;
-  readonly value: string;
-}) {
-  return (
-    <label className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted">
-      {label}
-      <input className={filterClass} onChange={(event) => onChange(event.target.value)} type="date" value={value} />
-    </label>
   );
 }
 
