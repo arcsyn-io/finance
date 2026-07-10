@@ -80,6 +80,9 @@ export class CategoryService {
       this.createCategoryUseCase.execute(transactionContext, {
         name: command.name,
         type: command.type,
+        icon: command.icon,
+        color: command.color,
+        active: command.active,
       }),
     );
   }
@@ -93,6 +96,8 @@ export class CategoryService {
         id: command.id,
         name: command.name,
         type: command.type,
+        icon: command.icon,
+        color: command.color,
         active: command.active,
       }),
     );

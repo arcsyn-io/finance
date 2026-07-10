@@ -1,15 +1,24 @@
 import { Category, CategoryType } from "@/domain/category/category";
+import {
+  normalizeCategoryColor,
+  normalizeCategoryIcon,
+} from "@/domain/category/category-visual";
 import { ApplicationContext } from "@/server/context/application-context";
 import { createClient } from "@/lib/supabase/server";
 
 export type CreateCategoryData = {
   readonly name: string;
   readonly type: CategoryType;
+  readonly icon: string;
+  readonly color: string;
+  readonly active: boolean;
 };
 
 export type UpdateCategoryData = {
   readonly name: string;
   readonly type: CategoryType;
+  readonly icon: string;
+  readonly color: string;
   readonly active: boolean;
 };
 
@@ -55,6 +64,8 @@ type CategoryRow = {
   legacy_id: number | null;
   name: string;
   type: CategoryType;
+  icon?: string | null;
+  color?: string | null;
   active: boolean;
   archived_at: string | null;
   created_at: string;
@@ -154,8 +165,10 @@ export class SupabaseCategoryRepository implements CategoryRepository {
         user_id: userId,
         name: data.name,
         type: data.type,
-        active: true,
-        archived_at: null,
+        icon: data.icon,
+        color: data.color,
+        active: data.active,
+        archived_at: data.active ? null : context.now.toISOString(),
       })
       .select("*")
       .single();
@@ -179,6 +192,8 @@ export class SupabaseCategoryRepository implements CategoryRepository {
       .update({
         name: data.name,
         type: data.type,
+        icon: data.icon,
+        color: data.color,
         active: data.active,
         archived_at: data.active ? null : context.now.toISOString(),
         updated_at: context.now.toISOString(),
@@ -229,6 +244,8 @@ function mapRowToCategory(row: CategoryRow): Category {
     legacyId: row.legacy_id,
     name: row.name,
     type: row.type,
+    icon: normalizeCategoryIcon(row.icon ?? undefined),
+    color: normalizeCategoryColor(row.color ?? undefined, row.type),
     active: row.active,
     archivedAt: row.archived_at ? new Date(row.archived_at) : null,
     createdAt: new Date(row.created_at),

@@ -106,6 +106,8 @@ export const categories = pgTable(
     legacyId: integer("legacy_id"),
     name: text("name").notNull(),
     type: categoryTypeEnum("type").notNull(),
+    icon: text("icon").notNull().default("Tag"),
+    color: text("color").notNull().default("oklch(0.68 0.018 250)"),
     active: boolean("active").notNull().default(true),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     ...timestamps,

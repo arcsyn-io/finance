@@ -1,5 +1,9 @@
 import type { Category } from "../../../domain/category/category";
 import {
+  normalizeCategoryColor,
+  normalizeCategoryIcon,
+} from "../../../domain/category/category-visual";
+import {
   CategoryNotFoundError,
   DuplicateCategoryNameError,
 } from "../../../domain/category/category-errors";
@@ -19,6 +23,8 @@ export class UpdateCategoryUseCase {
       id: string;
       name: string;
       type: Category["type"] | undefined;
+      icon?: string;
+      color?: string;
       active: boolean;
     },
   ): Promise<Category> {
@@ -39,6 +45,8 @@ export class UpdateCategoryUseCase {
     return this.repository.update(context, input.id, {
       name,
       type,
+      icon: normalizeCategoryIcon(input.icon ?? existing.icon),
+      color: normalizeCategoryColor(input.color ?? existing.color, type),
       active: input.active,
     });
   }

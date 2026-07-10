@@ -88,8 +88,10 @@ class FakeCategoryRepository implements CategoryRepository {
       userId,
       name: data.name,
       type: data.type,
-      active: true,
-      archivedAt: null,
+      icon: data.icon,
+      color: data.color,
+      active: data.active,
+      archivedAt: data.active ? null : now,
       createdAt: now,
       updatedAt: now,
     };
@@ -114,6 +116,8 @@ class FakeCategoryRepository implements CategoryRepository {
       ...existing,
       name: data.name,
       type: data.type,
+      icon: data.icon,
+      color: data.color,
       active: data.active,
       archivedAt: data.active ? null : context.now,
       updatedAt: context.now,
@@ -176,8 +180,35 @@ test("cria categoria normalizando nome e ativando por padrao", async () => {
 
   assert.equal(category.name, "Alimentacao");
   assert.equal(category.type, "EXPENSE");
+  assert.equal(category.icon, "Tag");
+  assert.equal(category.color, "oklch(0.66 0.19 24)");
   assert.equal(category.active, true);
   assert.equal(category.userId, "user-1");
+});
+
+test("cria e atualiza categoria preservando icone e cor", async () => {
+  const { service } = makeService();
+  const context = makeContext();
+
+  const category = await service.create(context, {
+    name: "Servicos",
+    type: "INCOME",
+    icon: "Briefcase",
+    color: "oklch(0.68 0.07 235)",
+  });
+  const updated = await service.update(context, {
+    id: category.id,
+    name: "Servicos premium",
+    type: "INCOME",
+    icon: "Star",
+    color: "oklch(0.72 0.12 290)",
+    active: true,
+  });
+
+  assert.equal(category.icon, "Briefcase");
+  assert.equal(category.color, "oklch(0.68 0.07 235)");
+  assert.equal(updated.icon, "Star");
+  assert.equal(updated.color, "oklch(0.72 0.12 290)");
 });
 
 test("rejeita categoria sem nome ou tipo", async () => {
