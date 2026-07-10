@@ -276,7 +276,23 @@ test("cria receita com direcao IN e evento informado", async () => {
   assert.equal(entry.economicEvent, "INCOME");
 });
 
-test("rejeita valor invalido e carteira inativa", async () => {
+test("cria lancamento com valor zerado", async () => {
+  const { context, service } = makeService();
+
+  const entry = await service.create(context, {
+    walletId: "wallet-cash",
+    categoryId: "cat-expense",
+    nature: "OPERATIONAL",
+    amountCents: 0,
+    occurredOn: "2026-07-10",
+    description: "Fatura de agua sem cobranca",
+  });
+
+  assert.equal(entry.amountCents, 0);
+  assert.equal(entry.description, "Fatura de agua sem cobranca");
+});
+
+test("rejeita valor negativo e carteira inativa", async () => {
   const { context, service } = makeService();
 
   await assert.rejects(
@@ -285,7 +301,7 @@ test("rejeita valor invalido e carteira inativa", async () => {
         walletId: "wallet-cash",
         categoryId: "cat-expense",
         nature: "OPERATIONAL",
-        amountCents: 0,
+        amountCents: -1,
         occurredOn: "2026-07-10",
       }),
     InvalidEntryError,

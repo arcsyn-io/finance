@@ -8,8 +8,8 @@ import { InvalidEntryError } from "../../../domain/entry/entry-errors";
 import type { Wallet, WalletType } from "../../../domain/wallet/wallet";
 
 export function validateAmountCents(amountCents: number): void {
-  if (!Number.isInteger(amountCents) || amountCents <= 0) {
-    throw new InvalidEntryError("Valor deve ser maior que zero");
+  if (!Number.isInteger(amountCents) || amountCents < 0) {
+    throw new InvalidEntryError("Valor nao pode ser negativo");
   }
 }
 

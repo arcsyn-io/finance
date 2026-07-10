@@ -8,20 +8,56 @@ import {
 import type { Category } from "../domain/category/category";
 import type {
   CreateCategoryCommand,
+  ListCategoriesCommand,
   SetCategoryActiveCommand,
   UpdateCategoryCommand,
 } from "../server/commands/category-commands";
 import { ApplicationContext } from "../server/context/application-context";
 import {
   createCategoryJson,
+  listCategoriesJson,
   setCategoryActiveJson,
   updateCategoryJson,
 } from "../server/controllers/category-controller";
 
 class FakeCategoryService {
   createCommand: CreateCategoryCommand | null = null;
+  listCommand: ListCategoriesCommand | null = null;
   updateCommand: UpdateCategoryCommand | null = null;
   setActiveCommand: SetCategoryActiveCommand | null = null;
+
+  async list(
+    context: ApplicationContext,
+    command: ListCategoriesCommand,
+  ): Promise<Category[]> {
+    this.listCommand = command;
+    return [
+      makeCategory(context, {
+        id: "category-1",
+        name: "Alimentacao",
+        type: "EXPENSE",
+        icon: "Utensils",
+        color: "oklch(0.66 0.19 24)",
+        active: true,
+      }),
+      makeCategory(context, {
+        id: "category-2",
+        name: "Aluguel",
+        type: "EXPENSE",
+        icon: "House",
+        color: "oklch(0.72 0.16 70)",
+        active: true,
+      }),
+      makeCategory(context, {
+        id: "category-3",
+        name: "Salario",
+        type: "INCOME",
+        icon: "Briefcase",
+        color: "oklch(0.68 0.07 235)",
+        active: true,
+      }),
+    ];
+  }
 
   async create(
     context: ApplicationContext,
@@ -164,6 +200,21 @@ test("controller retorna 400 para JSON invalido", async () => {
 
   assert.equal(response.status, 400);
   assert.equal(response.body.error, "Tipo da categoria e obrigatorio");
+});
+
+test("controller lista categorias filtrando por texto e limite", async () => {
+  const service = new FakeCategoryService();
+  const response = await listCategoriesJson({
+    context: makeContext(),
+    service,
+    query: { search: "alu", limit: "1" },
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(service.listCommand, { includeInactive: false });
+  assert.ok(response.body.categories);
+  assert.equal(response.body.categories.length, 1);
+  assert.equal(response.body.categories[0]?.name, "Aluguel");
 });
 
 test("controller retorna 404 para categoria inexistente", async () => {

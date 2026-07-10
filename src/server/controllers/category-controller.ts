@@ -13,6 +13,7 @@ import {
 } from "../mappers/category-mapper";
 import {
   createCategoryRequestSchema,
+  listCategoriesRequestSchema,
   setCategoryActiveRequestSchema,
   updateCategoryRequestSchema,
 } from "../schemas/category-schema";
@@ -22,7 +23,7 @@ type CategoryControllerDependencies = {
   readonly context: ApplicationContext;
   readonly service: Pick<
     CategoryService,
-    "create" | "update" | "activate" | "deactivate"
+    "list" | "create" | "update" | "activate" | "deactivate"
   >;
 };
 
@@ -31,6 +32,50 @@ type CategoryMutationResponse = HttpJsonResponse<{
   readonly category?: Category;
   readonly error?: string;
 }>;
+
+type CategoryListResponse = HttpJsonResponse<{
+  readonly categories?: Category[];
+  readonly error?: string;
+}>;
+
+export async function listCategoriesJson({
+  context,
+  service,
+  query,
+}: CategoryControllerDependencies & {
+  readonly query: Record<string, string | string[] | undefined>;
+}): Promise<CategoryListResponse> {
+  const result = listCategoriesRequestSchema.safeParse(query);
+
+  if (!result.success) {
+    return validationError(result.error.issues[0]?.message);
+  }
+
+  try {
+    const categories = await service.list(context, {
+      includeInactive: result.data.includeInactive,
+    });
+    const search = normalizeSearchText(result.data.search);
+    const filteredCategories = categories
+      .filter((category) =>
+        result.data.type ? category.type === result.data.type : true,
+      )
+      .filter((category) =>
+        search ? normalizeSearchText(category.name).includes(search) : true,
+      )
+      .slice(0, result.data.limit);
+
+    return { status: 200, body: { categories: filteredCategories } };
+  } catch {
+    return {
+      status: 500,
+      body: {
+        categories: [],
+        error: "Nao foi possivel carregar categorias",
+      },
+    };
+  }
+}
 
 export async function createCategoryJson({
   context,
@@ -135,6 +180,14 @@ function validationError(message = "Dados da categoria invalidos") {
     status: 400,
     body: { error: message },
   } as const;
+}
+
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
 }
 
 function categoryError(error: unknown): CategoryMutationResponse {

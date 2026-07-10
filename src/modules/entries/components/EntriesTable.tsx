@@ -3,6 +3,8 @@
 import {
   FormEvent,
   ReactNode,
+  useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -37,6 +39,12 @@ import {
   PeriodFilter,
   type PeriodFilterRange,
 } from "@/components/ui/PeriodFilter";
+import {
+  FilterSelect,
+  type FilterSelectOption,
+} from "@/components/ui/FilterSelect";
+import { CurrencyField } from "@/components/ui/CurrencyField";
+import { CalendarField } from "@/components/ui/CalendarField";
 import { CategoryBadge } from "@/modules/categories/components/CategoryBadge";
 
 type EntriesTableProps = {
@@ -64,6 +72,11 @@ type EntryApiResponse = {
   readonly error?: string;
 };
 
+type CategoryApiResponse = {
+  readonly categories?: Category[];
+  readonly error?: string;
+};
+
 const statusMessages: Record<string, string> = {
   created: "Lancamento criado com sucesso",
   updated: "Lancamento atualizado com sucesso",
@@ -81,23 +94,36 @@ export function EntriesTable({
   const [entries, setEntries] = useState(() => [...initialEntries]);
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
-  const [walletFilter, setWalletFilter] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
-  const [natureFilter, setNatureFilter] = useState("");
-  const [eventFilter, setEventFilter] = useState("");
+  const [walletFilters, setWalletFilters] = useState<string[]>([]);
+  const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
+  const [categoryFilterOptions, setCategoryFilterOptions] = useState(() =>
+    categories.map(categoryToFilterOption),
+  );
+  const [natureFilters, setNatureFilters] = useState<EntryNature[]>([]);
+  const [eventFilters, setEventFilters] = useState<EconomicEvent[]>([]);
   const [includeDeleted, setIncludeDeleted] = useState(false);
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [savingRow, setSavingRow] = useState<"add" | string | null>(null);
+  const [errorRow, setErrorRow] = useState<"add" | string | null>(null);
   const [form, setForm] = useState<EntryForm>(() =>
     defaultForm(wallets, categories),
   );
   const [toast, setToast] = useState<SystemToastMessage | null>(null);
   const [pending, startTransition] = useTransition();
   const addButtonRef = useRef<HTMLButtonElement | null>(null);
+  const filtersInitializedRef = useRef(false);
 
   const categoriesById = useMemo(
     () => new Map(categories.map((category) => [category.id, category])),
     [categories],
+  );
+  const selectedCategoryOptions = useMemo(
+    () =>
+      categoryFilterOptions.filter((option) =>
+        categoryFilters.includes(option.value),
+      ),
+    [categoryFilterOptions, categoryFilters],
   );
 
   const totals = useMemo(
@@ -129,16 +155,42 @@ export function EntriesTable({
     return status ? statusMessages[status] ?? "Operacao concluida" : "Operacao concluida";
   }
 
-  async function refreshEntries(nextRange?: Pick<PeriodFilterRange, "endDate" | "startDate">) {
+  const searchCategories = useCallback(
+    async (searchText: string) => {
+      const params = new URLSearchParams();
+      params.set("search", searchText);
+      params.set("limit", "10");
+
+      const response = await fetch(`/api/categories?${params.toString()}`);
+      const body = (await response.json()) as CategoryApiResponse;
+
+      if (!response.ok) {
+        throw new Error(body.error ?? "Nao foi possivel buscar categorias");
+      }
+
+      const options = (body.categories ?? []).map(categoryToFilterOption);
+
+      setCategoryFilterOptions((current) =>
+        mergeFilterOptions(current, options),
+      );
+
+      return options;
+    },
+    [],
+  );
+
+  const refreshEntries = useCallback(async () => {
     const params = new URLSearchParams();
-    params.set("startDate", nextRange?.startDate ?? startDate);
-    params.set("endDate", nextRange?.endDate ?? endDate);
+    params.set("startDate", startDate);
+    params.set("endDate", endDate);
     params.set("includeDeleted", String(includeDeleted));
 
-    if (walletFilter) params.set("walletIds", walletFilter);
-    if (categoryFilter) params.set("categoryIds", categoryFilter);
-    if (natureFilter) params.set("natures", natureFilter);
-    if (eventFilter) params.set("economicEvents", eventFilter);
+    walletFilters.forEach((walletId) => params.append("walletIds", walletId));
+    categoryFilters.forEach((categoryId) =>
+      params.append("categoryIds", categoryId),
+    );
+    natureFilters.forEach((nature) => params.append("natures", nature));
+    eventFilters.forEach((event) => params.append("economicEvents", event));
 
     const response = await fetch(`/api/entries?${params.toString()}`);
     const body = (await response.json()) as EntryApiResponse;
@@ -149,22 +201,42 @@ export function EntriesTable({
     }
 
     setEntries(body.entries ?? []);
-  }
+  }, [
+    categoryFilters,
+    endDate,
+    eventFilters,
+    includeDeleted,
+    natureFilters,
+    startDate,
+    walletFilters,
+  ]);
+
+  useEffect(() => {
+    if (!filtersInitializedRef.current) {
+      filtersInitializedRef.current = true;
+      return;
+    }
+
+    startTransition(() => void refreshEntries());
+  }, [refreshEntries]);
 
   function changePeriod(range: PeriodFilterRange) {
     setStartDate(range.startDate);
     setEndDate(range.endDate);
-    startTransition(() => void refreshEntries(range));
   }
 
   function startAdd() {
     setEditingId(null);
+    setSavingRow(null);
+    setErrorRow(null);
     setAdding(true);
     setForm(defaultForm(wallets, categories));
   }
 
   function startEdit(entry: Entry) {
     setAdding(false);
+    setSavingRow(null);
+    setErrorRow(null);
     setEditingId(entry.id);
     setForm({
       walletId: entry.walletId,
@@ -180,15 +252,23 @@ export function EntriesTable({
   function cancelForm() {
     setAdding(false);
     setEditingId(null);
+    setSavingRow(null);
+    setErrorRow(null);
     setTimeout(() => addButtonRef.current?.focus(), 0);
   }
 
   async function saveAdd(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
+    setErrorRow(null);
+    setSavingRow("add");
 
+    const skeletonDelay = wait(650);
     const response = await sendEntryJson("/api/entries", requestFromForm(form));
+    await skeletonDelay;
 
     if (!response.ok) {
+      setSavingRow(null);
+      setErrorRow("add");
       showToast("error", response.body.error ?? "Nao foi possivel salvar");
       return;
     }
@@ -198,6 +278,8 @@ export function EntriesTable({
     }
 
     setAdding(false);
+    setSavingRow(null);
+    setErrorRow(null);
     showToast("success", successMessage(response.body.status));
   }
 
@@ -208,13 +290,20 @@ export function EntriesTable({
       return;
     }
 
+    setErrorRow(null);
+    setSavingRow(editingId);
+
+    const skeletonDelay = wait(650);
     const response = await sendEntryJson(
       `/api/entries/${editingId}`,
       requestFromForm(form),
       "PUT",
     );
+    await skeletonDelay;
 
     if (!response.ok) {
+      setSavingRow(null);
+      setErrorRow(editingId);
       showToast("error", response.body.error ?? "Nao foi possivel salvar");
       return;
     }
@@ -228,6 +317,8 @@ export function EntriesTable({
     }
 
     setEditingId(null);
+    setSavingRow(null);
+    setErrorRow(null);
     showToast("success", successMessage(response.body.status));
   }
 
@@ -286,54 +377,52 @@ export function EntriesTable({
           initialStartDate={initialStartDate}
           onChange={changePeriod}
         />
-        <SelectFilter label="Carteira" onChange={setWalletFilter} value={walletFilter}>
-          <option value="">Todas</option>
-          {wallets.map((wallet) => (
-            <option key={wallet.id} value={wallet.id}>
-              {wallet.name}
-            </option>
-          ))}
-        </SelectFilter>
-        <SelectFilter label="Categoria" onChange={setCategoryFilter} value={categoryFilter}>
-          <option value="">Todas</option>
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </SelectFilter>
-        <SelectFilter label="Natureza" onChange={setNatureFilter} value={natureFilter}>
-          <option value="">Todas</option>
-          {entryNatures.map((nature) => (
-            <option key={nature} value={nature}>
-              {entryNatureLabels[nature]}
-            </option>
-          ))}
-        </SelectFilter>
-        <SelectFilter label="Evento" onChange={setEventFilter} value={eventFilter}>
-          <option value="">Todos</option>
-          {economicEvents.map((event) => (
-            <option key={event} value={event}>
-              {economicEventLabels[event]}
-            </option>
-          ))}
-        </SelectFilter>
-        <label className="flex h-8 items-center gap-2 rounded-lg border border-border bg-panel px-2.5 text-xs text-muted">
-          <input
-            checked={includeDeleted}
-            className="accent-accent"
-            onChange={(event) => setIncludeDeleted(event.target.checked)}
-            type="checkbox"
-          />
-          Excluidos
-        </label>
-        <button
-          className="flex h-8 items-center gap-1.5 rounded-lg border border-border bg-panel px-3 text-xs font-medium text-foreground transition hover:bg-surface-elevated"
-          onClick={() => startTransition(() => void refreshEntries())}
-          type="button"
-        >
-          Filtrar
-        </button>
+        <FilterSelect
+          label="Carteira"
+          onChange={setWalletFilters}
+          options={wallets.map((wallet) => ({
+            value: wallet.id,
+            label: wallet.name,
+          }))}
+          selectedValues={walletFilters}
+        />
+        <FilterSelect
+          label="Categoria"
+          onChange={setCategoryFilters}
+          options={categoryFilterOptions}
+          search={{
+            emptyLabel: "Nenhuma categoria encontrada",
+            errorLabel: "Nao foi possivel buscar categorias",
+            loadOptions: searchCategories,
+            loadingLabel: "Buscando categorias...",
+            placeholder: "Buscar categoria",
+          }}
+          selectedOptions={selectedCategoryOptions}
+          selectedValues={categoryFilters}
+        />
+        <FilterSelect
+          label="Natureza"
+          onChange={setNatureFilters}
+          options={entryNatures.map((nature) => ({
+            value: nature,
+            label: entryNatureLabels[nature],
+          }))}
+          selectedValues={natureFilters}
+        />
+        <FilterSelect
+          label="Evento"
+          onChange={setEventFilters}
+          options={economicEvents.map((event) => ({
+            value: event,
+            label: economicEventLabels[event],
+          }))}
+          selectedValues={eventFilters}
+        />
+        <FilterSwitch
+          active={includeDeleted}
+          label="Excluidos"
+          onToggle={() => setIncludeDeleted((current) => !current)}
+        />
         <div className="flex-1" />
         <button
           className="flex h-8 items-center gap-1.5 rounded-lg bg-accent px-3 text-xs font-semibold text-accent-foreground transition hover:bg-accent/90"
@@ -393,16 +482,23 @@ export function EntriesTable({
 
               {entries.map((entry) =>
                 editingId === entry.id ? (
-                  <EntryFormRow
-                    categories={categories}
-                    form={form}
-                    key={entry.id}
-                    onCancel={cancelForm}
-                    onChange={setForm}
-                    onSave={(event) => startTransition(() => void saveEdit(event))}
-                    pending={pending}
-                    wallets={wallets}
-                  />
+                  savingRow === entry.id ? (
+                    <EntrySkeletonRow key={entry.id} />
+                  ) : (
+                    <EntryFormRow
+                      categories={categories}
+                      form={form}
+                      key={entry.id}
+                      onCancel={cancelForm}
+                      onChange={setForm}
+                      onSave={(event) =>
+                        startTransition(() => void saveEdit(event))
+                      }
+                      pending={pending}
+                      hasError={errorRow === entry.id}
+                      wallets={wallets}
+                    />
+                  )
                 ) : (
                   <EntryDisplayRow
                     category={entry.categoryId ? categoriesById.get(entry.categoryId) : undefined}
@@ -417,15 +513,22 @@ export function EntriesTable({
               )}
 
               {adding ? (
-                <EntryFormRow
-                  categories={categories}
-                  form={form}
-                  onCancel={cancelForm}
-                  onChange={setForm}
-                  onSave={(event) => startTransition(() => void saveAdd(event))}
-                  pending={pending}
-                  wallets={wallets}
-                />
+                savingRow === "add" ? (
+                  <EntrySkeletonRow />
+                ) : (
+                  <EntryFormRow
+                    categories={categories}
+                    form={form}
+                    onCancel={cancelForm}
+                    onChange={setForm}
+                    onSave={(event) =>
+                      startTransition(() => void saveAdd(event))
+                    }
+                    pending={pending}
+                    hasError={errorRow === "add"}
+                    wallets={wallets}
+                  />
+                )
               ) : null}
             </tbody>
           </table>
@@ -522,6 +625,7 @@ function EntryDisplayRow({
 function EntryFormRow({
   categories,
   form,
+  hasError = false,
   onCancel,
   onChange,
   onSave,
@@ -530,21 +634,33 @@ function EntryFormRow({
 }: {
   readonly categories: readonly Category[];
   readonly form: EntryForm;
+  readonly hasError?: boolean;
   readonly onCancel: () => void;
   readonly onChange: (form: EntryForm) => void;
   readonly onSave: (event: FormEvent<HTMLFormElement>) => void;
   readonly pending: boolean;
   readonly wallets: readonly Wallet[];
 }) {
+  const firstFieldRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    firstFieldRef.current?.focus();
+  }, []);
+
   return (
-    <tr className="border-l-2 border-l-accent bg-surface-elevated/70">
+    <tr
+      className={`border-l-2 ${
+        hasError
+          ? "border-l-negative bg-negative/10"
+          : "border-l-accent bg-surface-elevated/70"
+      }`}
+    >
       <td colSpan={8} className="px-3 py-3">
         <form className="grid grid-cols-1 gap-2 lg:grid-cols-[130px_180px_1fr_180px_150px_170px_120px_auto]" onSubmit={onSave}>
-          <input
-            autoFocus
-            className={inputClass}
-            onChange={(event) => onChange({ ...form, occurredOn: event.target.value })}
-            type="date"
+          <CalendarField
+            label="Data da transacao"
+            onChange={(occurredOn) => onChange({ ...form, occurredOn })}
+            ref={firstFieldRef}
             value={form.occurredOn}
           />
           <select className={inputClass} onChange={(event) => onChange({ ...form, categoryId: event.target.value })} value={form.categoryId}>
@@ -585,14 +701,12 @@ function EntryFormRow({
               </option>
             ))}
           </select>
-          <input
-            className={`${inputClass} text-right`}
-            min={1}
-            onChange={(event) => onChange({ ...form, amountCents: reaisToCents(event.target.value) })}
-            placeholder="R$ 0,00"
-            step="0.01"
-            type="number"
-            value={form.amountCents / 100}
+          <CurrencyField
+            aria-label="Valor"
+            onValueInCentsChange={(amountCents) =>
+              onChange({ ...form, amountCents })
+            }
+            valueInCents={form.amountCents}
           />
           <div className="flex items-center justify-end gap-1">
             <IconButton disabled={pending} label="Salvar lancamento" tone="positive" type="submit">
@@ -608,25 +722,30 @@ function EntryFormRow({
   );
 }
 
-function SelectFilter({
-  children,
-  label,
-  onChange,
-  value,
-}: {
-  readonly children: ReactNode;
-  readonly label: string;
-  readonly onChange: (value: string) => void;
-  readonly value: string;
-}) {
+function EntrySkeletonRow() {
   return (
-    <label className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted">
-      {label}
-      <select className={filterClass} onChange={(event) => onChange(event.target.value)} value={value}>
-        {children}
-      </select>
-    </label>
+    <tr className="border-l-2 border-l-accent bg-surface-elevated/70">
+      <td colSpan={8} className="px-4 py-3">
+        <div className="grid animate-pulse grid-cols-1 gap-3 lg:grid-cols-[100px_160px_1fr_150px_120px_140px_100px_64px]">
+          <SkeletonBlock />
+          <SkeletonBlock />
+          <SkeletonBlock />
+          <SkeletonBlock />
+          <SkeletonBlock />
+          <SkeletonBlock />
+          <SkeletonBlock />
+          <div className="flex justify-end gap-1">
+            <span className="block size-7 rounded-md bg-surface" />
+            <span className="block size-7 rounded-md bg-surface" />
+          </div>
+        </div>
+      </td>
+    </tr>
   );
+}
+
+function SkeletonBlock() {
+  return <span className="block h-8 rounded-md bg-surface-elevated" />;
 }
 
 function KpiCard({
@@ -674,6 +793,42 @@ function Tag({
   );
 }
 
+function FilterSwitch({
+  active,
+  label,
+  onToggle,
+}: {
+  readonly active: boolean;
+  readonly label: string;
+  readonly onToggle: () => void;
+}) {
+  return (
+    <button
+      aria-pressed={active}
+      className={`flex h-8 items-center gap-2 rounded-lg border px-2.5 text-xs font-medium transition focus:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
+        active
+          ? "border-accent/60 bg-accent/10 text-accent"
+          : "border-border bg-panel text-muted hover:bg-surface-elevated hover:text-foreground"
+      }`}
+      onClick={onToggle}
+      type="button"
+    >
+      <span
+        className={`flex h-4 w-7 items-center rounded-full p-0.5 transition ${
+          active ? "bg-accent" : "bg-muted/35"
+        }`}
+      >
+        <span
+          className={`size-3 rounded-full bg-foreground transition ${
+            active ? "translate-x-3" : "translate-x-0"
+          }`}
+        />
+      </span>
+      {label}
+    </button>
+  );
+}
+
 function IconButton({
   children,
   disabled,
@@ -711,9 +866,6 @@ function IconButton({
 
 const inputClass =
   "h-8 rounded-md border border-border bg-surface/70 px-2.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-accent";
-const filterClass =
-  "h-8 rounded-lg border border-border bg-panel px-2.5 text-xs font-normal normal-case tracking-normal text-foreground outline-none focus:ring-1 focus:ring-accent";
-
 function defaultForm(
   wallets: readonly Wallet[],
   categories: readonly Category[],
@@ -741,6 +893,39 @@ function requestFromForm(form: EntryForm) {
   };
 }
 
+function categoryToFilterOption(
+  category: Category,
+): FilterSelectOption<string> {
+  return {
+    value: category.id,
+    label: category.name,
+    content: (
+      <CategoryBadge
+        color={category.color}
+        icon={category.icon}
+        name={category.name}
+      />
+    ),
+  };
+}
+
+function mergeFilterOptions(
+  current: readonly FilterSelectOption<string>[],
+  next: readonly FilterSelectOption<string>[],
+): FilterSelectOption<string>[] {
+  const options = new Map<string, FilterSelectOption<string>>();
+
+  for (const option of current) {
+    options.set(option.value, option);
+  }
+
+  for (const option of next) {
+    options.set(option.value, option);
+  }
+
+  return [...options.values()];
+}
+
 function formatMoney(cents: number): string {
   return new Intl.NumberFormat("pt-BR", {
     currency: "BRL",
@@ -751,10 +936,6 @@ function formatMoney(cents: number): string {
 function formatDate(value: string): string {
   const [year, month, day] = value.split("-");
   return `${day}/${month}/${year}`;
-}
-
-function reaisToCents(value: string): number {
-  return Math.round(Number(value || 0) * 100);
 }
 
 async function sendEntryJson(
@@ -772,4 +953,8 @@ async function sendEntryJson(
     ok: response.ok,
     body: (await response.json()) as EntryApiResponse,
   };
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }

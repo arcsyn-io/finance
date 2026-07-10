@@ -247,6 +247,7 @@ Regras de ouro:
 - Nao usar `float` ou `number` decimal para calculos monetarios persistidos.
 - Converter reais para centavos apenas nas bordas.
 - Converter centavos para formato exibivel apenas na UI ou em formatadores dedicados.
+- Em formularios React, usar `CurrencyField` como componente padrao para entrada monetaria. O contrato do componente deve trafegar `valueInCents`, com `symbol` padrao `R$` e `formatMask` padrao `###.####,##`.
 
 ## Erros
 

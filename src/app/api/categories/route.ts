@@ -1,8 +1,31 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
-import { createCategoryJson } from "@/server/controllers/category-controller";
+import {
+  createCategoryJson,
+  listCategoriesJson,
+} from "@/server/controllers/category-controller";
 import { getApiApplicationContext } from "@/server/context/api-application-context";
 import { createCategoryService } from "@/server/services/category-service-factory";
+
+export async function GET(request: Request) {
+  const context = await getApiApplicationContext();
+
+  if (!context) {
+    return NextResponse.json(
+      { error: "Autenticacao obrigatoria" },
+      { status: 401 },
+    );
+  }
+
+  const url = new URL(request.url);
+  const response = await listCategoriesJson({
+    context,
+    service: await createCategoryService(),
+    query: Object.fromEntries(url.searchParams),
+  });
+
+  return NextResponse.json(response.body, { status: response.status });
+}
 
 export async function POST(request: Request) {
   const context = await getApiApplicationContext();

@@ -152,7 +152,27 @@ test("controller cria lancamento a partir de JSON valido", async () => {
   assert.equal(response.body.status, "created");
 });
 
-test("controller retorna 400 para valor invalido", async () => {
+test("controller aceita lancamento com valor zerado", async () => {
+  const service = new FakeEntryService();
+  const response = await createEntryJson({
+    context: makeContext(),
+    service,
+    body: {
+      walletId: "00000000-0000-0000-0000-000000000001",
+      categoryId: "00000000-0000-0000-0000-000000000002",
+      nature: "OPERATIONAL",
+      amountCents: 0,
+      occurredOn: "2026-07-10",
+      description: "Fatura de agua sem cobranca",
+    },
+  });
+
+  assert.equal(response.status, 201);
+  assert.equal(service.createCommand?.amountCents, 0);
+  assert.equal(response.body.entry?.amountCents, 0);
+});
+
+test("controller retorna 400 para valor negativo", async () => {
   const response = await createEntryJson({
     context: makeContext(),
     service: new FakeEntryService(),
@@ -160,13 +180,13 @@ test("controller retorna 400 para valor invalido", async () => {
       walletId: "00000000-0000-0000-0000-000000000001",
       categoryId: "00000000-0000-0000-0000-000000000002",
       nature: "OPERATIONAL",
-      amountCents: 0,
+      amountCents: -1,
       occurredOn: "2026-07-10",
     },
   });
 
   assert.equal(response.status, 400);
-  assert.equal(response.body.error, "Valor deve ser maior que zero");
+  assert.equal(response.body.error, "Valor nao pode ser negativo");
 });
 
 test("controller retorna 404 para lancamento inexistente", async () => {

@@ -11,6 +11,7 @@ import {
 import { Check, Pencil, Plus, RotateCcw, Search, Trash2, X } from "lucide-react";
 import type { Wallet, WalletType } from "@/domain/wallet/wallet";
 import { walletTypeLabels, walletTypes } from "@/domain/wallet/wallet";
+import { FilterSelect } from "@/components/ui/FilterSelect";
 import {
   SystemToast,
   type SystemToastMessage,
@@ -251,21 +252,25 @@ export function WalletsList({ initialWallets }: WalletsListProps) {
           ) : null}
         </div>
 
-        <FilterMenu
+        <FilterSelect
           label="Tipo"
-          selectedCount={typeFilters.size}
-          options={walletTypes}
-          selected={typeFilters}
-          onChange={setTypeFilters}
-          renderOption={(type) => <WalletTypeBadge type={type} />}
+          options={walletTypes.map((type) => ({
+            value: type,
+            label: walletTypeLabels[type],
+            content: <WalletTypeBadge type={type} />,
+          }))}
+          selectedValues={[...typeFilters]}
+          onChange={(values) => setTypeFilters(new Set(values))}
         />
 
-        <FilterMenu
+        <FilterSelect
           label="Status"
-          selectedCount={statusFilters.size}
-          options={statusOptions}
-          selected={statusFilters}
-          onChange={setStatusFilters}
+          options={statusOptions.map((status) => ({
+            value: status,
+            label: status,
+          }))}
+          selectedValues={[...statusFilters]}
+          onChange={(values) => setStatusFilters(new Set(values))}
         />
 
         {hasFilters ? (
@@ -500,78 +505,6 @@ function WalletFormRow({
         <X className="size-3.5" aria-hidden="true" />
       </IconButton>
     </form>
-  );
-}
-
-function FilterMenu<T extends string>({
-  label,
-  onChange,
-  options,
-  renderOption,
-  selected,
-  selectedCount,
-}: {
-  readonly label: string;
-  readonly onChange: (selected: Set<T>) => void;
-  readonly options: readonly T[];
-  readonly renderOption?: (option: T) => ReactNode;
-  readonly selected: Set<T>;
-  readonly selectedCount: number;
-}) {
-  const [open, setOpen] = useState(false);
-
-  function toggle(option: T) {
-    const next = new Set(selected);
-
-    if (next.has(option)) {
-      next.delete(option);
-    } else {
-      next.add(option);
-    }
-
-    onChange(next);
-  }
-
-  return (
-    <div className="relative">
-      <button
-        className="flex h-8 items-center gap-1 rounded-lg border border-border bg-panel px-2.5 text-xs text-foreground transition hover:bg-surface-elevated"
-        onClick={() => setOpen((current) => !current)}
-        type="button"
-      >
-        {label}
-        {selectedCount > 0 ? (
-          <span className="rounded-full bg-accent/20 px-1.5 text-[10px] text-accent">
-            {selectedCount}
-          </span>
-        ) : null}
-      </button>
-      {open ? (
-        <>
-          <button
-            aria-label="Fechar filtro"
-            className="fixed inset-0 z-40 cursor-default"
-            onClick={() => setOpen(false)}
-            type="button"
-          />
-          <div className="absolute right-0 z-50 mt-1 min-w-44 rounded-lg border border-border bg-surface p-1 shadow-2xl">
-            {options.map((option) => (
-              <button
-                className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-xs transition hover:bg-surface-elevated"
-                key={option}
-                onClick={() => toggle(option)}
-                type="button"
-              >
-                <span>{renderOption ? renderOption(option) : option}</span>
-                {selected.has(option) ? (
-                  <Check className="size-3 text-accent" aria-hidden="true" />
-                ) : null}
-              </button>
-            ))}
-          </div>
-        </>
-      ) : null}
-    </div>
   );
 }
 

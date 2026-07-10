@@ -12,7 +12,7 @@ export const economicEventSchema = z.enum(economicEvents, {
 export const entryAmountCentsSchema = z
   .number({ invalid_type_error: "Valor deve ser informado em centavos" })
   .int("Valor deve ser informado em centavos")
-  .positive("Valor deve ser maior que zero");
+  .nonnegative("Valor nao pode ser negativo");
 
 export const entryDateSchema = z
   .string({ required_error: "Data do lancamento e obrigatoria" })
