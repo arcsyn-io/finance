@@ -76,4 +76,7 @@ pnpm supabase:stop
 
 - `.env.local` nao deve ser versionado.
 - As migrations em `supabase/migrations` sao a fonte do schema local.
+- Migrations devem conter apenas schema ou dados sinteticos indispensaveis.
+- Dados financeiros reais, extratos, CSVs, dumps e seeds pessoais nao devem ser versionados.
+- O deploy remoto usa `pnpm supabase:apply-migrations` em vez de `supabase db push`, porque o historico remoto pode conter versoes antigas removidas do repositorio apos incidente de privacidade.
 - Use `pnpm lint`, `pnpm typecheck` e `pnpm test` antes de fechar alteracoes de codigo.
