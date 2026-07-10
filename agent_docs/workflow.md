@@ -91,7 +91,7 @@ Nao aproveitar essa etapa para incluir comportamento novo.
 Quando alterar schema:
 
 1. Atualizar `src/db/schema.ts`.
-2. Gerar migration quando aplicavel.
+2. Criar novas migrations com `npx supabase migration new nome_descritivo`.
 3. Revisar o SQL gerado.
 4. Adicionar ou ajustar migrations em `supabase/migrations`.
 5. Rodar a migration localmente quando o ambiente permitir.
