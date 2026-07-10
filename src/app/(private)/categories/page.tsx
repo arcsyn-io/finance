@@ -8,16 +8,7 @@ import { createCategoryService } from "@/server/services/category-service-factor
 type CategoriesPageProps = {
   searchParams?: Promise<{
     showInactive?: string;
-    status?: string;
-    error?: string;
   }>;
-};
-
-const categoryStatusMessages: Record<string, string> = {
-  created: "Categoria criada com sucesso",
-  updated: "Categoria atualizada com sucesso",
-  activated: "Categoria ativada com sucesso",
-  deactivated: "Categoria desativada com sucesso",
 };
 
 export const dynamic = "force-dynamic";
@@ -60,19 +51,10 @@ export default async function CategoriesPage({
         </Button>
       </header>
 
-      {params.status ? (
-        <div className="rounded-lg border border-positive/40 bg-positive/10 px-4 py-3 text-xs text-positive">
-          {categoryStatusMessages[params.status] ?? "Operacao concluida"}
-        </div>
-      ) : null}
-
-      {params.error ? (
-        <div className="rounded-lg border border-negative/40 bg-negative/10 px-4 py-3 text-xs text-negative">
-          {params.error}
-        </div>
-      ) : null}
-
-      <CategoryGroups initialCategories={categories} />
+      <CategoryGroups
+        initialCategories={categories}
+        includeInactive={showInactive}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import {
   InvalidCategoryError,
 } from "../../domain/category/category-errors";
 import type { CategoryService } from "../services/category-service";
+import type { Category } from "../../domain/category/category";
 import type { ApplicationContext } from "../context/application-context";
 import {
   createCategoryRequestToCommand,
@@ -27,6 +28,7 @@ type CategoryControllerDependencies = {
 
 type CategoryMutationResponse = HttpJsonResponse<{
   readonly status?: "created" | "updated" | "activated" | "deactivated";
+  readonly category?: Category;
   readonly error?: string;
 }>;
 
@@ -44,8 +46,11 @@ export async function createCategoryJson({
   }
 
   try {
-    await service.create(context, createCategoryRequestToCommand(result.data));
-    return { status: 201, body: { status: "created" } };
+    const category = await service.create(
+      context,
+      createCategoryRequestToCommand(result.data),
+    );
+    return { status: 201, body: { status: "created", category } };
   } catch (error) {
     return categoryError(error);
   }
@@ -69,8 +74,11 @@ export async function updateCategoryJson({
   }
 
   try {
-    await service.update(context, updateCategoryRequestToCommand(result.data));
-    return { status: 200, body: { status: "updated" } };
+    const category = await service.update(
+      context,
+      updateCategoryRequestToCommand(result.data),
+    );
+    return { status: 200, body: { status: "updated", category } };
   } catch (error) {
     return categoryError(error);
   }
@@ -101,12 +109,12 @@ export async function setCategoryActiveJson({
     const command = setCategoryActiveRequestToCommand(result.data);
 
     if (active) {
-      await service.activate(context, command);
-      return { status: 200, body: { status: "activated" } };
+      const category = await service.activate(context, command);
+      return { status: 200, body: { status: "activated", category } };
     }
 
-    await service.deactivate(context, command);
-    return { status: 200, body: { status: "deactivated" } };
+    const category = await service.deactivate(context, command);
+    return { status: 200, body: { status: "deactivated", category } };
   } catch (error) {
     return categoryError(error);
   }

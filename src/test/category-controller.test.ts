@@ -32,7 +32,9 @@ class FakeCategoryService {
       id: "category-1",
       name: command.name,
       type: command.type ?? "EXPENSE",
-      active: true,
+      icon: command.icon ?? "Tag",
+      color: command.color ?? "oklch(0.66 0.19 24)",
+      active: command.active ?? true,
     });
   }
 
@@ -50,6 +52,8 @@ class FakeCategoryService {
       id: command.id,
       name: command.name,
       type: command.type ?? "EXPENSE",
+      icon: command.icon ?? "Tag",
+      color: command.color ?? "oklch(0.66 0.19 24)",
       active: command.active,
     });
   }
@@ -63,6 +67,8 @@ class FakeCategoryService {
       id: command.id,
       name: "Alimentacao",
       type: "EXPENSE",
+      icon: "Tag",
+      color: "oklch(0.66 0.19 24)",
       active: true,
     });
   }
@@ -76,6 +82,8 @@ class FakeCategoryService {
       id: command.id,
       name: "Alimentacao",
       type: "EXPENSE",
+      icon: "Tag",
+      color: "oklch(0.66 0.19 24)",
       active: false,
     });
   }
@@ -90,7 +98,7 @@ function makeContext() {
 
 function makeCategory(
   context: ApplicationContext,
-  data: Pick<Category, "id" | "name" | "type" | "active">,
+  data: Pick<Category, "id" | "name" | "type" | "icon" | "color" | "active">,
 ): Category {
   return {
     ...data,
@@ -113,8 +121,38 @@ test("controller cria categoria a partir de JSON valido", async () => {
   assert.deepEqual(service.createCommand, {
     name: "Alimentacao",
     type: "EXPENSE",
+    icon: undefined,
+    color: undefined,
+    active: undefined,
   });
   assert.equal(response.body.status, "created");
+  assert.equal(response.body.category?.id, "category-1");
+  assert.equal(response.body.category?.name, "Alimentacao");
+});
+
+test("controller envia icone e cor da categoria para o service", async () => {
+  const service = new FakeCategoryService();
+  const response = await createCategoryJson({
+    context: makeContext(),
+    service,
+    body: {
+      name: "Servicos",
+      type: "INCOME",
+      icon: "Briefcase",
+      color: "oklch(0.68 0.07 235)",
+    },
+  });
+
+  assert.equal(response.status, 201);
+  assert.deepEqual(service.createCommand, {
+    name: "Servicos",
+    type: "INCOME",
+    icon: "Briefcase",
+    color: "oklch(0.68 0.07 235)",
+    active: undefined,
+  });
+  assert.equal(response.body.category?.icon, "Briefcase");
+  assert.equal(response.body.category?.color, "oklch(0.68 0.07 235)");
 });
 
 test("controller retorna 400 para JSON invalido", async () => {
@@ -154,6 +192,7 @@ test("controller alterna status de categoria com JSON booleano", async () => {
     id: "00000000-0000-0000-0000-000000000001",
   });
   assert.equal(response.body.status, "deactivated");
+  assert.equal(response.body.category?.active, false);
 });
 
 test("controller preserva erros de negocio como 400", async () => {

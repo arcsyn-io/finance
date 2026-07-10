@@ -15,6 +15,9 @@ export function createCategoryRequestToCommand(
   return {
     name: request.name,
     type: request.type,
+    icon: request.icon,
+    color: request.color,
+    active: request.active,
   };
 }
 
@@ -25,6 +28,8 @@ export function updateCategoryRequestToCommand(
     id: request.id,
     name: request.name,
     type: request.type,
+    icon: request.icon,
+    color: request.color,
     active: request.active,
   };
 }

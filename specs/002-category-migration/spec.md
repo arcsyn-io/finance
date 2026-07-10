@@ -2,7 +2,7 @@
 
 **Feature Branch**: `codex/category-migration`  
 **Created**: 2026-07-08  
-**Status**: Draft  
+**Status**: Done  
 **Input**: "Migrar categorias do `old/` para a stack Next.js, usando o `old/` como fonte de verdade de regra de negocio."
 
 ## User Scenarios & Testing
@@ -25,15 +25,15 @@ Como usuario autenticado, quero ver minhas categorias separadas entre receitas e
 
 ### User Story 2 - Criar categoria (Priority: P1)
 
-Como usuario autenticado, quero criar uma categoria com nome e tipo, para classificar lancamentos futuros.
+Como usuario autenticado, quero criar uma categoria com nome, tipo, icone e cor, para classificar lancamentos futuros com leitura visual rapida.
 
 **Why this priority**: Criacao e o fluxo minimo para evoluir o cadastro.
 
-**Independent Test**: Criar categoria com nome valido e tipo valido, verificando trim de nome, usuario dono, `active=true` e duplicidade case-insensitive.
+**Independent Test**: Criar categoria com nome valido, tipo valido, icone e cor, verificando trim de nome, usuario dono, `active=true` por padrao e duplicidade case-insensitive.
 
 **Acceptance Scenarios**:
 
-1. **Given** nome `" Alimentacao "` e tipo `EXPENSE`, **When** crio a categoria, **Then** ela e salva como `"Alimentacao"`, ativa e vinculada ao usuario.
+1. **Given** nome `" Alimentacao "` e tipo `EXPENSE`, **When** crio a categoria, **Then** ela e salva como `"Alimentacao"`, ativa, vinculada ao usuario e com icone/cor padrao quando nao informados.
 2. **Given** nome vazio, **When** crio a categoria, **Then** recebo erro `"Nome da categoria e obrigatorio"`.
 3. **Given** tipo ausente ou invalido, **When** crio a categoria, **Then** recebo erro `"Tipo da categoria e obrigatorio"`.
 4. **Given** categoria existente `"Salario"`, **When** crio `"salario"`, **Then** recebo erro de duplicidade.
@@ -42,15 +42,15 @@ Como usuario autenticado, quero criar uma categoria com nome e tipo, para classi
 
 ### User Story 3 - Atualizar categoria (Priority: P1)
 
-Como usuario autenticado, quero editar nome, tipo e status de uma categoria, para corrigir ou reorganizar meu cadastro.
+Como usuario autenticado, quero editar nome, tipo, icone, cor e status de uma categoria, para corrigir ou reorganizar meu cadastro.
 
 **Why this priority**: O `old/` permite atualizar os tres campos e esse comportamento precisa ser preservado.
 
-**Independent Test**: Atualizar categoria existente, validando nome/tipo, duplicidade ignorando o proprio registro e erro quando o id nao existe.
+**Independent Test**: Atualizar categoria existente, validando nome/tipo, preservando icone e cor enviados, duplicidade ignorando o proprio registro e erro quando o id nao existe.
 
 **Acceptance Scenarios**:
 
-1. **Given** categoria existente, **When** atualizo nome, tipo e active, **Then** os campos sao persistidos.
+1. **Given** categoria existente, **When** atualizo nome, tipo, icone, cor e active, **Then** os campos sao persistidos.
 2. **Given** categoria inexistente, **When** tento atualizar, **Then** recebo erro `"Categoria nao encontrada"`.
 3. **Given** outra categoria com nome equivalente case-insensitive, **When** atualizo para esse nome, **Then** recebo erro de duplicidade.
 
@@ -75,7 +75,7 @@ Como usuario autenticado, quero desativar e reativar categorias, para ocultar ca
 ### Functional Requirements
 
 - **FR-001**: O sistema MUST tratar o `old/` como fonte de verdade de regra de negocio de categoria.
-- **FR-002**: Categoria MUST possuir `id`, `userId`, `name`, `type`, `active`, `createdAt`, `updatedAt` e `archivedAt`.
+- **FR-002**: Categoria MUST possuir `id`, `userId`, `name`, `type`, `icon`, `color`, `active`, `createdAt`, `updatedAt` e `archivedAt`.
 - **FR-003**: `type` MUST aceitar somente `INCOME` e `EXPENSE`.
 - **FR-004**: Criacao MUST normalizar `name` com `trim()`.
 - **FR-005**: Criacao e atualizacao MUST rejeitar `name` nulo, vazio ou somente espacos.
@@ -89,6 +89,14 @@ Como usuario autenticado, quero desativar e reativar categorias, para ocultar ca
 - **FR-013**: Services MUST receber apenas `ApplicationContext` e command especifico.
 - **FR-014**: Repositories MUST receber `ApplicationContext` e resolver o client pelo `TransactionContext`.
 - **FR-015**: A tela `/categories` MUST permitir criar, editar, ativar e desativar categorias.
+- **FR-016**: Tabelas financeiras protegidas por RLS MUST conceder privilegios SQL explicitos ao role `authenticated`, mantendo o isolamento por usuario nas policies.
+- **FR-017**: Categoria MUST possuir `icon` e `color` para exibicao visual em badges.
+- **FR-018**: Criacao MUST atribuir icone `Tag` e cor padrao por tipo quando `icon` ou `color` nao forem informados.
+- **FR-019**: Atualizacao MUST persistir `icon` e `color` quando informados e preservar os valores existentes quando omitidos.
+- **FR-020**: A tela `/categories` MUST exibir cada categoria como badge com icone, nome e cor.
+- **FR-021**: O formulario inline de categoria MUST permitir escolher icone por popover, cor por swatches e status por switch.
+- **FR-022**: A tela `/categories` MUST atualizar a lista localmente apos criar, editar, mover, ativar ou desativar categoria, sem recarregar automaticamente para reordenar por nome.
+- **FR-023**: Mensagens de sucesso e erro de interacoes do sistema MUST ser exibidas em toaster suspenso reutilizavel, sem ocupar espaco fixo no layout da pagina.
 
 ### Key Entities
 

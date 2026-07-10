@@ -3,12 +3,13 @@
 import {
   FormEvent,
   ReactNode,
+  useCallback,
   useMemo,
   useRef,
   useState,
   useTransition,
 } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { createPortal } from "react-dom";
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -20,26 +21,47 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import {
+  SystemToast,
+  type SystemToastMessage,
+} from "@/components/ui/system-toast";
 import type { Category, CategoryType } from "@/domain/category/category";
+import {
+  defaultCategoryColor,
+  defaultCategoryIcon,
+  expenseCategoryColors,
+  incomeCategoryColors,
+} from "@/domain/category/category-visual";
+import {
+  CategoryBadge,
+  categoryIconMap,
+  categoryIconOptions,
+} from "./CategoryBadge";
 
 type CategoryGroupsProps = {
   readonly initialCategories: readonly Category[];
+  readonly includeInactive: boolean;
 };
 
 type EditingState = {
   readonly id: string;
   readonly name: string;
+  readonly icon: string;
+  readonly color: string;
   readonly active: boolean;
 };
 
 type CreateState = {
   readonly type: CategoryType;
   readonly name: string;
+  readonly icon: string;
+  readonly color: string;
   readonly active: boolean;
 };
 
 type CategoryApiResponse = {
   readonly status?: string;
+  readonly category?: Category;
   readonly error?: string;
 };
 
@@ -58,16 +80,27 @@ const groupConfig = [
   },
 ] as const;
 
-export function CategoryGroups({ initialCategories }: CategoryGroupsProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+const categoryStatusMessages: Record<string, string> = {
+  created: "Categoria criada com sucesso",
+  updated: "Categoria atualizada com sucesso",
+  activated: "Categoria ativada com sucesso",
+  deactivated: "Categoria desativada com sucesso",
+};
+
+export function CategoryGroups({
+  includeInactive,
+  initialCategories,
+}: CategoryGroupsProps) {
   const [categories, setCategories] = useState(() => [...initialCategories]);
   const [adding, setAdding] = useState<CreateState | null>(null);
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverType, setDragOverType] = useState<CategoryType | null>(null);
+  const [toast, setToast] = useState<SystemToastMessage | null>(null);
   const [pending, startTransition] = useTransition();
   const addButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  const dismissToast = useCallback(() => setToast(null), []);
 
   const grouped = useMemo(
     () => ({
@@ -79,7 +112,13 @@ export function CategoryGroups({ initialCategories }: CategoryGroupsProps) {
 
   function startAdd(type: CategoryType) {
     setEditing(null);
-    setAdding({ type, name: "", active: true });
+    setAdding({
+      type,
+      name: "",
+      icon: defaultCategoryIcon,
+      color: defaultCategoryColor(type),
+      active: true,
+    });
   }
 
   function startEdit(category: Category) {
@@ -87,6 +126,8 @@ export function CategoryGroups({ initialCategories }: CategoryGroupsProps) {
     setEditing({
       id: category.id,
       name: category.name,
+      icon: category.icon,
+      color: category.color,
       active: category.active,
     });
   }
@@ -103,7 +144,7 @@ export function CategoryGroups({ initialCategories }: CategoryGroupsProps) {
 
   function updateLocalCategory(
     id: string,
-    values: Pick<Category, "active" | "name" | "type">,
+    values: Pick<Category, "active" | "color" | "icon" | "name" | "type">,
   ) {
     setCategories((current) =>
       current.map((category) =>
@@ -112,14 +153,18 @@ export function CategoryGroups({ initialCategories }: CategoryGroupsProps) {
     );
   }
 
-  function navigateWithMessage(key: "status" | "error", value: string) {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("status");
-    params.delete("error");
-    params.set(key, value);
+  function showToast(tone: "success" | "error", message: string) {
+    setToast({
+      id: Date.now(),
+      message,
+      tone,
+    });
+  }
 
-    router.push(`/categories?${params.toString()}`);
-    router.refresh();
+  function successMessage(status: string | undefined) {
+    return status
+      ? categoryStatusMessages[status] ?? "Operacao concluida"
+      : "Operacao concluida";
   }
 
   async function saveAdd(event?: FormEvent<HTMLFormElement>) {
@@ -133,18 +178,28 @@ export function CategoryGroups({ initialCategories }: CategoryGroupsProps) {
     const response = await postJson("/api/categories", {
       name: current.name,
       type: current.type,
+      icon: current.icon,
+      color: current.color,
+      active: current.active,
     });
 
     if (!response.ok) {
-      navigateWithMessage(
+      showToast(
         "error",
         response.body.error ?? "Nao foi possivel salvar a categoria",
       );
       return;
     }
 
+    if (response.body.category && (response.body.category.active || includeInactive)) {
+      setCategories((currentCategories) => [
+        ...currentCategories,
+        response.body.category as Category,
+      ]);
+    }
+
     setAdding(null);
-    navigateWithMessage("status", "created");
+    showToast("success", successMessage(response.body.status));
   }
 
   async function saveEdit(event?: FormEvent<HTMLFormElement>) {
@@ -163,6 +218,8 @@ export function CategoryGroups({ initialCategories }: CategoryGroupsProps) {
     const values = {
       name: editing.name,
       type: category.type,
+      icon: editing.icon,
+      color: editing.color,
       active: editing.active,
     };
     const response = await postJson(
@@ -172,7 +229,7 @@ export function CategoryGroups({ initialCategories }: CategoryGroupsProps) {
     );
 
     if (!response.ok) {
-      navigateWithMessage(
+      showToast(
         "error",
         response.body.error ?? "Nao foi possivel salvar a categoria",
       );
@@ -181,7 +238,7 @@ export function CategoryGroups({ initialCategories }: CategoryGroupsProps) {
 
     updateLocalCategory(category.id, values);
     setEditing(null);
-    navigateWithMessage("status", "updated");
+    showToast("success", successMessage(response.body.status));
   }
 
   async function toggleCategory(category: Category) {
@@ -193,19 +250,28 @@ export function CategoryGroups({ initialCategories }: CategoryGroupsProps) {
     );
 
     if (!response.ok) {
-      navigateWithMessage(
+      showToast(
         "error",
         response.body.error ?? "Nao foi possivel salvar a categoria",
       );
       return;
     }
 
-    updateLocalCategory(category.id, {
-      active,
-      name: category.name,
-      type: category.type,
-    });
-    navigateWithMessage("status", active ? "activated" : "deactivated");
+    if (!active && !includeInactive) {
+      setCategories((currentCategories) =>
+        currentCategories.filter((item) => item.id !== category.id),
+      );
+    } else {
+      updateLocalCategory(category.id, {
+        active,
+        color: category.color,
+        icon: category.icon,
+        name: category.name,
+        type: category.type,
+      });
+    }
+
+    showToast("success", successMessage(response.body.status));
   }
 
   async function moveCategory(category: Category, type: CategoryType) {
@@ -216,6 +282,8 @@ export function CategoryGroups({ initialCategories }: CategoryGroupsProps) {
     const values = {
       name: category.name,
       type,
+      icon: category.icon,
+      color: category.color,
       active: category.active,
     };
     const response = await postJson(
@@ -225,7 +293,7 @@ export function CategoryGroups({ initialCategories }: CategoryGroupsProps) {
     );
 
     if (!response.ok) {
-      navigateWithMessage(
+      showToast(
         "error",
         response.body.error ?? "Nao foi possivel mover a categoria",
       );
@@ -233,7 +301,7 @@ export function CategoryGroups({ initialCategories }: CategoryGroupsProps) {
     }
 
     updateLocalCategory(category.id, values);
-    navigateWithMessage("status", "updated");
+    showToast("success", successMessage(response.body.status));
   }
 
   function handleDrop(type: CategoryType) {
@@ -250,6 +318,8 @@ export function CategoryGroups({ initialCategories }: CategoryGroupsProps) {
 
   return (
     <div className="flex w-full max-w-3xl flex-col gap-4 lg:gap-6">
+      {toast ? <SystemToast onDismiss={dismissToast} toast={toast} /> : null}
+
       {draggingId ? (
         <p className="text-center text-[10px] text-accent">
           Solte sobre o grupo para mover a categoria.
@@ -334,6 +404,7 @@ export function CategoryGroups({ initialCategories }: CategoryGroupsProps) {
                       startTransition(() => void saveEdit(event))
                     }
                     pending={pending}
+                    type={category.type}
                   />
                 ) : (
                   <CategoryDisplayRow
@@ -405,16 +476,14 @@ function CategoryDisplayRow({
       onDragStart={onDragStart}
     >
       <GripVertical className="size-3.5 shrink-0 text-muted/45 transition group-hover:text-muted" aria-hidden="true" />
-      <span className="min-w-0 flex-1 truncate text-xs">{category.name}</span>
-      <span
-        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-          category.active
-            ? "bg-positive/10 text-positive"
-            : "bg-surface-elevated text-muted"
-        }`}
-      >
-        {category.active ? "Ativo" : "Inativo"}
-      </span>
+      <div className="min-w-0 flex-1">
+        <CategoryBadge
+          color={category.color}
+          icon={category.icon}
+          name={category.name}
+        />
+      </div>
+      <Switch active={category.active} disabled={pending} onToggle={onDeactivate} />
       <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
         <button
           className="flex size-7 items-center justify-center rounded-md text-muted transition hover:bg-surface-elevated hover:text-foreground"
@@ -450,19 +519,26 @@ function EditCategoryRow({
   onChange,
   onSave,
   pending,
+  type,
 }: {
   readonly editing: EditingState;
   readonly onCancel: () => void;
   readonly onChange: (state: EditingState) => void;
   readonly onSave: (event: FormEvent<HTMLFormElement>) => void;
   readonly pending: boolean;
+  readonly type: CategoryType;
 }) {
   return (
     <form
-      className="flex items-center gap-2 bg-surface-elevated/70 px-4 py-3"
+      className="flex flex-wrap items-center gap-2 border-l-2 border-l-accent bg-surface-elevated/70 px-4 py-3"
       onSubmit={onSave}
     >
       <GripVertical className="size-3.5 shrink-0 text-muted/40" aria-hidden="true" />
+      <CategoryVisualControls
+        color={editing.color}
+        icon={editing.icon}
+        onIconChange={(icon) => onChange({ ...editing, icon })}
+      />
       <input
         autoFocus
         className="min-w-0 flex-1 rounded-md border border-border bg-surface/70 px-3 py-1.5 text-xs text-foreground outline-none placeholder:text-muted focus:ring-1 focus:ring-accent"
@@ -476,6 +552,12 @@ function EditCategoryRow({
         }}
         placeholder="Nome da categoria"
         value={editing.name}
+      />
+      <CategoryColorControls
+        color={editing.color}
+        icon={editing.icon}
+        onChange={(values) => onChange({ ...editing, ...values })}
+        type={type}
       />
       <Switch
         active={editing.active}
@@ -510,9 +592,14 @@ function CreateCategoryRow({
 }) {
   return (
     <form
-      className="flex items-center gap-2 bg-surface-elevated/70 px-5 py-3"
+      className="flex flex-wrap items-center gap-2 border-l-2 border-l-accent bg-surface-elevated/70 px-5 py-3"
       onSubmit={onSave}
     >
+      <CategoryVisualControls
+        color={adding.color}
+        icon={adding.icon}
+        onIconChange={(icon) => onChange({ ...adding, icon })}
+      />
       <input
         autoFocus
         className="min-w-0 flex-1 rounded-md border border-border bg-surface/70 px-3 py-1.5 text-xs text-foreground outline-none placeholder:text-muted focus:ring-1 focus:ring-accent"
@@ -524,6 +611,12 @@ function CreateCategoryRow({
         }}
         placeholder="Nome da categoria"
         value={adding.name}
+      />
+      <CategoryColorControls
+        color={adding.color}
+        icon={adding.icon}
+        onChange={(values) => onChange({ ...adding, ...values })}
+        type={adding.type}
       />
       <Switch
         active={adding.active}
@@ -540,6 +633,134 @@ function CreateCategoryRow({
         <X className="size-3.5" aria-hidden="true" />
       </IconButton>
     </form>
+  );
+}
+
+function CategoryVisualControls({
+  color,
+  icon,
+  onIconChange,
+}: {
+  readonly color: string;
+  readonly icon: string;
+  readonly onIconChange: (icon: string) => void;
+}) {
+  const [iconOpen, setIconOpen] = useState(false);
+  const [position, setPosition] = useState({ left: 0, top: 0 });
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const Icon = categoryIconMap[icon] ?? categoryIconMap.Tag;
+
+  function openIconPicker() {
+    const button = buttonRef.current;
+
+    if (!button) {
+      return;
+    }
+
+    const rect = button.getBoundingClientRect();
+    const width = 212;
+    const height = 200;
+    const top =
+      rect.bottom + height > window.innerHeight
+        ? rect.top - height - 6
+        : rect.bottom + 6;
+    const left =
+      rect.left + width > window.innerWidth ? rect.right - width : rect.left;
+
+    setPosition({ left, top });
+    setIconOpen(true);
+  }
+
+  return (
+    <>
+      <button
+        className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-surface transition hover:bg-surface-elevated focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+        onClick={openIconPicker}
+        ref={buttonRef}
+        style={{ color }}
+        title="Escolher icone"
+        type="button"
+      >
+        <Icon className="size-3.5" aria-hidden="true" />
+        <span className="sr-only">Escolher icone</span>
+      </button>
+
+      {iconOpen
+        ? createPortal(
+            <>
+              <button
+                aria-label="Fechar seletor de icones"
+                className="fixed inset-0 z-40 cursor-default"
+                onClick={() => setIconOpen(false)}
+                type="button"
+              />
+              <div
+                className="fixed z-50 w-[212px] rounded-xl border border-border bg-surface p-2 shadow-2xl"
+                style={{ left: position.left, top: position.top }}
+              >
+                <div className="grid grid-cols-6 gap-1">
+                  {categoryIconOptions.map(({ Icon: OptionIcon, id }) => (
+                    <button
+                      className={`flex size-7 items-center justify-center rounded-md transition ${
+                        icon === id
+                          ? "bg-accent/20 text-accent"
+                          : "text-muted hover:bg-surface-elevated hover:text-foreground"
+                      }`}
+                      key={id}
+                      onClick={() => {
+                        onIconChange(id);
+                        setIconOpen(false);
+                      }}
+                      title={id}
+                      type="button"
+                    >
+                      <OptionIcon className="size-3.5" aria-hidden="true" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>,
+            document.body,
+          )
+        : null}
+    </>
+  );
+}
+
+function CategoryColorControls({
+  color,
+  icon,
+  onChange,
+  type,
+}: {
+  readonly color: string;
+  readonly icon: string;
+  readonly onChange: (values: { icon: string; color: string }) => void;
+  readonly type: CategoryType;
+}) {
+  const colors = type === "INCOME" ? incomeCategoryColors : expenseCategoryColors;
+
+  return (
+      <div className="flex shrink-0 items-center gap-1">
+        {colors.map((option) => (
+          <button
+            className={`size-4 rounded-full transition ${
+              color === option.value
+                ? "scale-125 ring-2 ring-offset-1 ring-offset-background"
+                : "hover:scale-110"
+            }`}
+            key={option.id}
+            onClick={() => onChange({ color: option.value, icon })}
+            style={{
+              backgroundColor: option.value,
+              boxShadow:
+                color === option.value ? `0 0 0 2px ${option.value}` : undefined,
+            }}
+            title={option.label}
+            type="button"
+          />
+        ))}
+      </div>
   );
 }
 

@@ -8,6 +8,8 @@ export type Category = {
   readonly legacyId?: number | null;
   readonly name: string;
   readonly type: CategoryType;
+  readonly icon: string;
+  readonly color: string;
   readonly active: boolean;
   readonly archivedAt: Date | null;
   readonly createdAt: Date;
