@@ -36,6 +36,22 @@ export const entryIdRequestSchema = z.object({
   id: z.string().uuid("Lancamento nao encontrado"),
 });
 
+export const linkEntryTransferRequestSchema = z.discriminatedUnion("mode", [
+  z.object({
+    mode: z.literal("existing"),
+    sourceEntryId: z.string().uuid("Lancamento de origem nao encontrado"),
+    targetEntryId: z.string().uuid("Lancamento de destino nao encontrado"),
+  }),
+  z.object({
+    mode: z.literal("create"),
+    sourceEntryId: z.string().uuid("Lancamento de origem nao encontrado"),
+    walletId: z.string().uuid("Carteira nao encontrada"),
+    categoryId: z.string().uuid("Categoria nao encontrada"),
+    nature: entryNatureSchema,
+    description: z.string().optional(),
+  }),
+]);
+
 export const listEntriesRequestSchema = z.object({
   startDate: entryDateSchema.optional(),
   endDate: entryDateSchema.optional(),
@@ -50,3 +66,6 @@ export type CreateEntryRequest = z.infer<typeof createEntryRequestSchema>;
 export type UpdateEntryRequest = z.infer<typeof updateEntryRequestSchema>;
 export type EntryIdRequest = z.infer<typeof entryIdRequestSchema>;
 export type ListEntriesRequest = z.infer<typeof listEntriesRequestSchema>;
+export type LinkEntryTransferRequest = z.infer<
+  typeof linkEntryTransferRequestSchema
+>;

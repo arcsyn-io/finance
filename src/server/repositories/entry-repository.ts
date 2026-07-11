@@ -30,12 +30,26 @@ export type CreateEntryData = {
 
 export type UpdateEntryData = CreateEntryData;
 
+export type CreateTransferEntryData = CreateEntryData & {
+  readonly transferId: string;
+};
+
 export interface EntryRepository {
   list(context: ApplicationContext, filters: ListEntriesFilters): Promise<Entry[]>;
 
   findById(context: ApplicationContext, id: string): Promise<Entry | null>;
 
+  findByTransferId(
+    context: ApplicationContext,
+    transferId: string,
+  ): Promise<Entry[]>;
+
   create(context: ApplicationContext, data: CreateEntryData): Promise<Entry>;
+
+  createWithTransfer(
+    context: ApplicationContext,
+    data: CreateTransferEntryData,
+  ): Promise<Entry>;
 
   update(
     context: ApplicationContext,
@@ -46,6 +60,14 @@ export interface EntryRepository {
   softDelete(context: ApplicationContext, id: string): Promise<Entry>;
 
   restore(context: ApplicationContext, id: string): Promise<Entry>;
+
+  setTransferId(
+    context: ApplicationContext,
+    id: string,
+    transferId: string,
+  ): Promise<Entry>;
+
+  clearTransferId(context: ApplicationContext, id: string): Promise<Entry>;
 }
 
 type EntryRow = {
@@ -145,6 +167,27 @@ export class SupabaseEntryRepository implements EntryRepository {
     return data ? mapRowToEntry(data as EntryRow) : null;
   }
 
+  async findByTransferId(
+    context: ApplicationContext,
+    transferId: string,
+  ): Promise<Entry[]> {
+    const userId = context.requireUserPrincipal().id;
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("entries")
+      .select(entrySelect)
+      .eq("user_id", userId)
+      .eq("transfer_id", transferId)
+      .order("occurred_on", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return (data as EntryRow[]).map(mapRowToEntry);
+  }
+
   async create(
     context: ApplicationContext,
     data: CreateEntryData,
@@ -157,6 +200,36 @@ export class SupabaseEntryRepository implements EntryRepository {
         user_id: userId,
         wallet_id: data.walletId,
         category_id: data.categoryId,
+        nature: data.nature,
+        direction: data.direction,
+        economic_event: data.economicEvent,
+        amount_cents: data.amountCents,
+        occurred_on: data.occurredOn,
+        description: data.description,
+      })
+      .select(entrySelect)
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return mapRowToEntry(row as EntryRow);
+  }
+
+  async createWithTransfer(
+    context: ApplicationContext,
+    data: CreateTransferEntryData,
+  ): Promise<Entry> {
+    const userId = context.requireUserPrincipal().id;
+    const supabase = await createClient();
+    const { data: row, error } = await supabase
+      .from("entries")
+      .insert({
+        user_id: userId,
+        wallet_id: data.walletId,
+        category_id: data.categoryId,
+        transfer_id: data.transferId,
         nature: data.nature,
         direction: data.direction,
         economic_event: data.economicEvent,
@@ -218,6 +291,57 @@ export class SupabaseEntryRepository implements EntryRepository {
     id: string,
   ): Promise<Entry> {
     return this.setDeletedAt(context, id, null);
+  }
+
+  async setTransferId(
+    context: ApplicationContext,
+    id: string,
+    transferId: string,
+  ): Promise<Entry> {
+    const userId = context.requireUserPrincipal().id;
+    const supabase = await createClient();
+    const { data: row, error } = await supabase
+      .from("entries")
+      .update({
+        transfer_id: transferId,
+        economic_event: "TRANSFER",
+        updated_at: context.now.toISOString(),
+      })
+      .eq("user_id", userId)
+      .eq("id", id)
+      .select(entrySelect)
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return mapRowToEntry(row as EntryRow);
+  }
+
+  async clearTransferId(
+    context: ApplicationContext,
+    id: string,
+  ): Promise<Entry> {
+    const userId = context.requireUserPrincipal().id;
+    const supabase = await createClient();
+    const { data: row, error } = await supabase
+      .from("entries")
+      .update({
+        transfer_id: null,
+        economic_event: null,
+        updated_at: context.now.toISOString(),
+      })
+      .eq("user_id", userId)
+      .eq("id", id)
+      .select(entrySelect)
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return mapRowToEntry(row as EntryRow);
   }
 
   private async setDeletedAt(

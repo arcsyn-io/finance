@@ -9,14 +9,18 @@ import {
 import type {
   CreateEntryCommand,
   DeleteEntryCommand,
+  LinkEntryTransferCommand,
   RestoreEntryCommand,
+  UnlinkEntryTransferCommand,
   UpdateEntryCommand,
 } from "../server/commands/entry-commands";
 import { ApplicationContext } from "../server/context/application-context";
 import {
   createEntryJson,
   deleteEntryJson,
+  linkEntryTransferJson,
   restoreEntryJson,
+  unlinkEntryTransferJson,
   updateEntryJson,
 } from "../server/controllers/entry-controller";
 
@@ -25,6 +29,8 @@ class FakeEntryService {
   updateCommand: UpdateEntryCommand | null = null;
   deleteCommand: DeleteEntryCommand | null = null;
   restoreCommand: RestoreEntryCommand | null = null;
+  linkTransferCommand: LinkEntryTransferCommand | null = null;
+  unlinkTransferCommand: UnlinkEntryTransferCommand | null = null;
 
   async list(): Promise<Entry[]> {
     return [];
@@ -80,6 +86,52 @@ class FakeEntryService {
       amountCents: 100,
       occurredOn: "2026-07-10",
     });
+  }
+
+  async linkTransfer(
+    context: ApplicationContext,
+    command: LinkEntryTransferCommand,
+  ): Promise<{ transferId: string; entries: readonly Entry[] }> {
+    this.linkTransferCommand = command;
+    return {
+      transferId: "transfer-1",
+      entries: [
+        {
+          ...makeEntry(context, command.sourceEntryId, {
+            walletId: "wallet-1",
+            categoryId: "category-1",
+            nature: "OPERATIONAL",
+            amountCents: 100,
+            occurredOn: "2026-07-10",
+          }),
+          transferId: "transfer-1",
+          economicEvent: "TRANSFER",
+        },
+      ],
+    };
+  }
+
+  async unlinkTransfer(
+    context: ApplicationContext,
+    command: UnlinkEntryTransferCommand,
+  ): Promise<{ transferId: string; entries: readonly Entry[] }> {
+    this.unlinkTransferCommand = command;
+    return {
+      transferId: "transfer-1",
+      entries: [
+        {
+          ...makeEntry(context, command.entryId, {
+            walletId: "wallet-1",
+            categoryId: "category-1",
+            nature: "OPERATIONAL",
+            amountCents: 100,
+            occurredOn: "2026-07-10",
+          }),
+          transferId: null,
+          economicEvent: null,
+        },
+      ],
+    };
   }
 }
 
@@ -250,4 +302,68 @@ test("controller preserva erro de negocio como 400", async () => {
 
   assert.equal(response.status, 400);
   assert.equal(response.body.error, "Carteira inativa nao pode receber lancamentos");
+});
+
+test("controller vincula transferencia existente a partir de JSON valido", async () => {
+  const service = new FakeEntryService();
+  const response = await linkEntryTransferJson({
+    context: makeContext(),
+    service,
+    id: "00000000-0000-0000-0000-000000000001",
+    body: {
+      mode: "existing",
+      targetEntryId: "00000000-0000-0000-0000-000000000002",
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(service.linkTransferCommand, {
+    mode: "existing",
+    sourceEntryId: "00000000-0000-0000-0000-000000000001",
+    targetEntryId: "00000000-0000-0000-0000-000000000002",
+  });
+  assert.equal(response.body.status, "linked");
+  assert.equal(response.body.transferId, "transfer-1");
+});
+
+test("controller cria contraparte de transferencia a partir de JSON valido", async () => {
+  const service = new FakeEntryService();
+  const response = await linkEntryTransferJson({
+    context: makeContext(),
+    service,
+    id: "00000000-0000-0000-0000-000000000001",
+    body: {
+      mode: "create",
+      walletId: "00000000-0000-0000-0000-000000000003",
+      categoryId: "00000000-0000-0000-0000-000000000004",
+      nature: "PATRIMONIAL",
+      description: "Contraparte",
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(service.linkTransferCommand, {
+    mode: "create",
+    sourceEntryId: "00000000-0000-0000-0000-000000000001",
+    walletId: "00000000-0000-0000-0000-000000000003",
+    categoryId: "00000000-0000-0000-0000-000000000004",
+    nature: "PATRIMONIAL",
+    description: "Contraparte",
+  });
+});
+
+test("controller desvincula transferencia a partir do lancamento", async () => {
+  const service = new FakeEntryService();
+  const response = await unlinkEntryTransferJson({
+    context: makeContext(),
+    service,
+    id: "00000000-0000-0000-0000-000000000001",
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(service.unlinkTransferCommand, {
+    entryId: "00000000-0000-0000-0000-000000000001",
+  });
+  assert.equal(response.body.status, "unlinked");
+  assert.equal(response.body.transferId, "transfer-1");
 });

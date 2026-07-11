@@ -3,6 +3,7 @@ import test from "node:test";
 
 import type { Category } from "../domain/category/category";
 import type { Entry } from "../domain/entry/entry";
+import type { Transfer } from "../domain/transfer/transfer";
 import {
   EntryNotFoundError,
   InvalidEntryError,
@@ -11,12 +12,17 @@ import type { Wallet } from "../domain/wallet/wallet";
 import { ApplicationContext } from "../server/context/application-context";
 import type {
   CreateEntryData,
+  CreateTransferEntryData,
   EntryRepository,
   ListEntriesFilters,
   UpdateEntryData,
 } from "../server/repositories/entry-repository";
 import type { CategoryRepository } from "../server/repositories/category-repository";
 import type { WalletRepository } from "../server/repositories/wallet-repository";
+import type {
+  CreateTransferData,
+  TransferRepository,
+} from "../server/repositories/transfer-repository";
 import { EntryService } from "../server/services/entry-service";
 import type { UnitOfWork } from "../server/unit-of-work/unit-of-work";
 
@@ -55,6 +61,17 @@ class FakeEntryRepository implements EntryRepository {
     return entry?.userId === userId ? entry : null;
   }
 
+  async findByTransferId(
+    context: ApplicationContext,
+    transferId: string,
+  ): Promise<Entry[]> {
+    const userId = context.requireUserPrincipal().id;
+
+    return [...this.entries.values()].filter(
+      (entry) => entry.userId === userId && entry.transferId === transferId,
+    );
+  }
+
   async create(
     context: ApplicationContext,
     data: CreateEntryData,
@@ -82,6 +99,22 @@ class FakeEntryRepository implements EntryRepository {
     this.entries.set(id, entry);
 
     return entry;
+  }
+
+  async createWithTransfer(
+    context: ApplicationContext,
+    data: CreateTransferEntryData,
+  ): Promise<Entry> {
+    const entry = await this.create(context, data);
+    const linked = {
+      ...entry,
+      transferId: data.transferId,
+      economicEvent: "TRANSFER" as const,
+    };
+
+    this.entries.set(entry.id, linked);
+
+    return linked;
   }
 
   async update(
@@ -145,6 +178,76 @@ class FakeEntryRepository implements EntryRepository {
 
     return restored;
   }
+
+  async setTransferId(
+    context: ApplicationContext,
+    id: string,
+    transferId: string,
+  ): Promise<Entry> {
+    const existing = await this.findById(context, id);
+
+    if (!existing) {
+      throw new EntryNotFoundError();
+    }
+
+    const linked = {
+      ...existing,
+      transferId,
+      economicEvent: "TRANSFER" as const,
+      updatedAt: context.now,
+    };
+    this.entries.set(id, linked);
+
+    return linked;
+  }
+
+  async clearTransferId(
+    context: ApplicationContext,
+    id: string,
+  ): Promise<Entry> {
+    const existing = await this.findById(context, id);
+
+    if (!existing) {
+      throw new EntryNotFoundError();
+    }
+
+    const unlinked = {
+      ...existing,
+      transferId: null,
+      economicEvent: null,
+      updatedAt: context.now,
+    };
+    this.entries.set(id, unlinked);
+
+    return unlinked;
+  }
+}
+
+class FakeTransferRepository implements TransferRepository {
+  readonly transfers = new Map<string, Transfer>();
+  private nextId = 1;
+
+  async create(
+    context: ApplicationContext,
+    data: CreateTransferData,
+  ): Promise<Transfer> {
+    const id = `transfer-${this.nextId++}`;
+    const transfer: Transfer = {
+      ...data,
+      id,
+      userId: context.requireUserPrincipal().id,
+      legacyId: null,
+      createdAt: context.now,
+      updatedAt: context.now,
+    };
+    this.transfers.set(id, transfer);
+
+    return transfer;
+  }
+
+  async delete(_context: ApplicationContext, id: string): Promise<void> {
+    this.transfers.delete(id);
+  }
 }
 
 class FakeWalletRepository implements Pick<WalletRepository, "findById"> {
@@ -183,6 +286,7 @@ function makeContext() {
 function makeService() {
   const context = makeContext();
   const entryRepository = new FakeEntryRepository();
+  const transferRepository = new FakeTransferRepository();
   const walletRepository = new FakeWalletRepository();
   const categoryRepository = new FakeCategoryRepository();
 
@@ -194,12 +298,13 @@ function makeService() {
 
   const service = new EntryService({
     repository: entryRepository,
+    transferRepository,
     walletRepository: walletRepository as unknown as WalletRepository,
     categoryRepository: categoryRepository as unknown as CategoryRepository,
     unitOfWork: new FakeUnitOfWork(),
   });
 
-  return { context, entryRepository, service };
+  return { context, entryRepository, service, transferRepository };
 }
 
 function makeWallet(
@@ -360,4 +465,137 @@ test("exclui e restaura lancamento sem delete fisico", async () => {
 
   assert.ok(deleted.deletedAt);
   assert.equal(restored.deletedAt, null);
+});
+
+test("vincula dois lancamentos existentes como transferencia", async () => {
+  const { context, service, transferRepository } = makeService();
+  const outEntry = await service.create(context, {
+    walletId: "wallet-cash",
+    categoryId: "cat-expense",
+    nature: "OPERATIONAL",
+    amountCents: 15000,
+    occurredOn: "2026-07-09",
+    description: "Envio para reserva",
+  });
+  const inEntry = await service.create(context, {
+    walletId: "wallet-stock",
+    categoryId: "cat-income",
+    nature: "PATRIMONIAL",
+    amountCents: 15000,
+    occurredOn: "2026-07-10",
+    description: "Reserva recebida",
+  });
+
+  const linked = await service.linkTransfer(context, {
+    mode: "existing",
+    sourceEntryId: outEntry.id,
+    targetEntryId: inEntry.id,
+  });
+
+  const transfer = transferRepository.transfers.get(linked.transferId);
+  assert.ok(transfer);
+  assert.equal(transfer.fromWalletId, "wallet-cash");
+  assert.equal(transfer.toWalletId, "wallet-stock");
+  assert.equal(transfer.occurredOn, "2026-07-10");
+  assert.equal(linked.entries.length, 2);
+  assert.ok(linked.entries.every((entry) => entry.transferId === linked.transferId));
+  assert.ok(linked.entries.every((entry) => entry.economicEvent === "TRANSFER"));
+});
+
+test("cria contraparte e vincula como transferencia", async () => {
+  const { context, service } = makeService();
+  const source = await service.create(context, {
+    walletId: "wallet-cash",
+    categoryId: "cat-expense",
+    nature: "OPERATIONAL",
+    amountCents: 4200,
+    occurredOn: "2026-07-10",
+    description: "Transferencia para investimentos",
+  });
+
+  const linked = await service.linkTransfer(context, {
+    mode: "create",
+    sourceEntryId: source.id,
+    walletId: "wallet-stock",
+    categoryId: "cat-income",
+    nature: "PATRIMONIAL",
+    description: "Entrada em investimentos",
+  });
+
+  const target = linked.entries.find((entry) => entry.id !== source.id);
+  assert.ok(target);
+  assert.equal(target.walletId, "wallet-stock");
+  assert.equal(target.direction, "IN");
+  assert.equal(target.amountCents, source.amountCents);
+  assert.equal(target.occurredOn, source.occurredOn);
+  assert.equal(target.transferId, linked.transferId);
+});
+
+test("desvincula transferencia mantendo os lancamentos", async () => {
+  const { context, service, transferRepository } = makeService();
+  const source = await service.create(context, {
+    walletId: "wallet-cash",
+    categoryId: "cat-expense",
+    nature: "OPERATIONAL",
+    amountCents: 7500,
+    occurredOn: "2026-07-10",
+  });
+  const linked = await service.linkTransfer(context, {
+    mode: "create",
+    sourceEntryId: source.id,
+    walletId: "wallet-stock",
+    categoryId: "cat-income",
+    nature: "PATRIMONIAL",
+    description: "Entrada vinculada",
+  });
+
+  const unlinked = await service.unlinkTransfer(context, {
+    entryId: source.id,
+  });
+
+  assert.equal(unlinked.transferId, linked.transferId);
+  assert.equal(transferRepository.transfers.has(linked.transferId), false);
+  assert.equal(unlinked.entries.length, 2);
+  assert.ok(unlinked.entries.every((entry) => entry.transferId === null));
+  assert.ok(unlinked.entries.every((entry) => entry.economicEvent === null));
+});
+
+test("rejeita transferencia com mesma carteira ou mesmo valor diferente", async () => {
+  const { context, service } = makeService();
+  const source = await service.create(context, {
+    walletId: "wallet-cash",
+    categoryId: "cat-expense",
+    nature: "OPERATIONAL",
+    amountCents: 1000,
+    occurredOn: "2026-07-10",
+  });
+  const sameWalletTarget = await service.create(context, {
+    walletId: "wallet-cash",
+    categoryId: "cat-income",
+    nature: "OPERATIONAL",
+    amountCents: 1000,
+    occurredOn: "2026-07-10",
+  });
+
+  await assert.rejects(
+    () =>
+      service.linkTransfer(context, {
+        mode: "existing",
+        sourceEntryId: source.id,
+        targetEntryId: sameWalletTarget.id,
+      }),
+    InvalidEntryError,
+  );
+
+  await assert.rejects(
+    () =>
+      service.linkTransfer(context, {
+        mode: "create",
+        sourceEntryId: source.id,
+        walletId: "wallet-stock",
+        categoryId: "cat-expense",
+        nature: "PATRIMONIAL",
+      }),
+    InvalidEntryError,
+  );
 });

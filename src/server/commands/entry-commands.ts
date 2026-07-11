@@ -34,3 +34,22 @@ export type DeleteEntryCommand = {
 export type RestoreEntryCommand = {
   readonly id: string;
 };
+
+export type UnlinkEntryTransferCommand = {
+  readonly entryId: string;
+};
+
+export type LinkEntryTransferCommand =
+  | {
+      readonly mode: "existing";
+      readonly sourceEntryId: string;
+      readonly targetEntryId: string;
+    }
+  | {
+      readonly mode: "create";
+      readonly sourceEntryId: string;
+      readonly walletId: string;
+      readonly categoryId: string;
+      readonly nature: EntryNature;
+      readonly description?: string;
+    };

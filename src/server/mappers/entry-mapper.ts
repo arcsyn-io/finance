@@ -1,6 +1,7 @@
 import type {
   CreateEntryCommand,
   DeleteEntryCommand,
+  LinkEntryTransferCommand,
   ListEntriesCommand,
   RestoreEntryCommand,
   UpdateEntryCommand,
@@ -8,6 +9,7 @@ import type {
 import type {
   CreateEntryRequest,
   EntryIdRequest,
+  LinkEntryTransferRequest,
   ListEntriesRequest,
   UpdateEntryRequest,
 } from "../schemas/entry-schema";
@@ -65,4 +67,25 @@ export function restoreEntryRequestToCommand(
   request: EntryIdRequest,
 ): RestoreEntryCommand {
   return { id: request.id };
+}
+
+export function linkEntryTransferRequestToCommand(
+  request: LinkEntryTransferRequest,
+): LinkEntryTransferCommand {
+  if (request.mode === "existing") {
+    return {
+      mode: "existing",
+      sourceEntryId: request.sourceEntryId,
+      targetEntryId: request.targetEntryId,
+    };
+  }
+
+  return {
+    mode: "create",
+    sourceEntryId: request.sourceEntryId,
+    walletId: request.walletId,
+    categoryId: request.categoryId,
+    nature: request.nature,
+    description: request.description,
+  };
 }

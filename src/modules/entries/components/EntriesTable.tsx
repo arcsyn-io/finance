@@ -13,8 +13,12 @@ import {
 import {
   AlertTriangle,
   ArrowLeftRight,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Check,
   Link2Off,
+  Loader2,
   Pencil,
   Plus,
   RotateCcw,
@@ -46,6 +50,7 @@ import {
   FilterSelect,
   type FilterSelectOption,
 } from "@/components/ui/FilterSelect";
+import { Dropdown } from "@/components/ui/Dropdown";
 import { CurrencyField } from "@/components/ui/CurrencyField";
 import { CalendarField } from "@/components/ui/CalendarField";
 import { CategoryBadge } from "@/modules/categories/components/CategoryBadge";
@@ -85,6 +90,8 @@ const statusMessages: Record<string, string> = {
   updated: "Lancamento atualizado com sucesso",
   deleted: "Lancamento excluido com sucesso",
   restored: "Lancamento restaurado com sucesso",
+  linked: "Transferencia vinculada com sucesso",
+  unlinked: "Transferencia desvinculada com sucesso",
 };
 
 export function EntriesTable({
@@ -110,6 +117,16 @@ export function EntriesTable({
   const [savingRow, setSavingRow] = useState<"add" | string | null>(null);
   const [errorRow, setErrorRow] = useState<"add" | string | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<Entry | null>(null);
+  const [transferSource, setTransferSource] = useState<Entry | null>(null);
+  const [unlinkCandidate, setUnlinkCandidate] = useState<Entry | null>(null);
+  const [transferMode, setTransferMode] = useState<"existing" | "create">(
+    "existing",
+  );
+  const [targetEntryId, setTargetEntryId] = useState("");
+  const [transferForm, setTransferForm] = useState<EntryForm>(() =>
+    defaultTransferForm(wallets, categories),
+  );
+  const [transferSaving, setTransferSaving] = useState(false);
   const [form, setForm] = useState<EntryForm>(() =>
     defaultForm(wallets, categories),
   );
@@ -371,6 +388,80 @@ export function EntriesTable({
     showToast("success", successMessage(response.body.status));
   }
 
+  function startTransfer(entry: Entry) {
+    if (entry.transferId) {
+      setUnlinkCandidate(entry);
+      return;
+    }
+
+    const candidates = transferCandidates(entries, entry);
+
+    setTransferSource(entry);
+    setTransferMode(candidates.length > 0 ? "existing" : "create");
+    setTargetEntryId(candidates[0]?.id ?? "");
+    setTransferForm(defaultTransferForm(wallets, categories, entry));
+  }
+
+  async function linkTransfer(source: Entry) {
+    setTransferSaving(true);
+    const body =
+      transferMode === "existing"
+        ? { mode: "existing", targetEntryId }
+        : {
+            mode: "create",
+            walletId: transferForm.walletId,
+            categoryId: transferForm.categoryId,
+            nature: transferForm.nature,
+            description: transferForm.description,
+          };
+    try {
+      const response = await sendEntryJson(
+        `/api/entries/${source.id}/transfer`,
+        body,
+      );
+
+      if (!response.ok) {
+        showToast(
+          "error",
+          response.body.error ?? "Nao foi possivel vincular transferencia",
+        );
+        return;
+      }
+
+      setTransferSource(null);
+      setEntries((current) => mergeEntries(current, response.body.entries ?? []));
+      showToast("success", successMessage(response.body.status));
+    } finally {
+      setTransferSaving(false);
+    }
+  }
+
+  async function unlinkTransfer(source: Entry) {
+    setTransferSaving(true);
+
+    try {
+      const response = await sendEntryJson(
+        `/api/entries/${source.id}/transfer`,
+        null,
+        "DELETE",
+      );
+
+      if (!response.ok) {
+        showToast(
+          "error",
+          response.body.error ?? "Nao foi possivel desvincular transferencia",
+        );
+        return;
+      }
+
+      setUnlinkCandidate(null);
+      setEntries((current) => mergeEntries(current, response.body.entries ?? []));
+      showToast("success", successMessage(response.body.status));
+    } finally {
+      setTransferSaving(false);
+    }
+  }
+
   return (
     <div className="flex w-full flex-col gap-4 lg:gap-6">
       {toast ? <SystemToast onDismiss={() => setToast(null)} toast={toast} /> : null}
@@ -381,7 +472,32 @@ export function EntriesTable({
           onConfirm={() =>
             startTransition(() => void softDelete(deleteCandidate))
           }
-          pending={pending}
+          pending={pending || transferSaving}
+        />
+      ) : null}
+      {transferSource ? (
+        <LinkTransferDialog
+          categories={categories}
+          entries={entries}
+          form={transferForm}
+          mode={transferMode}
+          onCancel={() => setTransferSource(null)}
+          onChangeForm={setTransferForm}
+          onChangeMode={setTransferMode}
+          onChangeTargetEntryId={setTargetEntryId}
+          onConfirm={() => void linkTransfer(transferSource)}
+          pending={pending || transferSaving}
+          source={transferSource}
+          targetEntryId={targetEntryId}
+          wallets={wallets}
+        />
+      ) : null}
+      {unlinkCandidate ? (
+        <UnlinkTransferDialog
+          entry={unlinkCandidate}
+          onCancel={() => setUnlinkCandidate(null)}
+          onConfirm={() => void unlinkTransfer(unlinkCandidate)}
+          pending={pending || transferSaving}
         />
       ) : null}
 
@@ -522,6 +638,7 @@ export function EntriesTable({
                     onDelete={() => setDeleteCandidate(entry)}
                     onEdit={() => startEdit(entry)}
                     onRestore={() => startTransition(() => void restore(entry))}
+                    onTransfer={() => startTransfer(entry)}
                     pending={pending}
                   />
                 ),
@@ -571,6 +688,7 @@ function EntryDisplayRow({
   onDelete,
   onEdit,
   onRestore,
+  onTransfer,
   pending,
 }: {
   readonly category?: Category;
@@ -578,6 +696,7 @@ function EntryDisplayRow({
   readonly onDelete: () => void;
   readonly onEdit: () => void;
   readonly onRestore: () => void;
+  readonly onTransfer: () => void;
   readonly pending: boolean;
 }) {
   const deleted = Boolean(entry.deletedAt);
@@ -617,7 +736,11 @@ function EntryDisplayRow({
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-1">
-          <TransferIndicator linked={Boolean(entry.transferId)} />
+          <TransferIndicator
+            disabled={pending}
+            linked={Boolean(entry.transferId)}
+            onClick={onTransfer}
+          />
           {deleted ? (
             <div className="opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
               <IconButton disabled={pending} label="Restaurar lancamento" onClick={onRestore} tone="positive">
@@ -640,21 +763,503 @@ function EntryDisplayRow({
   );
 }
 
-function TransferIndicator({ linked }: { readonly linked: boolean }) {
+function TransferIndicator({
+  disabled,
+  linked,
+  onClick,
+}: {
+  readonly disabled: boolean;
+  readonly linked: boolean;
+  readonly onClick: () => void;
+}) {
+  if (!linked) {
+    return (
+      <button
+        className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted opacity-0 transition hover:bg-accent/10 hover:text-accent group-hover:opacity-100 disabled:opacity-40"
+        disabled={disabled}
+        onClick={onClick}
+        title="Vincular transferencia"
+        type="button"
+      >
+        <ArrowLeftRight className="size-3.5" aria-hidden="true" />
+        <span className="sr-only">Vincular transferencia</span>
+      </button>
+    );
+  }
+
   return (
-    <span
-      className={`flex size-7 shrink-0 items-center justify-center rounded-md transition ${
-        linked
-          ? "bg-accent/10 text-accent"
-          : "text-muted opacity-0 group-hover:opacity-100"
-      }`}
-      title={linked ? "Vinculada a transferencia" : "Sem transferencia vinculada"}
+    <button
+      className="flex size-7 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent transition hover:bg-warning/15 hover:text-warning disabled:opacity-40"
+      disabled={disabled}
+      onClick={onClick}
+      title="Desvincular transferencia"
+      type="button"
     >
       <ArrowLeftRight className="size-3.5" aria-hidden="true" />
-      <span className="sr-only">
-        {linked ? "Vinculada a transferencia" : "Sem transferencia vinculada"}
+      <span className="sr-only">Desvincular transferencia</span>
+    </button>
+  );
+}
+
+function LinkTransferDialog({
+  categories,
+  entries,
+  form,
+  mode,
+  onCancel,
+  onChangeForm,
+  onChangeMode,
+  onChangeTargetEntryId,
+  onConfirm,
+  pending,
+  source,
+  targetEntryId,
+  wallets,
+}: {
+  readonly categories: readonly Category[];
+  readonly entries: readonly Entry[];
+  readonly form: EntryForm;
+  readonly mode: "existing" | "create";
+  readonly onCancel: () => void;
+  readonly onChangeForm: (form: EntryForm) => void;
+  readonly onChangeMode: (mode: "existing" | "create") => void;
+  readonly onChangeTargetEntryId: (entryId: string) => void;
+  readonly onConfirm: () => void;
+  readonly pending: boolean;
+  readonly source: Entry;
+  readonly targetEntryId: string;
+  readonly wallets: readonly Wallet[];
+}) {
+  const candidates = transferCandidates(entries, source);
+  const [candidatePage, setCandidatePage] = useState(0);
+  const targetCategoryType = source.direction === "OUT" ? "INCOME" : "EXPENSE";
+  const targetCategories = categories.filter(
+    (category) => category.type === targetCategoryType,
+  );
+  const targetWallets = wallets.filter((wallet) => wallet.id !== source.walletId);
+  const candidatePageSize = 5;
+  const candidatePageCount = Math.max(
+    1,
+    Math.ceil(candidates.length / candidatePageSize),
+  );
+  const normalizedCandidatePage = Math.min(candidatePage, candidatePageCount - 1);
+  const pagedCandidates = candidates.slice(
+    normalizedCandidatePage * candidatePageSize,
+    normalizedCandidatePage * candidatePageSize + candidatePageSize,
+  );
+  const confirmDisabled =
+    pending ||
+    (mode === "existing" ? !targetEntryId : !form.walletId || !form.categoryId);
+
+  useEffect(() => {
+    setCandidatePage(0);
+  }, [source.id, mode]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-background/70 px-4 backdrop-blur-sm"
+      role="presentation"
+    >
+      <div
+        aria-modal="true"
+        className="w-[min(560px,calc(100vw-2rem))] rounded-xl border border-border bg-surface-elevated p-5 shadow-2xl shadow-black/55"
+        role="dialog"
+      >
+        <div className="flex items-start gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+            <ArrowLeftRight className="size-4" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold text-foreground">Vincular transferencia</h2>
+            <p className="mt-1 text-xs text-muted">
+              {entryLabel(source)} - {formatMoney(source.amountCents)}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 rounded-lg border border-border bg-panel p-1">
+          <button
+            aria-pressed={mode === "existing"}
+            className={`h-8 rounded-md text-xs font-semibold transition ${
+              mode === "existing"
+                ? "bg-accent text-accent-foreground"
+                : "text-muted hover:text-foreground"
+            }`}
+            disabled={pending}
+            onClick={() => onChangeMode("existing")}
+            type="button"
+          >
+            Vincular existente
+          </button>
+          <button
+            aria-pressed={mode === "create"}
+            className={`h-8 rounded-md text-xs font-semibold transition ${
+              mode === "create"
+                ? "bg-accent text-accent-foreground"
+                : "text-muted hover:text-foreground"
+            }`}
+            disabled={pending}
+            onClick={() => onChangeMode("create")}
+            type="button"
+          >
+            Criar novo registro
+          </button>
+        </div>
+
+        {mode === "existing" ? (
+          <div className="mt-4">
+            <div className="overflow-hidden rounded-lg border border-border">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[500px] text-xs">
+                  <thead>
+                    <tr className="border-b border-border bg-panel">
+                      {["", "Data", "Carteira", "Descricao", "Valor"].map(
+                        (heading) => (
+                          <th
+                            className={`px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted ${
+                              heading === "Valor" ? "text-right" : "text-left"
+                            }`}
+                            key={heading}
+                          >
+                            {heading}
+                          </th>
+                        ),
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border bg-surface">
+                    {pagedCandidates.map((entry) => {
+                      const selected = entry.id === targetEntryId;
+                      const signedAmount =
+                        entry.direction === "OUT"
+                          ? -entry.amountCents
+                          : entry.amountCents;
+
+                      return (
+                        <tr
+                          className={`cursor-pointer transition hover:bg-surface-elevated ${
+                            selected ? "bg-accent/10" : ""
+                          } ${pending ? "pointer-events-none opacity-60" : ""}`}
+                          key={entry.id}
+                          onClick={() => onChangeTargetEntryId(entry.id)}
+                        >
+                          <td className="w-9 px-3 py-2">
+                            <input
+                              aria-label={`Selecionar ${entryLabel(entry)}`}
+                              checked={selected}
+                              disabled={pending}
+                              onChange={() => onChangeTargetEntryId(entry.id)}
+                              type="radio"
+                            />
+                          </td>
+                          <td className="px-3 py-2 text-muted whitespace-nowrap">
+                            {formatDate(entry.occurredOn)}
+                          </td>
+                          <td className="px-3 py-2 text-muted whitespace-nowrap">
+                            {entry.walletName ?? entry.walletId}
+                          </td>
+                          <td className="max-w-[210px] px-3 py-2 text-foreground">
+                            <span className="block truncate">
+                              {entryLabel(entry)}
+                            </span>
+                          </td>
+                          <td
+                            className={`px-3 py-2 text-right font-semibold tabular-nums whitespace-nowrap ${
+                              signedAmount < 0
+                                ? "text-negative"
+                                : "text-positive"
+                            }`}
+                          >
+                            {signedAmount >= 0 ? "+" : ""}
+                            {formatMoney(signedAmount)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            {candidates.length === 0 ? (
+              <p className="mt-2 text-xs text-muted">
+                Nenhuma transacao compativel nos resultados carregados.
+              </p>
+            ) : null}
+            {candidates.length > 0 ? (
+              <div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted">
+                <span>
+                  Pagina {normalizedCandidatePage + 1} de {candidatePageCount}
+                </span>
+                <div className="inline-flex overflow-hidden rounded-lg border border-border bg-panel">
+                  <button
+                    className="flex size-8 items-center justify-center text-foreground transition hover:bg-surface disabled:opacity-50"
+                    disabled={normalizedCandidatePage === 0}
+                    onClick={() =>
+                      setCandidatePage((page) => Math.max(0, page - 1))
+                    }
+                    title="Pagina anterior"
+                    type="button"
+                  >
+                    <ChevronLeft className="size-4" aria-hidden="true" />
+                    <span className="sr-only">Pagina anterior</span>
+                  </button>
+                  <button
+                    className="flex size-8 items-center justify-center border-l border-border text-foreground transition hover:bg-surface disabled:opacity-50"
+                    disabled={normalizedCandidatePage >= candidatePageCount - 1}
+                    onClick={() =>
+                      setCandidatePage((page) =>
+                        Math.min(candidatePageCount - 1, page + 1),
+                      )
+                    }
+                    title="Proxima pagina"
+                    type="button"
+                  >
+                    <ChevronRight className="size-4" aria-hidden="true" />
+                    <span className="sr-only">Proxima pagina</span>
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <PrefixedDropdownField
+              onChange={(walletId) => onChangeForm({ ...form, walletId })}
+              disabled={pending}
+              options={targetWallets.map((wallet) => ({
+                label: wallet.name,
+                value: wallet.id,
+              }))}
+              prefix="Carteira"
+              value={form.walletId}
+            />
+            <PrefixedDropdownField
+              onChange={(categoryId) => onChangeForm({ ...form, categoryId })}
+              disabled={pending}
+              options={targetCategories.map((category) => ({
+                label: category.name,
+                value: category.id,
+              }))}
+              prefix="Categoria"
+              value={form.categoryId}
+            />
+            <PrefixedDropdownField
+              onChange={(nature) =>
+                onChangeForm({ ...form, nature: nature as EntryNature })
+              }
+              disabled={pending}
+              options={entryNatures.map((nature) => ({
+                label: entryNatureLabels[nature],
+                value: nature,
+              }))}
+              prefix="Natureza"
+              value={form.nature}
+            />
+            <PrefixedField prefix="Descricao">
+              <input
+                className={prefixedControlClass}
+                disabled={pending}
+                onChange={(event) =>
+                  onChangeForm({ ...form, description: event.target.value })
+                }
+                value={form.description}
+              />
+            </PrefixedField>
+          </div>
+        )}
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            className="h-9 rounded-lg border border-border bg-panel px-4 text-xs font-semibold text-foreground transition hover:bg-surface disabled:opacity-60"
+            disabled={pending}
+            onClick={onCancel}
+            type="button"
+          >
+            Cancelar
+          </button>
+          <button
+            className="flex h-9 min-w-24 items-center justify-center gap-2 rounded-lg bg-accent px-4 text-xs font-bold text-accent-foreground transition hover:bg-accent/90 disabled:opacity-60"
+            disabled={confirmDisabled}
+            onClick={onConfirm}
+            type="button"
+          >
+            {pending ? (
+              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+            ) : null}
+            {pending ? "Vinculando" : "Vincular"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UnlinkTransferDialog({
+  entry,
+  onCancel,
+  onConfirm,
+  pending,
+}: {
+  readonly entry: Entry;
+  readonly onCancel: () => void;
+  readonly onConfirm: () => void;
+  readonly pending: boolean;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-background/70 px-4 backdrop-blur-sm"
+      role="presentation"
+    >
+      <div
+        aria-modal="true"
+        className="flex w-[min(420px,calc(100vw-2rem))] gap-4 rounded-xl border border-border bg-surface-elevated p-5 shadow-2xl shadow-black/55"
+        role="dialog"
+      >
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-warning/15 text-warning">
+          <Link2Off className="size-4" aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-bold text-foreground">
+            Desvincular transferencia
+          </h2>
+          <p className="mt-2 text-xs leading-5 text-muted">
+            A transferencia de {entryLabel(entry)} sera removida. Os
+            lancamentos vinculados serao mantidos como registros independentes.
+          </p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              className="h-9 rounded-lg border border-border bg-panel px-4 text-xs font-semibold text-foreground transition hover:bg-surface disabled:opacity-60"
+              disabled={pending}
+              onClick={onCancel}
+              type="button"
+            >
+              Cancelar
+            </button>
+            <button
+              className="flex h-9 min-w-28 items-center justify-center gap-2 rounded-lg bg-warning px-4 text-xs font-bold text-background transition hover:bg-warning/90 disabled:opacity-60"
+              disabled={pending}
+              onClick={onConfirm}
+              type="button"
+            >
+              {pending ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+              ) : null}
+              {pending ? "Desvinculando" : "Desvincular"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type DropdownFieldOption = {
+  readonly label: string;
+  readonly value: string;
+};
+
+function PrefixedDropdownField({
+  disabled = false,
+  onChange,
+  options,
+  prefix,
+  value,
+}: {
+  readonly disabled?: boolean;
+  readonly onChange: (value: string) => void;
+  readonly options: readonly DropdownFieldOption[];
+  readonly prefix: string;
+  readonly value: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((option) => option.value === value);
+
+  return (
+    <Dropdown
+      onOpenChange={setOpen}
+      open={open}
+      panelClassName="!z-[140] overflow-hidden rounded-lg border border-border bg-surface-elevated shadow-2xl shadow-black/45"
+      trigger={({ open: dropdownOpen, triggerRef }) => (
+        <button
+          aria-expanded={dropdownOpen}
+          className={`${prefixedControlClass} relative flex items-center text-left transition hover:bg-surface-elevated focus-visible:ring-1 focus-visible:ring-accent`}
+          disabled={disabled}
+          onClick={() => setOpen((current) => !current)}
+          ref={(node) => {
+            triggerRef.current = node;
+          }}
+          type="button"
+        >
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold uppercase tracking-wider text-muted">
+            {prefix}
+          </span>
+          <span className="min-w-0 flex-1 truncate">
+            {selected?.label ?? "Selecione"}
+          </span>
+          <ChevronDown
+            className={`ml-2 size-3.5 shrink-0 text-muted transition ${
+              dropdownOpen ? "rotate-180" : ""
+            }`}
+            aria-hidden="true"
+          />
+        </button>
+      )}
+      width="trigger"
+    >
+      <div className="grid py-1">
+        {options.map((option) => {
+          const optionSelected = option.value === value;
+
+          return (
+            <button
+              className="flex min-h-8 w-full items-center gap-2 px-3 text-left text-xs font-semibold text-foreground transition hover:bg-surface"
+              disabled={disabled}
+              key={option.value}
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+              }}
+              type="button"
+            >
+              <span
+                className={`flex size-3.5 shrink-0 items-center justify-center rounded border ${
+                  optionSelected
+                    ? "border-accent bg-accent text-accent-foreground"
+                    : "border-border bg-panel"
+                }`}
+              >
+                {optionSelected ? (
+                  <Check className="size-2.5" aria-hidden="true" />
+                ) : null}
+              </span>
+              <span className="min-w-0 truncate">{option.label}</span>
+            </button>
+          );
+        })}
+        {options.length === 0 ? (
+          <span className="px-3 py-2 text-xs text-muted">
+            Nenhuma opcao disponivel
+          </span>
+        ) : null}
+      </div>
+    </Dropdown>
+  );
+}
+
+function PrefixedField({
+  children,
+  prefix,
+}: {
+  readonly children: ReactNode;
+  readonly prefix: string;
+}) {
+  return (
+    <div className="relative">
+      <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[10px] font-semibold uppercase tracking-wider text-muted">
+        {prefix}
       </span>
-    </span>
+      {children}
+    </div>
   );
 }
 
@@ -965,6 +1570,7 @@ function IconButton({
       className={`flex size-7 shrink-0 items-center justify-center rounded-md transition disabled:opacity-60 ${className}`}
       disabled={disabled}
       onClick={onClick}
+      title={label}
       type={type}
     >
       {children}
@@ -975,6 +1581,8 @@ function IconButton({
 
 const inputClass =
   "h-8 rounded-md border border-border bg-surface/70 px-2.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-accent";
+const prefixedControlClass =
+  "h-9 w-full rounded-lg border border-border bg-surface/70 pl-24 pr-3 text-xs text-foreground outline-none focus:ring-1 focus:ring-accent";
 function defaultForm(
   wallets: readonly Wallet[],
   categories: readonly Category[],
@@ -987,6 +1595,30 @@ function defaultForm(
     amountCents: 0,
     occurredOn: new Date().toISOString().slice(0, 10),
     description: "",
+  };
+}
+
+function defaultTransferForm(
+  wallets: readonly Wallet[],
+  categories: readonly Category[],
+  source?: Entry,
+): EntryForm {
+  const walletId =
+    wallets.find((wallet) => wallet.id !== source?.walletId)?.id ?? "";
+  const categoryType = source?.direction === "OUT" ? "INCOME" : "EXPENSE";
+  const categoryId =
+    categories.find((category) => category.type === categoryType)?.id ??
+    categories[0]?.id ??
+    "";
+
+  return {
+    walletId,
+    categoryId,
+    nature: source?.nature ?? "OPERATIONAL",
+    economicEvent: "TRANSFER",
+    amountCents: source?.amountCents ?? 0,
+    occurredOn: source?.occurredOn ?? new Date().toISOString().slice(0, 10),
+    description: source?.description ?? "",
   };
 }
 
@@ -1049,6 +1681,39 @@ function entryLabel(entry: Entry): string {
 function formatDate(value: string): string {
   const [year, month, day] = value.split("-");
   return `${day}/${month}/${year}`;
+}
+
+function transferCandidates(
+  entries: readonly Entry[],
+  source: Entry,
+): Entry[] {
+  return entries.filter(
+    (entry) =>
+      entry.id !== source.id &&
+      !entry.deletedAt &&
+      !entry.transferId &&
+      entry.walletId !== source.walletId &&
+      entry.direction !== source.direction &&
+      entry.amountCents === source.amountCents,
+  );
+}
+
+function mergeEntries(
+  current: readonly Entry[],
+  incoming: readonly Entry[],
+): Entry[] {
+  const byId = new Map(current.map((entry) => [entry.id, entry]));
+
+  for (const entry of incoming) {
+    byId.set(entry.id, entry);
+  }
+
+  return [...byId.values()].sort((a, b) => {
+    const date = b.occurredOn.localeCompare(a.occurredOn);
+    return date === 0
+      ? b.createdAt.toString().localeCompare(a.createdAt.toString())
+      : date;
+  });
 }
 
 async function sendEntryJson(

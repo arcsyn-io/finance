@@ -9,6 +9,7 @@ import type { ApplicationContext } from "../context/application-context";
 import {
   createEntryRequestToCommand,
   deleteEntryRequestToCommand,
+  linkEntryTransferRequestToCommand,
   listEntriesRequestToCommand,
   restoreEntryRequestToCommand,
   updateEntryRequestToCommand,
@@ -17,6 +18,7 @@ import type { HttpJsonResponse } from "../responses/http-json-response";
 import {
   createEntryRequestSchema,
   entryIdRequestSchema,
+  linkEntryTransferRequestSchema,
   listEntriesRequestSchema,
   updateEntryRequestSchema,
 } from "../schemas/entry-schema";
@@ -26,13 +28,27 @@ type EntryControllerDependencies = {
   readonly context: ApplicationContext;
   readonly service: Pick<
     EntryService,
-    "list" | "create" | "update" | "delete" | "restore"
+    | "list"
+    | "create"
+    | "update"
+    | "delete"
+    | "restore"
+    | "linkTransfer"
+    | "unlinkTransfer"
   >;
 };
 
 type EntryMutationResponse = HttpJsonResponse<{
-  readonly status?: "created" | "updated" | "deleted" | "restored";
+  readonly status?:
+    | "created"
+    | "updated"
+    | "deleted"
+    | "restored"
+    | "linked"
+    | "unlinked";
   readonly entry?: Entry;
+  readonly entries?: readonly Entry[];
+  readonly transferId?: string;
   readonly error?: string;
 }>;
 
@@ -176,6 +192,73 @@ export async function restoreEntryJson({
       restoreEntryRequestToCommand(result.data),
     );
     return { status: 200, body: { status: "restored", entry } };
+  } catch (error) {
+    return entryError(error);
+  }
+}
+
+export async function linkEntryTransferJson({
+  context,
+  service,
+  id,
+  body,
+}: EntryControllerDependencies & {
+  readonly id: string;
+  readonly body: unknown;
+}): Promise<EntryMutationResponse> {
+  const request =
+    typeof body === "object" && body !== null
+      ? { ...body, sourceEntryId: id }
+      : { sourceEntryId: id };
+  const result = linkEntryTransferRequestSchema.safeParse(request);
+
+  if (!result.success) {
+    return validationError(result.error.issues[0]?.message);
+  }
+
+  try {
+    const linked = await service.linkTransfer(
+      context,
+      linkEntryTransferRequestToCommand(result.data),
+    );
+    return {
+      status: 200,
+      body: {
+        status: "linked",
+        transferId: linked.transferId,
+        entries: linked.entries,
+      },
+    };
+  } catch (error) {
+    return entryError(error);
+  }
+}
+
+export async function unlinkEntryTransferJson({
+  context,
+  service,
+  id,
+}: EntryControllerDependencies & {
+  readonly id: string;
+}): Promise<EntryMutationResponse> {
+  const result = entryIdRequestSchema.safeParse({ id });
+
+  if (!result.success) {
+    return validationError(result.error.issues[0]?.message);
+  }
+
+  try {
+    const unlinked = await service.unlinkTransfer(context, {
+      entryId: result.data.id,
+    });
+    return {
+      status: 200,
+      body: {
+        status: "unlinked",
+        transferId: unlinked.transferId,
+        entries: unlinked.entries,
+      },
+    };
   } catch (error) {
     return entryError(error);
   }
