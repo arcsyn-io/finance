@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Category } from "@/domain/category/category";
 import {
   FilterSelect,
@@ -19,7 +20,9 @@ type CategorySelectProps = {
   readonly label?: string;
   readonly mode?: "single" | "multiple";
   readonly onChange: (values: string[]) => void;
+  readonly selectedColor?: string | null;
   readonly selectedValues: readonly string[];
+  readonly triggerClassName?: string;
 };
 
 export function CategorySelect({
@@ -28,34 +31,57 @@ export function CategorySelect({
   label = "Categoria",
   mode = "multiple",
   onChange,
+  selectedColor,
   selectedValues,
+  triggerClassName,
 }: CategorySelectProps) {
-  const [options, setOptions] = useState(() =>
-    categories.map(categoryToSelectOption),
+  const queryClient = useQueryClient();
+  const [remoteOptions, setRemoteOptions] = useState<
+    readonly FilterSelectOption<string>[]
+  >([]);
+  const localOptions = useMemo(
+    () => categories.map(categoryToSelectOption),
+    [categories],
+  );
+  const options = useMemo(
+    () => mergeFilterOptions(localOptions, remoteOptions),
+    [localOptions, remoteOptions],
   );
 
   const selectedOptions = useMemo(
     () => options.filter((option) => selectedValues.includes(option.value)),
     [options, selectedValues],
   );
+  const selectedCategory = categories.find((category) =>
+    selectedValues.includes(category.id),
+  );
+  const highlightColor = selectedColor ?? selectedCategory?.color ?? null;
 
-  const searchCategories = useCallback(async (searchText: string) => {
-    const params = new URLSearchParams();
-    params.set("search", searchText);
-    params.set("limit", "10");
+  const searchCategories = useCallback(
+    async (searchText: string) => {
+      const normalizedSearch = normalizeSearchText(searchText);
+      const localMatches = filterCategoryOptions(localOptions, normalizedSearch);
 
-    const response = await fetch(`/api/categories?${params.toString()}`);
-    const body = (await response.json()) as CategoryApiResponse;
+      if (localMatches.length > 0 || normalizedSearch.length === 0) {
+        return localMatches.slice(0, 10);
+      }
 
-    if (!response.ok) {
-      throw new Error(body.error ?? "Nao foi possivel buscar categorias");
-    }
+      const categoriesFromApi = await queryClient.fetchQuery({
+        queryKey: [
+          "categories",
+          "search",
+          { includeInactive: false, limit: 10, search: normalizedSearch },
+        ],
+        queryFn: () => fetchCategories(normalizedSearch, 10),
+        staleTime: 5 * 60 * 1000,
+      });
+      const nextOptions = categoriesFromApi.map(categoryToSelectOption);
+      setRemoteOptions((current) => mergeFilterOptions(current, nextOptions));
 
-    const nextOptions = (body.categories ?? []).map(categoryToSelectOption);
-    setOptions((current) => mergeFilterOptions(current, nextOptions));
-
-    return nextOptions;
-  }, []);
+      return nextOptions;
+    },
+    [localOptions, queryClient],
+  );
 
   return (
     <FilterSelect
@@ -72,9 +98,37 @@ export function CategorySelect({
         placeholder: "Buscar categoria",
       }}
       selectedOptions={selectedOptions}
+      selectedTriggerStyle={
+        highlightColor
+          ? {
+              backgroundColor: colorWithAlpha(highlightColor),
+              borderColor: colorWithAlpha(highlightColor, 0.42),
+              color: highlightColor,
+            }
+          : undefined
+      }
       selectedValues={selectedValues}
+      triggerClassName={triggerClassName}
     />
   );
+}
+
+async function fetchCategories(
+  searchText: string,
+  limit: number,
+): Promise<readonly Category[]> {
+  const params = new URLSearchParams();
+  params.set("search", searchText);
+  params.set("limit", String(limit));
+
+  const response = await fetch(`/api/categories?${params.toString()}`);
+  const body = (await response.json()) as CategoryApiResponse;
+
+  if (!response.ok) {
+    throw new Error(body.error ?? "Nao foi possivel buscar categorias");
+  }
+
+  return body.categories ?? [];
 }
 
 export function categoryToSelectOption(
@@ -108,4 +162,29 @@ function mergeFilterOptions(
   }
 
   return [...options.values()];
+}
+
+function filterCategoryOptions(
+  options: readonly FilterSelectOption<string>[],
+  normalizedSearch: string,
+): FilterSelectOption<string>[] {
+  if (!normalizedSearch) return [...options];
+
+  return options.filter((option) =>
+    normalizeSearchText(option.label).includes(normalizedSearch),
+  );
+}
+
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function colorWithAlpha(color: string, alpha = 0.14) {
+  return color.startsWith("oklch(")
+    ? color.replace(")", ` / ${alpha})`)
+    : color;
 }

@@ -37,6 +37,11 @@ export type SetImportRowIgnoredCommand = {
   readonly ignored: boolean;
 };
 
+export type DeleteImportRowCommand = {
+  readonly importRequestId: string;
+  readonly rowId: string;
+};
+
 export type ConfirmImportCommand = {
   readonly id: string;
 };

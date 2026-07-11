@@ -1,6 +1,14 @@
 "use client";
 
-import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Check, ChevronDown, ChevronUp, X } from "lucide-react";
 import { Dropdown } from "@/components/ui/Dropdown";
 
@@ -33,6 +41,8 @@ type FilterSelectProps<TValue extends string> = {
   readonly disabled?: boolean;
   readonly search?: FilterSelectSearch<TValue>;
   readonly selectedOptions?: readonly FilterSelectOption<TValue>[];
+  readonly selectedTriggerStyle?: CSSProperties;
+  readonly triggerClassName?: string;
 };
 
 export function FilterSelect<TValue extends string>({
@@ -44,7 +54,9 @@ export function FilterSelect<TValue extends string>({
   options,
   search,
   selectedOptions = [],
+  selectedTriggerStyle,
   selectedValues,
+  triggerClassName = "",
 }: FilterSelectProps<TValue>) {
   const [open, setOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -57,8 +69,13 @@ export function FilterSelect<TValue extends string>({
   const [searching, setSearching] = useState(false);
   const [searchFailed, setSearchFailed] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const selectedSet = new Set(selectedValues);
+  const typeaheadRemoteTimeoutRef = useRef<number | null>(null);
+  const typeaheadTextRef = useRef("");
+  const typeaheadTimeoutRef = useRef<number | null>(null);
+  const typeaheadRequestRef = useRef(0);
+  const selectedSet = new Set<TValue>(selectedValues);
   const hasSearch = Boolean(search);
+  const multiple = mode === "multiple";
   const searchLoadOptions = search?.loadOptions;
   const searchMinLength = search?.minLength;
   const visibleOptions = useMemo(
@@ -121,6 +138,17 @@ export function FilterSelect<TValue extends string>({
     }
   }, [open, search]);
 
+  useEffect(() => {
+    return () => {
+      if (typeaheadTimeoutRef.current) {
+        window.clearTimeout(typeaheadTimeoutRef.current);
+      }
+      if (typeaheadRemoteTimeoutRef.current) {
+        window.clearTimeout(typeaheadRemoteTimeoutRef.current);
+      }
+    };
+  }, []);
+
   function toggle(value: TValue) {
     if (mode === "single") {
       const nextValues = selectedSet.has(value) ? [] : [value];
@@ -149,10 +177,91 @@ export function FilterSelect<TValue extends string>({
     setOpen((current) => {
       if (!current) {
         setOpenSelectedValues(selectedValues);
+        setSearchText("");
       }
 
       return !current;
     });
+  }
+
+  function handleTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (
+      disabled ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.key.length !== 1
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    void selectByTypeahead(event.key);
+  }
+
+  function selectByTypeahead(key: string) {
+    if (typeaheadTimeoutRef.current) {
+      window.clearTimeout(typeaheadTimeoutRef.current);
+    }
+    if (typeaheadRemoteTimeoutRef.current) {
+      window.clearTimeout(typeaheadRemoteTimeoutRef.current);
+    }
+
+    const requestId = typeaheadRequestRef.current + 1;
+    typeaheadRequestRef.current = requestId;
+
+    const nextSearchText = `${typeaheadTextRef.current}${key}`;
+    typeaheadTextRef.current = nextSearchText;
+    typeaheadTimeoutRef.current = window.setTimeout(() => {
+      typeaheadTextRef.current = "";
+    }, 800);
+
+    const match = findFirstMatchingOption(
+      mergeOptions([...options, ...selectedOptions], selectedValues),
+      nextSearchText,
+    );
+
+    if (match) {
+      selectTypeaheadOption(match.value);
+      return;
+    }
+
+    if (!searchLoadOptions) {
+      return;
+    }
+
+    typeaheadRemoteTimeoutRef.current = window.setTimeout(() => {
+      searchLoadOptions(nextSearchText)
+        .then((remoteOptions) => {
+          if (typeaheadRequestRef.current !== requestId) {
+            return;
+          }
+
+          const remoteMatch = findFirstMatchingOption(
+            remoteOptions,
+            nextSearchText,
+          );
+
+          if (remoteMatch) {
+            selectTypeaheadOption(remoteMatch.value);
+          }
+        })
+        .catch(() => {
+          // A busca remota ja exibe erro quando o dropdown esta aberto.
+        });
+    }, 250);
+  }
+
+  function selectTypeaheadOption(value: TValue) {
+    if (mode === "single") {
+      onChange([value]);
+      setOpen(false);
+      return;
+    }
+
+    if (!selectedSet.has(value)) {
+      onChange([...selectedSet, value]);
+    }
   }
 
   return (
@@ -173,8 +282,10 @@ export function FilterSelect<TValue extends string>({
             selectedValues.length > 0
               ? "border-accent/60 bg-accent/10 text-accent"
               : "border-border bg-panel text-muted hover:bg-surface-elevated hover:text-foreground"
-          }`}
+          } ${triggerClassName}`}
+          style={selectedValues.length > 0 ? selectedTriggerStyle : undefined}
           onClick={toggleOpen}
+          onKeyDown={handleTriggerKeyDown}
           disabled={disabled}
           ref={(node) => {
             triggerRef.current = node;
@@ -182,7 +293,7 @@ export function FilterSelect<TValue extends string>({
           type="button"
         >
           <span>{label}</span>
-          {selectedValues.length > 0 ? (
+          {multiple && selectedValues.length > 0 ? (
             <span className="flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-bold text-accent-foreground">
               {selectedValues.length}
             </span>
@@ -220,17 +331,19 @@ export function FilterSelect<TValue extends string>({
               disabled={disabled}
               type="button"
             >
-              <span
-                className={`flex size-3.5 shrink-0 items-center justify-center rounded border ${
-                  selected
-                    ? "border-accent bg-accent text-accent-foreground"
-                    : "border-border bg-panel"
-                }`}
-              >
-                {selected ? (
-                  <Check className="size-2.5" aria-hidden="true" />
-                ) : null}
-              </span>
+              {multiple ? (
+                <span
+                  className={`flex size-3.5 shrink-0 items-center justify-center rounded border ${
+                    selected
+                      ? "border-accent bg-accent text-accent-foreground"
+                      : "border-border bg-panel"
+                  }`}
+                >
+                  {selected ? (
+                    <Check className="size-2.5" aria-hidden="true" />
+                  ) : null}
+                </span>
+              ) : null}
               <span className="min-w-0 truncate">
                 {option.content ?? option.label}
               </span>
@@ -293,4 +406,26 @@ function mergeOptions<TValue extends string>(
 
     return firstSelected ? -1 : 1;
   });
+}
+
+function findFirstMatchingOption<TValue extends string>(
+  options: readonly FilterSelectOption<TValue>[],
+  searchText: string,
+): FilterSelectOption<TValue> | null {
+  const normalizedSearch = normalizeTypeaheadText(searchText);
+  if (!normalizedSearch) return null;
+
+  return (
+    options.find((option) =>
+      normalizeTypeaheadText(option.label).startsWith(normalizedSearch),
+    ) ?? null
+  );
+}
+
+function normalizeTypeaheadText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
 }

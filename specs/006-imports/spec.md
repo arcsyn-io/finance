@@ -30,6 +30,10 @@ O usuario precisa importar lancamentos exportados do Nubank sem gravar fatos fin
 - A listagem mostra arquivo, origem, status, total, pendentes, ignoradas e confirmadas.
 - O modal de nova importacao coleta arquivo, origem, carteira, categoria, natureza e evento economico default.
 - A revisao exibe linhas editaveis com data, descricao, carteira, categoria, natureza, evento, valor e status.
+- A revisao permite alternar a visualizacao das linhas entre ordem por data e agrupamento por status.
+- Na visualizacao por status, as linhas sao agrupadas em Pendente, Concluido e Ignorada, com contagem por grupo.
+- Ao selecionar linhas, a revisao exibe acoes em lote para editar, concluir, ignorar e remover as linhas selecionadas.
+- A edicao em lote exibe uma linha de campos editaveis no formato `Nome do campo: valor selecionado`.
 
 ## Criterios de Aceite
 

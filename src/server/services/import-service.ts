@@ -6,6 +6,7 @@ import { WalletNotFoundError } from "@/domain/wallet/wallet-errors";
 import type {
   ConfirmImportCommand,
   CreateImportCommand,
+  DeleteImportRowCommand,
   ListImportsCommand,
   SetImportRowIgnoredCommand,
   UpdateImportRowCommand,
@@ -96,6 +97,17 @@ export class ImportService {
         command.rowId,
         command.ignored ? txContext.now.toISOString() : null,
       );
+    });
+  }
+
+  async deleteRow(context: ApplicationContext, command: DeleteImportRowCommand) {
+    return this.dependencies.unitOfWork.execute(context, async (txContext) => {
+      const request = await this.findEditable(txContext, command.importRequestId);
+      if (!request.rows.some((row) => row.id === command.rowId)) {
+        throw new InvalidImportError("Linha nao pertence a esta importacao");
+      }
+
+      await this.dependencies.repository.deleteRow(txContext, command.rowId);
     });
   }
 

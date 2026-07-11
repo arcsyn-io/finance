@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { economicEvents, entryNatures } from "@/domain/entry/entry";
-import { importSources } from "@/domain/import/import";
+import { economicEvents, entryNatures } from "../../domain/entry/entry";
+import { importSources } from "../../domain/import/import";
 
 export const listImportsRequestSchema = z.object({
   includeConfirmed: z.boolean().default(false),

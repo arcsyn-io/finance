@@ -1,22 +1,22 @@
-import { CategoryNotFoundError } from "@/domain/category/category-errors";
-import { InvalidImportError, ImportNotFoundError } from "@/domain/import/import-errors";
-import { WalletNotFoundError } from "@/domain/wallet/wallet-errors";
-import type { ApplicationContext } from "@/server/context/application-context";
-import type { HttpJsonResponse } from "@/server/responses/http-json-response";
+import { CategoryNotFoundError } from "../../domain/category/category-errors";
+import { InvalidImportError, ImportNotFoundError } from "../../domain/import/import-errors";
+import { WalletNotFoundError } from "../../domain/wallet/wallet-errors";
+import type { ApplicationContext } from "../context/application-context";
+import type { HttpJsonResponse } from "../responses/http-json-response";
 import {
   createImportRequestSchema,
   importIdRequestSchema,
   listImportsRequestSchema,
   setImportRowIgnoredRequestSchema,
   updateImportRowRequestSchema,
-} from "@/server/schemas/import-schema";
-import type { ImportService } from "@/server/services/import-service";
+} from "../schemas/import-schema";
+import type { ImportService } from "../services/import-service";
 
 type ImportControllerDependencies = {
   readonly context: ApplicationContext;
   readonly service: Pick<
     ImportService,
-    "list" | "findById" | "create" | "updateRow" | "setRowIgnored" | "confirm" | "cancel"
+    "list" | "findById" | "create" | "updateRow" | "setRowIgnored" | "deleteRow" | "confirm" | "cancel"
   >;
 };
 
@@ -24,6 +24,7 @@ type ImportResponse = HttpJsonResponse<{
   readonly imports?: Awaited<ReturnType<ImportService["list"]>>;
   readonly importRequest?: Awaited<ReturnType<ImportService["findById"]>>;
   readonly row?: Awaited<ReturnType<ImportService["setRowIgnored"]>>;
+  readonly deletedRowId?: string;
   readonly result?: Awaited<ReturnType<ImportService["confirm"]>>;
   readonly status?: string;
   readonly error?: string;
@@ -143,6 +144,31 @@ export async function setImportRowIgnoredJson({
         row: await service.setRowIgnored(context, result.data),
       },
     };
+  } catch (error) {
+    return importError(error);
+  }
+}
+
+export async function deleteImportRowJson({
+  context,
+  importRequestId,
+  rowId,
+  service,
+}: ImportControllerDependencies & {
+  readonly importRequestId: string;
+  readonly rowId: string;
+}): Promise<ImportResponse> {
+  const result = importIdRequestSchema.safeParse({ id: importRequestId });
+  const rowResult = importIdRequestSchema.safeParse({ id: rowId });
+  if (!result.success) return validationError(result.error.issues[0]?.message);
+  if (!rowResult.success) return validationError(rowResult.error.issues[0]?.message);
+
+  try {
+    await service.deleteRow(context, {
+      importRequestId: result.data.id,
+      rowId: rowResult.data.id,
+    });
+    return { status: 200, body: { status: "deleted", deletedRowId: rowId } };
   } catch (error) {
     return importError(error);
   }

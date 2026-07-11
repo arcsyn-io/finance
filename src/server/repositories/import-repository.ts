@@ -74,6 +74,7 @@ export interface ImportRepository {
     rowId: string,
     entryId: string,
   ): Promise<void>;
+  deleteRow(context: ApplicationContext, rowId: string): Promise<void>;
   confirmRequest(context: ApplicationContext, id: string): Promise<void>;
   deleteRequest(context: ApplicationContext, id: string): Promise<void>;
 }
@@ -258,6 +259,14 @@ export class DrizzleImportRepository implements ImportRepository {
     await database
       .update(importRows)
       .set({ entryId, updatedAt: context.now })
+      .where(and(eq(importRows.userId, userId), eq(importRows.id, rowId)));
+  }
+
+  async deleteRow(context: ApplicationContext, rowId: string): Promise<void> {
+    const userId = context.requireUserPrincipal().id;
+    const database = resolveDatabaseClient(context, db);
+    await database
+      .delete(importRows)
       .where(and(eq(importRows.userId, userId), eq(importRows.id, rowId)));
   }
 

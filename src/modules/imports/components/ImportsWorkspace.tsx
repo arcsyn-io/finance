@@ -1,15 +1,30 @@
 "use client";
 
-import { FormEvent, useRef, useState, useTransition } from "react";
+import {
+  FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import {
   Ban,
+  CalendarDays,
   Check,
+  CheckSquare,
   ChevronDown,
   ChevronLeft,
   FileText,
+  LayoutList,
   Loader2,
+  Pencil,
   Plus,
   RotateCcw,
+  Square,
+  Trash2,
   Upload,
   X,
 } from "lucide-react";
@@ -29,6 +44,14 @@ import { CurrencyField } from "@/components/ui/CurrencyField";
 import { CalendarField } from "@/components/ui/CalendarField";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { CategorySelect } from "@/components/domain/CategorySelect";
+import {
+  getImportRowViewStatus,
+  groupImportRowsByStatus,
+  importRowStatusLabels,
+  orderImportRowsByDate,
+  type ImportRowsViewMode,
+  type ImportRowViewStatus,
+} from "@/modules/imports/view-models/import-row-view";
 
 type ImportsWorkspaceProps = {
   readonly initialImports: readonly ImportRequest[];
@@ -40,6 +63,7 @@ type ImportApiResponse = {
   readonly imports?: ImportRequest[];
   readonly importRequest?: ImportRequest;
   readonly row?: ImportRow;
+  readonly deletedRowId?: string;
   readonly status?: string;
   readonly result?: { importedCount: number; skippedCount: number };
   readonly error?: string;
@@ -54,6 +78,45 @@ type RowPatch = {
   readonly nature: EntryNature | null;
   readonly economicEvent: EconomicEvent | null;
 };
+
+type MutableRowPatch = {
+  -readonly [Key in keyof RowPatch]?: RowPatch[Key];
+};
+
+type ImportRowSavingField =
+  | "amountCents"
+  | "categoryId"
+  | "description"
+  | "economicEvent"
+  | "ignoredAt"
+  | "nature"
+  | "occurredOn"
+  | "walletId";
+
+type ImportRowNavigationField =
+  | "amountCents"
+  | "categoryId"
+  | "description"
+  | "economicEvent"
+  | "occurredOn"
+  | "walletId";
+
+const importRowNavigationFields: readonly ImportRowNavigationField[] = [
+  "occurredOn",
+  "categoryId",
+  "description",
+  "walletId",
+  "economicEvent",
+  "amountCents",
+];
+
+type ImportRowOptimisticPatch = Partial<RowPatch> &
+  Partial<
+    Pick<
+      ImportRow,
+      "categoryColor" | "categoryIcon" | "categoryName" | "walletName"
+    >
+  >;
 
 export function ImportsWorkspace({
   categories,
@@ -122,6 +185,20 @@ export function ImportsWorkspace({
     );
   }
 
+  function removeImportRows(importRequestId: string, rowIds: readonly string[]) {
+    const rowIdSet = new Set(rowIds);
+    setImports((current) =>
+      current.map((item) =>
+        item.id === importRequestId
+          ? {
+              ...item,
+              rows: item.rows.filter((row) => !rowIdSet.has(row.id)),
+            }
+          : item,
+      ),
+    );
+  }
+
   async function createImport(formData: FormData) {
     const response = await fetch("/api/imports", {
       method: "POST",
@@ -164,6 +241,7 @@ export function ImportsWorkspace({
         onBack={() => setSelectedId(null)}
         onPatchRow={(rowId, patch) => patchImportRow(selected.id, rowId, patch)}
         onRefresh={() => refreshImport(selected.id)}
+        onRemoveRows={(rowIds) => removeImportRows(selected.id, rowIds)}
         onReplaceRow={(row) => replaceImportRow(selected.id, row)}
         onToast={showToast}
         onConfirm={() => startTransition(() => void confirmImport(selected.id))}
@@ -272,6 +350,7 @@ function ImportReview({
   onConfirm,
   onPatchRow,
   onRefresh,
+  onRemoveRows,
   onReplaceRow,
   onToast,
   pending,
@@ -283,24 +362,101 @@ function ImportReview({
   readonly onConfirm: () => void;
   readonly onPatchRow: (rowId: string, patch: Partial<ImportRow>) => void;
   readonly onRefresh: () => void;
+  readonly onRemoveRows: (rowIds: readonly string[]) => void;
   readonly onReplaceRow: (row: ImportRow) => void;
   readonly onToast: (tone: "success" | "error", message: string) => void;
   readonly pending: boolean;
   readonly wallets: readonly Wallet[];
 }) {
-  const [savingRowIds, setSavingRowIds] = useState<ReadonlySet<string>>(
+  const tableRef = useRef<HTMLTableElement | null>(null);
+  const [savingFields, setSavingFields] = useState<ReadonlyMap<string, number>>(
+    () => new Map(),
+  );
+  const [selectedRowIds, setSelectedRowIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const [viewMode, setViewMode] = useState<ImportRowsViewMode>("status");
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<
+    ReadonlySet<ImportRowViewStatus>
+  >(() => new Set());
   const confirmed = importRequest.status === "CONFIRMED";
   const totals = summarizeRows(importRequest.rows);
+  const readinessDefaults = useMemo(
+    () => ({
+      defaultCategoryId: importRequest.defaultCategoryId,
+      defaultWalletId: importRequest.defaultWalletId,
+      nature: importRequest.nature,
+    }),
+    [
+      importRequest.defaultCategoryId,
+      importRequest.defaultWalletId,
+      importRequest.nature,
+    ],
+  );
+  const orderedRows = useMemo(
+    () => orderImportRowsByDate(importRequest.rows),
+    [importRequest.rows],
+  );
+  const statusGroups = useMemo(
+    () => groupImportRowsByStatus(importRequest.rows, readinessDefaults),
+    [importRequest.rows, readinessDefaults],
+  );
+  const navigationRows = useMemo(
+    () =>
+      viewMode === "status"
+        ? statusGroups.flatMap((group) =>
+            collapsedGroups.has(group.key) ? [] : group.rows,
+          )
+        : orderedRows,
+    [collapsedGroups, orderedRows, statusGroups, viewMode],
+  );
+  const allSelected =
+    importRequest.rows.length > 0 && selectedRowIds.size === importRequest.rows.length;
 
-  async function patchRow(row: ImportRow, patch: Partial<RowPatch>) {
+  function toggleAllRows() {
+    setSelectedRowIds((current) =>
+      current.size === importRequest.rows.length
+        ? new Set()
+        : new Set(importRequest.rows.map((row) => row.id)),
+    );
+  }
+
+  function toggleRow(rowId: string) {
+    setSelectedRowIds((current) => {
+      const next = new Set(current);
+      if (next.has(rowId)) next.delete(rowId);
+      else next.add(rowId);
+      return next;
+    });
+  }
+
+  function selectedRows() {
+    return importRequest.rows.filter((row) => selectedRowIds.has(row.id));
+  }
+
+  function clearSelection() {
+    setSelectedRowIds(new Set());
+    setShowBulkEdit(false);
+  }
+
+  function toggleGroup(status: ImportRowViewStatus) {
+    setCollapsedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next;
+    });
+  }
+
+  async function patchRow(row: ImportRow, patch: ImportRowOptimisticPatch) {
     const optimisticPatch: Partial<ImportRow> = {
       ...patch,
       updatedAt: new Date(),
     };
+    const fields = getSavingFieldsFromPatch(patch);
     onPatchRow(row.id, optimisticPatch);
-    setSavingRowIds((current) => new Set(current).add(row.id));
+    setSavingFields((current) => addSavingFields(current, row.id, fields));
 
     const response = await sendImportJson(
       `/api/imports/${importRequest.id}/rows/${row.id}`,
@@ -308,11 +464,7 @@ function ImportReview({
       "PATCH",
     );
 
-    setSavingRowIds((current) => {
-      const next = new Set(current);
-      next.delete(row.id);
-      return next;
-    });
+    setSavingFields((current) => removeSavingFields(current, row.id, fields));
 
     if (!response.ok || !response.body.row) {
       onRefresh();
@@ -328,11 +480,17 @@ function ImportReview({
       ignoredAt: ignored ? new Date() : null,
       updatedAt: new Date(),
     });
+    setSavingFields((current) =>
+      addSavingFields(current, row.id, ["ignoredAt"]),
+    );
 
     const response = await sendImportJson(
       `/api/imports/${importRequest.id}/rows/${row.id}`,
       { ignored },
       "PATCH",
+    );
+    setSavingFields((current) =>
+      removeSavingFields(current, row.id, ["ignoredAt"]),
     );
 
     if (!response.ok) {
@@ -344,6 +502,310 @@ function ImportReview({
     if (response.body.row) {
       onReplaceRow(response.body.row);
     }
+  }
+
+  async function setSelectedIgnored(ignored: boolean) {
+    await Promise.all(
+      selectedRows().map((row) =>
+        row.entryId ? Promise.resolve() : setIgnored(row, ignored),
+      ),
+    );
+    onToast(
+      "success",
+      ignored ? "Linhas selecionadas ignoradas" : "Linhas selecionadas concluidas",
+    );
+  }
+
+  async function concludeSelected() {
+    const incomplete = selectedRows().filter(
+      (row) => getImportRowViewStatus(row, readinessDefaults) === "pending",
+    );
+
+    if (incomplete.length > 0) {
+      onToast(
+        "error",
+        "Preencha carteira, categoria e natureza antes de concluir.",
+      );
+      return;
+    }
+
+    await setSelectedIgnored(false);
+  }
+
+  async function removeSelectedRows() {
+    const rows = selectedRows();
+    const removedIds: string[] = [];
+
+    for (const row of rows) {
+      const response = await sendImportJson(
+        `/api/imports/${importRequest.id}/rows/${row.id}`,
+        undefined,
+        "DELETE",
+      );
+
+      if (!response.ok) {
+        onRefresh();
+        onToast("error", response.body.error ?? "Nao foi possivel remover linha");
+        return;
+      }
+
+      removedIds.push(row.id);
+    }
+
+    onRemoveRows(removedIds);
+    clearSelection();
+    onToast("success", "Linhas selecionadas removidas");
+  }
+
+  async function applyBulkEdit(patch: Partial<RowPatch>) {
+    const rows = selectedRows();
+    await Promise.all(rows.map((row) => patchRow(row, patch)));
+    setShowBulkEdit(false);
+    onToast("success", "Linhas selecionadas atualizadas");
+  }
+
+  function focusImportCell(rowId: string, field: ImportRowNavigationField) {
+    const table = tableRef.current;
+    if (!table) return;
+
+    const cell = Array.from(
+      table.querySelectorAll<HTMLElement>("[data-import-nav-cell='true']"),
+    ).find(
+      (item) =>
+        item.dataset.importRowId === rowId &&
+        item.dataset.importField === field,
+    );
+    const focusTarget = cell?.querySelector<HTMLElement>(
+      "input:not([disabled]),button:not([disabled])",
+    );
+
+    focusTarget?.focus();
+  }
+
+  function handleImportTableKeyDown(event: KeyboardEvent<HTMLTableElement>) {
+    if (
+      !event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey ||
+      !["h", "j", "k", "l"].includes(event.key.toLowerCase())
+    ) {
+      return;
+    }
+
+    const target = event.target as HTMLElement | null;
+    const cell = target?.closest<HTMLElement>("[data-import-nav-cell='true']");
+    const rowId = cell?.dataset.importRowId;
+    const field = cell?.dataset.importField as
+      | ImportRowNavigationField
+      | undefined;
+
+    if (!rowId || !field) return;
+
+    const rowIndex = navigationRows.findIndex((row) => row.id === rowId);
+    const fieldIndex = importRowNavigationFields.indexOf(field);
+    if (rowIndex < 0 || fieldIndex < 0) return;
+
+    const key = event.key.toLowerCase();
+    const nextRowIndex =
+      key === "j" ? rowIndex + 1 : key === "k" ? rowIndex - 1 : rowIndex;
+    const nextFieldIndex =
+      key === "l"
+        ? fieldIndex + 1
+        : key === "h"
+          ? fieldIndex - 1
+          : fieldIndex;
+    const nextRow = navigationRows[nextRowIndex];
+    const nextField = importRowNavigationFields[nextFieldIndex];
+
+    if (!nextRow || !nextField) return;
+
+    event.preventDefault();
+    focusImportCell(nextRow.id, nextField);
+  }
+
+  function renderRow(row: ImportRow) {
+    const rowStatus = getImportRowViewStatus(row, readinessDefaults);
+    const selected = selectedRowIds.has(row.id);
+    const selectedCategory = row.categoryId
+      ? categories.find((category) => category.id === row.categoryId)
+      : null;
+    const selectedCategoryColor =
+      row.categoryColor ?? selectedCategory?.color ?? null;
+    const saving = (field: ImportRowSavingField) =>
+      savingFields.has(savingFieldKey(row.id, field));
+
+    return (
+      <tr
+        className={`${row.ignoredAt ? "opacity-55" : ""} ${
+          selected ? "bg-accent/5" : ""
+        }`}
+        key={row.id}
+      >
+        <td className="px-3 py-3">
+          <button
+            aria-label={selected ? "Desmarcar linha" : "Selecionar linha"}
+            className="flex size-5 items-center justify-center text-muted transition hover:text-foreground"
+            onClick={() => toggleRow(row.id)}
+            type="button"
+          >
+            {selected ? (
+              <CheckSquare className="size-3.5 text-accent" aria-hidden="true" />
+            ) : (
+              <Square className="size-3.5" aria-hidden="true" />
+            )}
+          </button>
+        </td>
+        <td
+          className="px-3 py-3"
+          data-import-field="occurredOn"
+          data-import-nav-cell="true"
+          data-import-row-id={row.id}
+        >
+          <FieldLoading loading={saving("occurredOn")}>
+            <CalendarField
+              className="w-[118px]"
+              disabled={confirmed}
+              label="Data"
+              onChange={(occurredOn) => void patchRow(row, { occurredOn })}
+              value={row.occurredOn}
+            />
+          </FieldLoading>
+        </td>
+        <td
+          className="px-3 py-3"
+          data-import-field="categoryId"
+          data-import-nav-cell="true"
+          data-import-row-id={row.id}
+        >
+          <FieldLoading loading={saving("categoryId")}>
+            <CategorySelect
+              categories={categories}
+              disabled={confirmed}
+              label={row.categoryName ?? importRequest.defaultCategoryName ?? "Categoria"}
+              mode="single"
+              onChange={(values) => {
+                const categoryId = values[0] ?? null;
+                const category = categoryId
+                  ? categories.find((item) => item.id === categoryId)
+                  : null;
+
+                void patchRow(row, {
+                  categoryId,
+                  categoryColor: category?.color ?? null,
+                  categoryIcon: category?.icon ?? null,
+                  categoryName: category?.name ?? null,
+                });
+              }}
+              selectedColor={selectedCategoryColor}
+              selectedValues={row.categoryId ? [row.categoryId] : []}
+              triggerClassName="w-full"
+            />
+          </FieldLoading>
+        </td>
+        <td
+          className="px-3 py-3"
+          data-import-field="description"
+          data-import-nav-cell="true"
+          data-import-row-id={row.id}
+        >
+          <FieldLoading loading={saving("description")}>
+            <input
+              className={`${inputClass} w-full pr-7`}
+              disabled={confirmed}
+              onChange={(event) =>
+                void patchRow(row, { description: event.target.value })
+              }
+              value={row.description ?? ""}
+            />
+          </FieldLoading>
+        </td>
+        <td
+          className="px-3 py-3"
+          data-import-field="walletId"
+          data-import-nav-cell="true"
+          data-import-row-id={row.id}
+        >
+          <FieldLoading loading={saving("walletId")}>
+            <InlineDropdown
+              disabled={confirmed}
+              emptyLabel="A definir"
+              onChange={(walletId) => void patchRow(row, { walletId })}
+              options={wallets.map((wallet) => ({
+                label: wallet.name,
+                value: wallet.id,
+              }))}
+              value={row.walletId}
+            />
+          </FieldLoading>
+        </td>
+        <td
+          className="px-3 py-3"
+          data-import-field="economicEvent"
+          data-import-nav-cell="true"
+          data-import-row-id={row.id}
+        >
+          <FieldLoading loading={saving("economicEvent")}>
+            <InlineDropdown
+              disabled={confirmed}
+              emptyLabel="Automatico"
+              onChange={(economicEvent) =>
+                void patchRow(row, {
+                  economicEvent: economicEvent as EconomicEvent | null,
+                })
+              }
+              options={economicEvents.map((event) => ({
+                label: economicEventLabels[event],
+                value: event,
+              }))}
+              value={row.economicEvent}
+            />
+          </FieldLoading>
+        </td>
+        <td
+          className="px-3 py-3"
+          data-import-field="amountCents"
+          data-import-nav-cell="true"
+          data-import-row-id={row.id}
+        >
+          <FieldLoading loading={saving("amountCents")}>
+            <CurrencyField
+              aria-label="Valor"
+              className="h-9 w-[124px] pr-7"
+              disabled={confirmed}
+              onValueInCentsChange={(amountCents) =>
+                void patchRow(row, { amountCents })
+              }
+              valueInCents={row.amountCents}
+            />
+          </FieldLoading>
+        </td>
+        <td className="px-3 py-3">
+          <div className="flex items-center gap-2">
+            <StatusBadge
+              label={importRowStatusLabels[rowStatus]}
+              tone={statusToneByRowStatus[rowStatus]}
+            />
+            {saving("ignoredAt") ? (
+              <Loader2 className="size-3 animate-spin text-muted" />
+            ) : null}
+          </div>
+        </td>
+        <td className="px-3 py-3">
+          <div className="flex justify-end gap-1">
+            {row.ignoredAt ? (
+              <button className={iconButtonClass} disabled={confirmed} onClick={() => void setIgnored(row, false)} title="Restaurar" type="button">
+                <RotateCcw className="size-3.5" />
+              </button>
+            ) : (
+              <button className={iconButtonClass} disabled={confirmed} onClick={() => void setIgnored(row, true)} title="Ignorar" type="button">
+                <Ban className="size-3.5" />
+              </button>
+            )}
+          </div>
+        </td>
+      </tr>
+    );
   }
 
   return (
@@ -379,141 +841,371 @@ function ImportReview({
         <KpiCard label="Confirmadas" tone="positive" value={String(totals.confirmed)} />
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          className="flex h-8 items-center gap-2 rounded-lg border border-border bg-panel px-3 text-xs font-medium text-muted transition hover:bg-surface hover:text-foreground"
+          onClick={toggleAllRows}
+          type="button"
+        >
+          {allSelected ? (
+            <CheckSquare className="size-3.5 text-accent" aria-hidden="true" />
+          ) : (
+            <Square className="size-3.5" aria-hidden="true" />
+          )}
+          {allSelected ? "Desmarcar todos" : "Selecionar todos"}
+        </button>
+
+        {selectedRowIds.size > 0 ? (
+          <>
+            <button
+              className="flex h-8 items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 text-xs font-medium text-accent transition hover:bg-accent/20"
+              onClick={() => setShowBulkEdit((current) => !current)}
+              type="button"
+            >
+              <Pencil className="size-3.5" aria-hidden="true" />
+              Editar {selectedRowIds.size}
+            </button>
+            <button
+              className="flex h-8 items-center gap-1.5 rounded-lg border border-positive/40 bg-positive/10 px-3 text-xs font-medium text-positive transition hover:bg-positive/20"
+              onClick={() => void concludeSelected()}
+              type="button"
+            >
+              <Check className="size-3.5" aria-hidden="true" />
+              Concluir {selectedRowIds.size}
+            </button>
+            <button
+              className="flex h-8 items-center gap-1.5 rounded-lg border border-border bg-panel px-3 text-xs font-medium text-muted transition hover:bg-surface hover:text-foreground"
+              onClick={() => void setSelectedIgnored(true)}
+              type="button"
+            >
+              <Ban className="size-3.5" aria-hidden="true" />
+              Ignorar {selectedRowIds.size}
+            </button>
+            <button
+              className="flex h-8 items-center gap-1.5 rounded-lg border border-negative/40 bg-negative/10 px-3 text-xs font-medium text-negative transition hover:bg-negative/20"
+              onClick={() => void removeSelectedRows()}
+              type="button"
+            >
+              <Trash2 className="size-3.5" aria-hidden="true" />
+              Remover {selectedRowIds.size}
+            </button>
+          </>
+        ) : null}
+
+        <div className="flex-1" />
+
+        <div className="flex items-center gap-0.5 rounded-lg border border-border bg-panel p-0.5">
+          <ViewModeButton
+            active={viewMode === "status"}
+            icon={<LayoutList className="size-3.5" aria-hidden="true" />}
+            label="Por status"
+            onClick={() => setViewMode("status")}
+          />
+          <ViewModeButton
+            active={viewMode === "date"}
+            icon={<CalendarDays className="size-3.5" aria-hidden="true" />}
+            label="Por data"
+            onClick={() => setViewMode("date")}
+          />
+        </div>
+      </div>
+
+      {showBulkEdit && selectedRowIds.size > 0 ? (
+        <BulkEditPanel
+          categories={categories}
+          count={selectedRowIds.size}
+          onApply={(patch) => void applyBulkEdit(patch)}
+          onClose={() => setShowBulkEdit(false)}
+          wallets={wallets}
+        />
+      ) : null}
+
       <div className="overflow-hidden rounded-xl border border-border">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1120px] text-xs">
+          <table
+            className="w-full min-w-[1356px] table-fixed text-xs"
+            onKeyDown={handleImportTableKeyDown}
+            ref={tableRef}
+          >
+            <colgroup>
+              <col className="w-[44px]" />
+              <col className="w-[142px]" />
+              <col className="w-[200px]" />
+              <col className="w-[340px]" />
+              <col className="w-[160px]" />
+              <col className="w-[170px]" />
+              <col className="w-[148px]" />
+              <col className="w-[100px]" />
+              <col className="w-[52px]" />
+            </colgroup>
             <thead>
               <tr className="border-b border-border bg-panel">
-                {["Data", "Descricao", "Carteira", "Categoria", "Natureza", "Evento", "Valor", "Status", ""].map((heading) => (
+                {["", "Data", "Categoria", "Descricao", "Carteira", "Evento", "Valor", "Status", ""].map((heading, index) => (
                   <th
                     className={`px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted ${
                       heading === "Valor" ? "text-right" : "text-left"
                     }`}
-                    key={heading}
+                    key={`${heading || "empty"}-${index}`}
                   >
                     {heading}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-border bg-panel">
-              {importRequest.rows.map((row) => {
-                return (
-                  <tr className={row.ignoredAt ? "opacity-55" : ""} key={row.id}>
-                    <td className="px-3 py-3">
-                      <CalendarField
-                        disabled={confirmed}
-                        label="Data"
-                        onChange={(occurredOn) => void patchRow(row, { occurredOn })}
-                        value={row.occurredOn}
-                      />
-                    </td>
-                    <td className="px-3 py-3">
-                      <input
-                        className={inputClass}
-                        disabled={confirmed}
-                        onChange={(event) =>
-                          void patchRow(row, { description: event.target.value })
-                        }
-                        value={row.description ?? ""}
-                      />
-                    </td>
-                    <td className="px-3 py-3">
-                      <InlineDropdown
-                        disabled={confirmed}
-                        emptyLabel="A definir"
-                        onChange={(walletId) => void patchRow(row, { walletId })}
-                        options={wallets.map((wallet) => ({
-                          label: wallet.name,
-                          value: wallet.id,
-                        }))}
-                        value={row.walletId}
-                      />
-                    </td>
-                    <td className="px-3 py-3">
-                      <CategorySelect
-                        categories={categories}
-                        disabled={confirmed}
-                        label={row.categoryName ?? importRequest.defaultCategoryName ?? "Categoria"}
-                        mode="single"
-                        onChange={(values) =>
-                          void patchRow(row, { categoryId: values[0] ?? null })
-                        }
-                        selectedValues={row.categoryId ? [row.categoryId] : []}
-                      />
-                    </td>
-                    <td className="px-3 py-3">
-                      <InlineDropdown
-                        disabled={confirmed}
-                        emptyLabel="A definir"
-                        onChange={(nature) =>
-                          void patchRow(row, {
-                            nature: nature as EntryNature | null,
-                          })
-                        }
-                        options={entryNatures.map((nature) => ({
-                          label: entryNatureLabels[nature],
-                          value: nature,
-                        }))}
-                        value={row.nature}
-                      />
-                    </td>
-                    <td className="px-3 py-3">
-                      <InlineDropdown
-                        disabled={confirmed}
-                        emptyLabel="Automatico"
-                        onChange={(economicEvent) =>
-                          void patchRow(row, {
-                            economicEvent: economicEvent as EconomicEvent | null,
-                          })
-                        }
-                        options={economicEvents.map((event) => ({
-                          label: economicEventLabels[event],
-                          value: event,
-                        }))}
-                        value={row.economicEvent}
-                      />
-                    </td>
-                    <td className="px-3 py-3">
-                      <CurrencyField
-                        aria-label="Valor"
-                        className="h-9"
-                        disabled={confirmed}
-                        onValueInCentsChange={(amountCents) =>
-                          void patchRow(row, { amountCents })
-                        }
-                        valueInCents={row.amountCents}
-                      />
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-2">
-                        {row.entryId ? <StatusBadge label="Confirmada" tone="positive" /> : row.ignoredAt ? <StatusBadge label="Ignorada" /> : <StatusBadge label="Pendente" tone="warning" />}
-                        {savingRowIds.has(row.id) ? (
-                          <Loader2 className="size-3 animate-spin text-muted" />
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="flex justify-end gap-1">
-                        {row.ignoredAt ? (
-                          <button className={iconButtonClass} disabled={confirmed} onClick={() => void setIgnored(row, false)} title="Restaurar" type="button">
-                            <RotateCcw className="size-3.5" />
-                          </button>
-                        ) : (
-                          <button className={iconButtonClass} disabled={confirmed} onClick={() => void setIgnored(row, true)} title="Ignorar" type="button">
-                            <Ban className="size-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+            <tbody className={viewMode === "date" ? "divide-y divide-border bg-panel" : "bg-panel"}>
+              {viewMode === "status"
+                ? statusGroups.flatMap((group) => [
+                    <tr className="border-t border-border first:border-t-0" key={`group-${group.key}`}>
+                      <td className="bg-surface/70 px-3 py-2" colSpan={9}>
+                        <button
+                          className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted transition hover:text-foreground"
+                          onClick={() => toggleGroup(group.key)}
+                          type="button"
+                        >
+                          <ChevronDown
+                            className={`size-3 transition ${
+                              collapsedGroups.has(group.key) ? "-rotate-90" : ""
+                            }`}
+                            aria-hidden="true"
+                          />
+                          <StatusBadge
+                            label={group.label}
+                            tone={statusToneByRowStatus[group.key]}
+                          />
+                          <span>{group.count}</span>
+                        </button>
+                      </td>
+                    </tr>,
+                    ...(collapsedGroups.has(group.key) ? [] : group.rows.map(renderRow)),
+                  ])
+                : orderedRows.map(renderRow)}
             </tbody>
           </table>
         </div>
       </div>
     </div>
+  );
+}
+
+function ViewModeButton({
+  active,
+  icon,
+  label,
+  onClick,
+}: {
+  readonly active: boolean;
+  readonly icon: ReactNode;
+  readonly label: string;
+  readonly onClick: () => void;
+}) {
+  return (
+    <button
+      className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition ${
+        active
+          ? "bg-accent/15 text-accent"
+          : "text-muted hover:bg-surface hover:text-foreground"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function FieldLoading({
+  children,
+  loading,
+}: {
+  readonly children: ReactNode;
+  readonly loading: boolean;
+}) {
+  return (
+    <div className="relative">
+      {children}
+      {loading ? (
+        <span className="pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 items-center rounded-full bg-panel/80 p-0.5">
+          <Loader2 className="size-3 animate-spin text-muted" aria-hidden="true" />
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+type BulkFieldValue = string | null | undefined;
+
+function BulkEditPanel({
+  categories,
+  count,
+  onApply,
+  onClose,
+  wallets,
+}: {
+  readonly categories: readonly Category[];
+  readonly count: number;
+  readonly onApply: (patch: Partial<RowPatch>) => void;
+  readonly onClose: () => void;
+  readonly wallets: readonly Wallet[];
+}) {
+  const [walletId, setWalletId] = useState<BulkFieldValue>(undefined);
+  const [categoryId, setCategoryId] = useState<BulkFieldValue>(undefined);
+  const [nature, setNature] = useState<BulkFieldValue>(undefined);
+  const [economicEvent, setEconomicEvent] = useState<BulkFieldValue>(undefined);
+
+  function apply() {
+    const patch: MutableRowPatch = {};
+    if (walletId !== undefined) patch.walletId = walletId;
+    if (categoryId !== undefined) patch.categoryId = categoryId;
+    if (nature !== undefined) patch.nature = nature as EntryNature | null;
+    if (economicEvent !== undefined) {
+      patch.economicEvent = economicEvent as EconomicEvent | null;
+    }
+    onApply(patch);
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-accent/30 bg-accent/5 px-4 py-3">
+      <span className="text-xs font-medium text-accent whitespace-nowrap">
+        Editando {count} selecionados
+      </span>
+      <div className="flex flex-1 flex-wrap items-center gap-2">
+        <BulkDropdown
+          label="Carteira"
+          onChange={setWalletId}
+          options={wallets.map((wallet) => ({
+            label: wallet.name,
+            value: wallet.id,
+          }))}
+          value={walletId}
+        />
+        <BulkDropdown
+          label="Categoria"
+          onChange={setCategoryId}
+          options={categories.map((category) => ({
+            label: category.name,
+            value: category.id,
+          }))}
+          value={categoryId}
+        />
+        <BulkDropdown
+          label="Natureza"
+          onChange={setNature}
+          options={entryNatures.map((option) => ({
+            label: entryNatureLabels[option],
+            value: option,
+          }))}
+          value={nature}
+        />
+        <BulkDropdown
+          label="Evento"
+          onChange={setEconomicEvent}
+          options={economicEvents.map((option) => ({
+            label: economicEventLabels[option],
+            value: option,
+          }))}
+          value={economicEvent}
+        />
+      </div>
+      <button
+        className="h-8 rounded-lg bg-accent px-3 text-xs font-bold text-accent-foreground transition hover:bg-accent/90"
+        onClick={apply}
+        type="button"
+      >
+        Aplicar
+      </button>
+      <button
+        aria-label="Fechar edicao em lote"
+        className="flex size-7 items-center justify-center rounded-md text-muted transition hover:bg-surface hover:text-foreground"
+        onClick={onClose}
+        type="button"
+      >
+        <X className="size-3.5" aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
+function BulkDropdown({
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  readonly label: string;
+  readonly onChange: (value: BulkFieldValue) => void;
+  readonly options: readonly { label: string; value: string }[];
+  readonly value: BulkFieldValue;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((option) => option.value === value);
+  const selectedLabel =
+    value === undefined ? "Nenhuma" : value === null ? "Limpar" : selected?.label ?? "Nenhuma";
+
+  return (
+    <Dropdown
+      onOpenChange={setOpen}
+      open={open}
+      panelClassName="overflow-hidden rounded-lg border border-border bg-surface-elevated shadow-2xl shadow-black/45"
+      trigger={({ open: dropdownOpen, triggerRef }) => (
+        <button
+          aria-expanded={dropdownOpen}
+          className="flex h-8 min-w-36 items-center justify-between gap-2 rounded-lg border border-border bg-panel px-3 text-left text-xs font-semibold text-foreground transition hover:bg-surface"
+          onClick={() => setOpen((current) => !current)}
+          ref={(node) => {
+            triggerRef.current = node;
+          }}
+          type="button"
+        >
+          <span className="truncate">
+            {label}: {selectedLabel}
+          </span>
+          <ChevronDown
+            className={`size-3.5 shrink-0 text-muted transition ${
+              dropdownOpen ? "rotate-180" : ""
+            }`}
+            aria-hidden="true"
+          />
+        </button>
+      )}
+      width="trigger"
+    >
+      <div className="grid py-1">
+        <button
+          className="min-h-8 px-3 text-left text-xs font-semibold text-muted transition hover:bg-surface hover:text-foreground"
+          onClick={() => {
+            onChange(undefined);
+            setOpen(false);
+          }}
+          type="button"
+        >
+          Nenhuma
+        </button>
+        <button
+          className="min-h-8 px-3 text-left text-xs font-semibold text-muted transition hover:bg-surface hover:text-foreground"
+          onClick={() => {
+            onChange(null);
+            setOpen(false);
+          }}
+          type="button"
+        >
+          Limpar
+        </button>
+        {options.map((option) => (
+          <button
+            className="min-h-8 px-3 text-left text-xs font-semibold text-foreground transition hover:bg-surface"
+            key={option.value}
+            onClick={() => {
+              onChange(option.value);
+              setOpen(false);
+            }}
+            type="button"
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </Dropdown>
   );
 }
 
@@ -644,7 +1336,47 @@ function InlineDropdown({
   readonly value: string | null;
 }) {
   const [open, setOpen] = useState(false);
+  const typeaheadTextRef = useRef("");
+  const typeaheadTimeoutRef = useRef<number | null>(null);
   const selected = options.find((option) => option.value === value);
+
+  useEffect(() => {
+    return () => {
+      if (typeaheadTimeoutRef.current) {
+        window.clearTimeout(typeaheadTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  function handleTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (
+      disabled ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.key.length !== 1
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (typeaheadTimeoutRef.current) {
+      window.clearTimeout(typeaheadTimeoutRef.current);
+    }
+
+    const nextSearchText = `${typeaheadTextRef.current}${event.key}`;
+    typeaheadTextRef.current = nextSearchText;
+    typeaheadTimeoutRef.current = window.setTimeout(() => {
+      typeaheadTextRef.current = "";
+    }, 800);
+
+    const match = findInlineDropdownOption(options, nextSearchText);
+    if (match) {
+      onChange(match.value);
+      setOpen(false);
+    }
+  }
 
   return (
     <Dropdown
@@ -657,6 +1389,7 @@ function InlineDropdown({
           className={`${inputClass} flex w-full items-center justify-between gap-2 text-left disabled:opacity-60`}
           disabled={disabled}
           onClick={() => setOpen((current) => !current)}
+          onKeyDown={handleTriggerKeyDown}
           ref={(node) => {
             triggerRef.current = node;
           }}
@@ -704,6 +1437,28 @@ function InlineDropdown({
   );
 }
 
+function findInlineDropdownOption(
+  options: readonly { label: string; value: string }[],
+  searchText: string,
+) {
+  const normalizedSearch = normalizeTypeaheadText(searchText);
+  if (!normalizedSearch) return null;
+
+  return (
+    options.find((option) =>
+      normalizeTypeaheadText(option.label).startsWith(normalizedSearch),
+    ) ?? null
+  );
+}
+
+function normalizeTypeaheadText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
 function KpiCard({
   label,
   tone = "default",
@@ -739,6 +1494,67 @@ function StatusBadge({ label, tone = "default" }: { readonly label: string; read
   return <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${className}`}>{label}</span>;
 }
 
+const statusToneByRowStatus: Record<
+  ImportRowViewStatus,
+  "default" | "positive" | "warning"
+> = {
+  pending: "warning",
+  ready: "positive",
+  ignored: "default",
+};
+
+function savingFieldKey(rowId: string, field: ImportRowSavingField): string {
+  return `${rowId}:${field}`;
+}
+
+function addSavingFields(
+  current: ReadonlyMap<string, number>,
+  rowId: string,
+  fields: readonly ImportRowSavingField[],
+): ReadonlyMap<string, number> {
+  const next = new Map(current);
+
+  for (const field of fields) {
+    const key = savingFieldKey(rowId, field);
+    next.set(key, (next.get(key) ?? 0) + 1);
+  }
+
+  return next;
+}
+
+function removeSavingFields(
+  current: ReadonlyMap<string, number>,
+  rowId: string,
+  fields: readonly ImportRowSavingField[],
+): ReadonlyMap<string, number> {
+  const next = new Map(current);
+
+  for (const field of fields) {
+    const key = savingFieldKey(rowId, field);
+    const count = (next.get(key) ?? 1) - 1;
+    if (count <= 0) next.delete(key);
+    else next.set(key, count);
+  }
+
+  return next;
+}
+
+function getSavingFieldsFromPatch(
+  patch: ImportRowOptimisticPatch,
+): readonly ImportRowSavingField[] {
+  const fields: ImportRowSavingField[] = [];
+
+  if ("amountCents" in patch) fields.push("amountCents");
+  if ("categoryId" in patch) fields.push("categoryId");
+  if ("description" in patch) fields.push("description");
+  if ("economicEvent" in patch) fields.push("economicEvent");
+  if ("nature" in patch) fields.push("nature");
+  if ("occurredOn" in patch) fields.push("occurredOn");
+  if ("walletId" in patch) fields.push("walletId");
+
+  return fields;
+}
+
 function summarizeRows(rows: readonly ImportRow[]) {
   return rows.reduce(
     (totals, row) => {
@@ -770,12 +1586,16 @@ function rowToPatchBody(row: ImportRow, patch: Partial<RowPatch>): RowPatch {
 async function sendImportJson(
   url: string,
   body: unknown,
-  method: "PUT" | "PATCH",
+  method: "PUT" | "PATCH" | "DELETE",
 ): Promise<{ ok: boolean; body: ImportApiResponse }> {
   const response = await fetch(url, {
     method,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    ...(body === undefined
+      ? {}
+      : {
+          body: JSON.stringify(body),
+          headers: { "Content-Type": "application/json" },
+        }),
   });
 
   return { ok: response.ok, body: (await response.json()) as ImportApiResponse };
