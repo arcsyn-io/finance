@@ -1,8 +1,11 @@
+import "server-only";
+
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { getEnv } from "@/lib/env";
 
-export async function createClient() {
+export const createClient = cache(async function createClient() {
   const env = getEnv();
   const cookieStore = await cookies();
 
@@ -32,4 +35,4 @@ export async function createClient() {
       },
     },
   );
-}
+});

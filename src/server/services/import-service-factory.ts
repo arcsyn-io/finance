@@ -1,14 +1,14 @@
 import { categoryRepository } from "@/server/repositories/category-repository";
 import { entryRepository } from "@/server/repositories/entry-repository";
-import { transferRepository } from "@/server/repositories/transfer-repository";
+import { importRepository } from "@/server/repositories/import-repository";
 import { walletRepository } from "@/server/repositories/wallet-repository";
-import { EntryService } from "@/server/services/entry-service";
+import { ImportService } from "@/server/services/import-service";
 import { unitOfWork } from "@/server/unit-of-work/drizzle-unit-of-work";
 
-export function createEntryService(): EntryService {
-  return new EntryService({
-    repository: entryRepository,
-    transferRepository,
+export function createImportService(): ImportService {
+  return new ImportService({
+    repository: importRepository,
+    entryRepository,
     walletRepository,
     categoryRepository,
     unitOfWork,

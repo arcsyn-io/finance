@@ -1,6 +1,11 @@
+import "server-only";
+
+import { and, eq } from "drizzle-orm";
+import { db } from "@/db/client";
+import { transfers } from "@/db/schema";
 import type { Transfer } from "@/domain/transfer/transfer";
-import { createClient } from "@/lib/supabase/server";
 import type { ApplicationContext } from "@/server/context/application-context";
+import { resolveDatabaseClient } from "@/server/repositories/database-client";
 
 export type CreateTransferData = {
   readonly fromWalletId: string;
@@ -18,80 +23,56 @@ export interface TransferRepository {
   delete(context: ApplicationContext, id: string): Promise<void>;
 }
 
-type TransferRow = {
-  id: string;
-  user_id: string;
-  legacy_id: number | null;
-  from_wallet_id: string;
-  to_wallet_id: string;
-  from_category_id: string | null;
-  to_category_id: string | null;
-  amount_cents: number;
-  occurred_on: string;
-  description: string | null;
-  created_at: string;
-  updated_at: string;
-};
+type TransferRow = typeof transfers.$inferSelect;
 
-export class SupabaseTransferRepository implements TransferRepository {
+export class DrizzleTransferRepository implements TransferRepository {
   async create(
     context: ApplicationContext,
     data: CreateTransferData,
   ): Promise<Transfer> {
     const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    const { data: row, error } = await supabase
-      .from("transfers")
-      .insert({
-        user_id: userId,
-        from_wallet_id: data.fromWalletId,
-        to_wallet_id: data.toWalletId,
-        from_category_id: data.fromCategoryId,
-        to_category_id: data.toCategoryId,
-        amount_cents: data.amountCents,
-        occurred_on: data.occurredOn,
+    const database = resolveDatabaseClient(context, db);
+    const [row] = await database
+      .insert(transfers)
+      .values({
+        userId,
+        fromWalletId: data.fromWalletId,
+        toWalletId: data.toWalletId,
+        fromCategoryId: data.fromCategoryId,
+        toCategoryId: data.toCategoryId,
+        amountCents: data.amountCents,
+        occurredOn: data.occurredOn,
         description: data.description,
       })
-      .select("*")
-      .single();
+      .returning();
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return mapRowToTransfer(row as TransferRow);
+    return mapRowToTransfer(row);
   }
 
   async delete(context: ApplicationContext, id: string): Promise<void> {
     const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    const { error } = await supabase
-      .from("transfers")
-      .delete()
-      .eq("user_id", userId)
-      .eq("id", id);
-
-    if (error) {
-      throw new Error(error.message);
-    }
+    const database = resolveDatabaseClient(context, db);
+    await database
+      .delete(transfers)
+      .where(and(eq(transfers.userId, userId), eq(transfers.id, id)));
   }
 }
 
 function mapRowToTransfer(row: TransferRow): Transfer {
   return {
     id: row.id,
-    userId: row.user_id,
-    legacyId: row.legacy_id,
-    fromWalletId: row.from_wallet_id,
-    toWalletId: row.to_wallet_id,
-    fromCategoryId: row.from_category_id,
-    toCategoryId: row.to_category_id,
-    amountCents: row.amount_cents,
-    occurredOn: row.occurred_on,
+    userId: row.userId,
+    legacyId: row.legacyId,
+    fromWalletId: row.fromWalletId,
+    toWalletId: row.toWalletId,
+    fromCategoryId: row.fromCategoryId,
+    toCategoryId: row.toCategoryId,
+    amountCents: row.amountCents,
+    occurredOn: row.occurredOn,
     description: row.description,
-    createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at),
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 
-export const transferRepository = new SupabaseTransferRepository();
+export const transferRepository = new DrizzleTransferRepository();

@@ -30,12 +30,14 @@ type FilterSelectProps<TValue extends string> = {
   readonly selectedValues: readonly TValue[];
   readonly onChange: (values: TValue[]) => void;
   readonly clearLabel?: string;
+  readonly disabled?: boolean;
   readonly search?: FilterSelectSearch<TValue>;
   readonly selectedOptions?: readonly FilterSelectOption<TValue>[];
 };
 
 export function FilterSelect<TValue extends string>({
   clearLabel = "Limpar filtro",
+  disabled = false,
   label,
   mode = "multiple",
   onChange,
@@ -173,6 +175,7 @@ export function FilterSelect<TValue extends string>({
               : "border-border bg-panel text-muted hover:bg-surface-elevated hover:text-foreground"
           }`}
           onClick={toggleOpen}
+          disabled={disabled}
           ref={(node) => {
             triggerRef.current = node;
           }}
@@ -214,6 +217,7 @@ export function FilterSelect<TValue extends string>({
               className="flex min-h-8 w-full items-center gap-2 px-3 text-left text-xs font-semibold text-foreground transition hover:bg-surface"
               key={option.value}
               onClick={() => toggle(option.value)}
+              disabled={disabled}
               type="button"
             >
               <span
@@ -257,6 +261,7 @@ export function FilterSelect<TValue extends string>({
         <button
           className="flex min-h-9 w-full items-center gap-2 border-t border-border px-3 text-left text-xs text-muted transition hover:bg-surface hover:text-foreground"
           onClick={clear}
+          disabled={disabled}
           type="button"
         >
           <X className="size-3.5" aria-hidden="true" />

@@ -1,6 +1,11 @@
+import "server-only";
+
+import { and, asc, eq } from "drizzle-orm";
+import { wallets } from "@/db/schema";
 import type { Wallet, WalletType } from "@/domain/wallet/wallet";
 import type { ApplicationContext } from "@/server/context/application-context";
-import { createClient } from "@/lib/supabase/server";
+import { db } from "@/db/client";
+import { resolveDatabaseClient } from "@/server/repositories/database-client";
 
 export type CreateWalletData = {
   readonly name: string;
@@ -41,43 +46,25 @@ export interface WalletRepository {
   ): Promise<Wallet>;
 }
 
-type WalletRow = {
-  id: string;
-  user_id: string;
-  legacy_id: number | null;
-  name: string;
-  type: WalletType;
-  initial_balance_cents: number;
-  active: boolean;
-  archived_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
+type WalletRow = typeof wallets.$inferSelect;
 
-export class SupabaseWalletRepository implements WalletRepository {
+export class DrizzleWalletRepository implements WalletRepository {
   async list(
     context: ApplicationContext,
     options: { includeInactive: boolean },
   ): Promise<Wallet[]> {
     const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    let query = supabase
-      .from("wallets")
-      .select("*")
-      .eq("user_id", userId)
-      .order("name", { ascending: true });
+    const database = resolveDatabaseClient(context, db);
+    const where = options.includeInactive
+      ? eq(wallets.userId, userId)
+      : and(eq(wallets.userId, userId), eq(wallets.active, true));
+    const rows = await database
+      .select()
+      .from(wallets)
+      .where(where)
+      .orderBy(asc(wallets.name));
 
-    if (!options.includeInactive) {
-      query = query.eq("active", true);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return (data as WalletRow[]).map(mapRowToWallet);
+    return rows.map(mapRowToWallet);
   }
 
   async findById(
@@ -85,19 +72,14 @@ export class SupabaseWalletRepository implements WalletRepository {
     id: string,
   ): Promise<Wallet | null> {
     const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("wallets")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("id", id)
-      .maybeSingle();
+    const database = resolveDatabaseClient(context, db);
+    const [row] = await database
+      .select()
+      .from(wallets)
+      .where(and(eq(wallets.userId, userId), eq(wallets.id, id)))
+      .limit(1);
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return data ? mapRowToWallet(data as WalletRow) : null;
+    return row ? mapRowToWallet(row) : null;
   }
 
   async findByName(
@@ -118,25 +100,20 @@ export class SupabaseWalletRepository implements WalletRepository {
     data: CreateWalletData,
   ): Promise<Wallet> {
     const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    const { data: row, error } = await supabase
-      .from("wallets")
-      .insert({
-        user_id: userId,
+    const database = resolveDatabaseClient(context, db);
+    const [row] = await database
+      .insert(wallets)
+      .values({
+        userId,
         name: data.name,
         type: data.type,
-        initial_balance_cents: data.initialBalanceCents,
+        initialBalanceCents: data.initialBalanceCents,
         active: data.active,
-        archived_at: data.active ? null : context.now.toISOString(),
+        archivedAt: data.active ? null : context.now,
       })
-      .select("*")
-      .single();
+      .returning();
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return mapRowToWallet(row as WalletRow);
+    return mapRowToWallet(row);
   }
 
   async update(
@@ -145,27 +122,21 @@ export class SupabaseWalletRepository implements WalletRepository {
     data: UpdateWalletData,
   ): Promise<Wallet> {
     const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    const { data: row, error } = await supabase
-      .from("wallets")
-      .update({
+    const database = resolveDatabaseClient(context, db);
+    const [row] = await database
+      .update(wallets)
+      .set({
         name: data.name,
         type: data.type,
-        initial_balance_cents: data.initialBalanceCents,
+        initialBalanceCents: data.initialBalanceCents,
         active: data.active,
-        archived_at: data.active ? null : context.now.toISOString(),
-        updated_at: context.now.toISOString(),
+        archivedAt: data.active ? null : context.now,
+        updatedAt: context.now,
       })
-      .eq("user_id", userId)
-      .eq("id", id)
-      .select("*")
-      .single();
+      .where(and(eq(wallets.userId, userId), eq(wallets.id, id)))
+      .returning();
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return mapRowToWallet(row as WalletRow);
+    return mapRowToWallet(row);
   }
 
   async setActive(
@@ -174,40 +145,34 @@ export class SupabaseWalletRepository implements WalletRepository {
     active: boolean,
   ): Promise<Wallet> {
     const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    const { data: row, error } = await supabase
-      .from("wallets")
-      .update({
+    const database = resolveDatabaseClient(context, db);
+    const [row] = await database
+      .update(wallets)
+      .set({
         active,
-        archived_at: active ? null : context.now.toISOString(),
-        updated_at: context.now.toISOString(),
+        archivedAt: active ? null : context.now,
+        updatedAt: context.now,
       })
-      .eq("user_id", userId)
-      .eq("id", id)
-      .select("*")
-      .single();
+      .where(and(eq(wallets.userId, userId), eq(wallets.id, id)))
+      .returning();
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return mapRowToWallet(row as WalletRow);
+    return mapRowToWallet(row);
   }
 }
 
 function mapRowToWallet(row: WalletRow): Wallet {
   return {
     id: row.id,
-    userId: row.user_id,
-    legacyId: row.legacy_id,
+    userId: row.userId,
+    legacyId: row.legacyId,
     name: row.name,
     type: row.type,
-    initialBalanceCents: row.initial_balance_cents,
+    initialBalanceCents: row.initialBalanceCents,
     active: row.active,
-    archivedAt: row.archived_at ? new Date(row.archived_at) : null,
-    createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at),
+    archivedAt: row.archivedAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 
-export const walletRepository = new SupabaseWalletRepository();
+export const walletRepository = new DrizzleWalletRepository();

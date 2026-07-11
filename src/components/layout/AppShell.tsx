@@ -7,6 +7,7 @@ import {
   ArrowUpDown,
   BarChart2,
   CreditCard,
+  FileUp,
   LayoutGrid,
   List,
   LogOut,
@@ -37,11 +38,17 @@ const analysisLinks: ShellLink[] = [
 
 const registryLinks: ShellLink[] = [
   { href: "/transactions", label: "Transações", icon: List },
+  { href: "/imports", label: "Importações", icon: FileUp },
   { href: "/wallets", label: "Carteiras", icon: CreditCard },
   { href: "/categories", label: "Categorias", icon: Tag },
 ];
 
-const skeletonRoutes = new Set(["/transactions", "/wallets", "/categories"]);
+const skeletonRoutes = new Set([
+  "/transactions",
+  "/imports",
+  "/wallets",
+  "/categories",
+]);
 
 export function AppShell({ children }: { readonly children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -200,6 +207,8 @@ export function AppShell({ children }: { readonly children: React.ReactNode }) {
           <span className="max-w-[150px] truncate text-xs text-muted">
             {pathname === "/transactions"
               ? "Transacoes"
+              : pathname === "/imports"
+              ? "Importacoes"
               : pathname === "/wallets"
               ? "Carteiras"
               : pathname === "/categories"
@@ -274,6 +283,8 @@ function MenuNavigationSkeleton({ route }: { readonly route: string }) {
   const title =
     route === "/transactions"
       ? "Transacoes"
+      : route === "/imports"
+        ? "Importacoes"
       : route === "/wallets"
         ? "Carteiras"
         : "Categorias";
@@ -297,6 +308,7 @@ function MenuNavigationSkeleton({ route }: { readonly route: string }) {
       </header>
 
       {route === "/transactions" ? <TransactionsPageSkeleton /> : null}
+      {route === "/imports" ? <ImportsPageSkeleton /> : null}
       {route === "/wallets" ? <WalletsPageSkeleton /> : null}
       {route === "/categories" ? <CategoriesPageSkeleton /> : null}
     </div>
@@ -328,6 +340,30 @@ function TransactionsPageSkeleton() {
               key={rowIndex}
             >
               {Array.from({ length: 7 }).map((__, columnIndex) => (
+                <SkeletonBlock className="h-5 rounded-md" key={columnIndex} />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ImportsPageSkeleton() {
+  return (
+    <>
+      <div className="flex justify-end">
+        <SkeletonBlock className="h-8 w-28 rounded-lg" />
+      </div>
+      <div className="overflow-hidden rounded-xl border border-border bg-panel">
+        <div className="divide-y divide-border">
+          {Array.from({ length: 6 }).map((_, rowIndex) => (
+            <div
+              className="grid grid-cols-[120px_1fr_140px_110px_70px_90px_90px_70px] gap-4 px-4 py-3"
+              key={rowIndex}
+            >
+              {Array.from({ length: 8 }).map((__, columnIndex) => (
                 <SkeletonBlock className="h-5 rounded-md" key={columnIndex} />
               ))}
             </div>

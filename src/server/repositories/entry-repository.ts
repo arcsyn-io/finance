@@ -1,11 +1,24 @@
+import "server-only";
+
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lte,
+} from "drizzle-orm";
+import { db } from "@/db/client";
+import { categories, entries, wallets } from "@/db/schema";
 import type {
   EconomicEvent,
   Entry,
   EntryDirection,
   EntryNature,
 } from "@/domain/entry/entry";
-import { createClient } from "@/lib/supabase/server";
 import type { ApplicationContext } from "@/server/context/application-context";
+import { resolveDatabaseClient } from "@/server/repositories/database-client";
 
 export type ListEntriesFilters = {
   readonly startDate?: string;
@@ -26,6 +39,7 @@ export type CreateEntryData = {
   readonly amountCents: number;
   readonly occurredOn: string;
   readonly description: string | null;
+  readonly externalId?: string | null;
 };
 
 export type UpdateEntryData = CreateEntryData;
@@ -68,83 +82,39 @@ export interface EntryRepository {
   ): Promise<Entry>;
 
   clearTransferId(context: ApplicationContext, id: string): Promise<Entry>;
+
+  existsByExternalIdAndWallet(
+    context: ApplicationContext,
+    externalId: string,
+    walletId: string,
+  ): Promise<boolean>;
 }
 
 type EntryRow = {
-  id: string;
-  user_id: string;
-  legacy_id: number | null;
-  wallet_id: string;
-  category_id: string | null;
-  transfer_id: string | null;
-  economic_event_id: string | null;
-  nature: EntryNature;
-  direction: EntryDirection;
-  amount_cents: number;
-  occurred_on: string;
-  description: string | null;
-  external_id: string | null;
-  economic_event: EconomicEvent | null;
-  receipt_path: string | null;
-  deleted_at: string | null;
-  created_at: string;
-  updated_at: string;
-  wallets?: { name: string } | null;
-  categories?: { name: string; color: string | null; icon: string | null } | null;
+  readonly entry: typeof entries.$inferSelect;
+  readonly walletName: string | null;
+  readonly categoryName: string | null;
+  readonly categoryColor: string | null;
+  readonly categoryIcon: string | null;
 };
 
-const entrySelect =
-  "*, wallets(name), categories(name, color, icon)";
-
-export class SupabaseEntryRepository implements EntryRepository {
+export class DrizzleEntryRepository implements EntryRepository {
   async list(
     context: ApplicationContext,
     filters: ListEntriesFilters,
   ): Promise<Entry[]> {
     const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    let query = supabase
-      .from("entries")
-      .select(entrySelect)
-      .eq("user_id", userId)
-      .order("occurred_on", { ascending: false })
-      .order("created_at", { ascending: false });
+    const database = resolveDatabaseClient(context, db);
+    const conditions = listConditions(userId, filters);
+    const rows = await database
+      .select(entrySelection)
+      .from(entries)
+      .leftJoin(wallets, eq(entries.walletId, wallets.id))
+      .leftJoin(categories, eq(entries.categoryId, categories.id))
+      .where(and(...conditions))
+      .orderBy(desc(entries.occurredOn), desc(entries.createdAt));
 
-    if (!filters.includeDeleted) {
-      query = query.is("deleted_at", null);
-    }
-
-    if (filters.startDate) {
-      query = query.gte("occurred_on", filters.startDate);
-    }
-
-    if (filters.endDate) {
-      query = query.lte("occurred_on", filters.endDate);
-    }
-
-    if (filters.walletIds?.length) {
-      query = query.in("wallet_id", [...filters.walletIds]);
-    }
-
-    if (filters.categoryIds?.length) {
-      query = query.in("category_id", [...filters.categoryIds]);
-    }
-
-    if (filters.natures?.length) {
-      query = query.in("nature", [...filters.natures]);
-    }
-
-    if (filters.economicEvents?.length) {
-      query = query.in("economic_event", [...filters.economicEvents]);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return (data as EntryRow[]).map(mapRowToEntry);
+    return rows.map(mapRowToEntry);
   }
 
   async findById(
@@ -152,19 +122,16 @@ export class SupabaseEntryRepository implements EntryRepository {
     id: string,
   ): Promise<Entry | null> {
     const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("entries")
-      .select(entrySelect)
-      .eq("user_id", userId)
-      .eq("id", id)
-      .maybeSingle();
+    const database = resolveDatabaseClient(context, db);
+    const [row] = await database
+      .select(entrySelection)
+      .from(entries)
+      .leftJoin(wallets, eq(entries.walletId, wallets.id))
+      .leftJoin(categories, eq(entries.categoryId, categories.id))
+      .where(and(eq(entries.userId, userId), eq(entries.id, id)))
+      .limit(1);
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return data ? mapRowToEntry(data as EntryRow) : null;
+    return row ? mapRowToEntry(row) : null;
   }
 
   async findByTransferId(
@@ -172,79 +139,32 @@ export class SupabaseEntryRepository implements EntryRepository {
     transferId: string,
   ): Promise<Entry[]> {
     const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("entries")
-      .select(entrySelect)
-      .eq("user_id", userId)
-      .eq("transfer_id", transferId)
-      .order("occurred_on", { ascending: false })
-      .order("created_at", { ascending: false });
+    const database = resolveDatabaseClient(context, db);
+    const rows = await database
+      .select(entrySelection)
+      .from(entries)
+      .leftJoin(wallets, eq(entries.walletId, wallets.id))
+      .leftJoin(categories, eq(entries.categoryId, categories.id))
+      .where(and(eq(entries.userId, userId), eq(entries.transferId, transferId)))
+      .orderBy(desc(entries.occurredOn), desc(entries.createdAt));
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return (data as EntryRow[]).map(mapRowToEntry);
+    return rows.map(mapRowToEntry);
   }
 
   async create(
     context: ApplicationContext,
     data: CreateEntryData,
   ): Promise<Entry> {
-    const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    const { data: row, error } = await supabase
-      .from("entries")
-      .insert({
-        user_id: userId,
-        wallet_id: data.walletId,
-        category_id: data.categoryId,
-        nature: data.nature,
-        direction: data.direction,
-        economic_event: data.economicEvent,
-        amount_cents: data.amountCents,
-        occurred_on: data.occurredOn,
-        description: data.description,
-      })
-      .select(entrySelect)
-      .single();
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return mapRowToEntry(row as EntryRow);
+    const [row] = await this.insert(context, data);
+    return this.requireEntry(context, row.id);
   }
 
   async createWithTransfer(
     context: ApplicationContext,
     data: CreateTransferEntryData,
   ): Promise<Entry> {
-    const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    const { data: row, error } = await supabase
-      .from("entries")
-      .insert({
-        user_id: userId,
-        wallet_id: data.walletId,
-        category_id: data.categoryId,
-        transfer_id: data.transferId,
-        nature: data.nature,
-        direction: data.direction,
-        economic_event: data.economicEvent,
-        amount_cents: data.amountCents,
-        occurred_on: data.occurredOn,
-        description: data.description,
-      })
-      .select(entrySelect)
-      .single();
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return mapRowToEntry(row as EntryRow);
+    const [row] = await this.insert(context, data, data.transferId);
+    return this.requireEntry(context, row.id);
   }
 
   async update(
@@ -253,37 +173,31 @@ export class SupabaseEntryRepository implements EntryRepository {
     data: UpdateEntryData,
   ): Promise<Entry> {
     const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    const { data: row, error } = await supabase
-      .from("entries")
-      .update({
-        wallet_id: data.walletId,
-        category_id: data.categoryId,
+    const database = resolveDatabaseClient(context, db);
+    const [row] = await database
+      .update(entries)
+      .set({
+        walletId: data.walletId,
+        categoryId: data.categoryId,
         nature: data.nature,
         direction: data.direction,
-        economic_event: data.economicEvent,
-        amount_cents: data.amountCents,
-        occurred_on: data.occurredOn,
+        economicEvent: data.economicEvent,
+        amountCents: data.amountCents,
+        occurredOn: data.occurredOn,
         description: data.description,
-        updated_at: context.now.toISOString(),
+        updatedAt: context.now,
       })
-      .eq("user_id", userId)
-      .eq("id", id)
-      .select(entrySelect)
-      .single();
+      .where(and(eq(entries.userId, userId), eq(entries.id, id)))
+      .returning({ id: entries.id });
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return mapRowToEntry(row as EntryRow);
+    return this.requireEntry(context, row.id);
   }
 
   async softDelete(
     context: ApplicationContext,
     id: string,
   ): Promise<Entry> {
-    return this.setDeletedAt(context, id, context.now.toISOString());
+    return this.setDeletedAt(context, id, context.now);
   }
 
   async restore(
@@ -299,24 +213,18 @@ export class SupabaseEntryRepository implements EntryRepository {
     transferId: string,
   ): Promise<Entry> {
     const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    const { data: row, error } = await supabase
-      .from("entries")
-      .update({
-        transfer_id: transferId,
-        economic_event: "TRANSFER",
-        updated_at: context.now.toISOString(),
+    const database = resolveDatabaseClient(context, db);
+    const [row] = await database
+      .update(entries)
+      .set({
+        transferId,
+        economicEvent: "TRANSFER",
+        updatedAt: context.now,
       })
-      .eq("user_id", userId)
-      .eq("id", id)
-      .select(entrySelect)
-      .single();
+      .where(and(eq(entries.userId, userId), eq(entries.id, id)))
+      .returning({ id: entries.id });
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return mapRowToEntry(row as EntryRow);
+    return this.requireEntry(context, row.id);
   }
 
   async clearTransferId(
@@ -324,77 +232,168 @@ export class SupabaseEntryRepository implements EntryRepository {
     id: string,
   ): Promise<Entry> {
     const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    const { data: row, error } = await supabase
-      .from("entries")
-      .update({
-        transfer_id: null,
-        economic_event: null,
-        updated_at: context.now.toISOString(),
+    const database = resolveDatabaseClient(context, db);
+    const [row] = await database
+      .update(entries)
+      .set({
+        transferId: null,
+        economicEvent: null,
+        updatedAt: context.now,
       })
-      .eq("user_id", userId)
-      .eq("id", id)
-      .select(entrySelect)
-      .single();
+      .where(and(eq(entries.userId, userId), eq(entries.id, id)))
+      .returning({ id: entries.id });
 
-    if (error) {
-      throw new Error(error.message);
-    }
+    return this.requireEntry(context, row.id);
+  }
 
-    return mapRowToEntry(row as EntryRow);
+  async existsByExternalIdAndWallet(
+    context: ApplicationContext,
+    externalId: string,
+    walletId: string,
+  ): Promise<boolean> {
+    const userId = context.requireUserPrincipal().id;
+    const database = resolveDatabaseClient(context, db);
+    const rows = await database
+      .select({ id: entries.id })
+      .from(entries)
+      .where(
+        and(
+          eq(entries.userId, userId),
+          eq(entries.walletId, walletId),
+          eq(entries.externalId, externalId),
+        ),
+      )
+      .limit(1);
+
+    return rows.length > 0;
+  }
+
+  private async insert(
+    context: ApplicationContext,
+    data: CreateEntryData,
+    transferId: string | null = null,
+  ) {
+    const userId = context.requireUserPrincipal().id;
+    const database = resolveDatabaseClient(context, db);
+
+    return database
+      .insert(entries)
+      .values({
+        userId,
+        walletId: data.walletId,
+        categoryId: data.categoryId,
+        transferId,
+        nature: data.nature,
+        direction: data.direction,
+        economicEvent: data.economicEvent,
+        amountCents: data.amountCents,
+        occurredOn: data.occurredOn,
+        description: data.description,
+        externalId: data.externalId ?? null,
+      })
+      .returning({ id: entries.id });
   }
 
   private async setDeletedAt(
     context: ApplicationContext,
     id: string,
-    deletedAt: string | null,
+    deletedAt: Date | null,
   ): Promise<Entry> {
     const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    const { data: row, error } = await supabase
-      .from("entries")
-      .update({
-        deleted_at: deletedAt,
-        updated_at: context.now.toISOString(),
+    const database = resolveDatabaseClient(context, db);
+    const [row] = await database
+      .update(entries)
+      .set({
+        deletedAt,
+        updatedAt: context.now,
       })
-      .eq("user_id", userId)
-      .eq("id", id)
-      .select(entrySelect)
-      .single();
+      .where(and(eq(entries.userId, userId), eq(entries.id, id)))
+      .returning({ id: entries.id });
 
-    if (error) {
-      throw new Error(error.message);
+    return this.requireEntry(context, row.id);
+  }
+
+  private async requireEntry(
+    context: ApplicationContext,
+    id: string,
+  ): Promise<Entry> {
+    const entry = await this.findById(context, id);
+
+    if (!entry) {
+      throw new Error("Lancamento nao encontrado apos persistencia");
     }
 
-    return mapRowToEntry(row as EntryRow);
+    return entry;
   }
+}
+
+const entrySelection = {
+  entry: entries,
+  walletName: wallets.name,
+  categoryName: categories.name,
+  categoryColor: categories.color,
+  categoryIcon: categories.icon,
+};
+
+function listConditions(userId: string, filters: ListEntriesFilters) {
+  const conditions = [eq(entries.userId, userId)];
+
+  if (!filters.includeDeleted) {
+    conditions.push(isNull(entries.deletedAt));
+  }
+
+  if (filters.startDate) {
+    conditions.push(gte(entries.occurredOn, filters.startDate));
+  }
+
+  if (filters.endDate) {
+    conditions.push(lte(entries.occurredOn, filters.endDate));
+  }
+
+  if (filters.walletIds?.length) {
+    conditions.push(inArray(entries.walletId, [...filters.walletIds]));
+  }
+
+  if (filters.categoryIds?.length) {
+    conditions.push(inArray(entries.categoryId, [...filters.categoryIds]));
+  }
+
+  if (filters.natures?.length) {
+    conditions.push(inArray(entries.nature, [...filters.natures]));
+  }
+
+  if (filters.economicEvents?.length) {
+    conditions.push(inArray(entries.economicEvent, [...filters.economicEvents]));
+  }
+
+  return conditions;
 }
 
 function mapRowToEntry(row: EntryRow): Entry {
   return {
-    id: row.id,
-    userId: row.user_id,
-    legacyId: row.legacy_id,
-    walletId: row.wallet_id,
-    categoryId: row.category_id,
-    transferId: row.transfer_id,
-    economicEventId: row.economic_event_id,
-    nature: row.nature,
-    direction: row.direction,
-    amountCents: row.amount_cents,
-    occurredOn: row.occurred_on,
-    description: row.description,
-    externalId: row.external_id,
-    economicEvent: row.economic_event,
-    receiptPath: row.receipt_path,
-    deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
-    createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at),
-    walletName: row.wallets?.name ?? null,
-    categoryName: row.categories?.name ?? null,
-    categoryColor: row.categories?.color ?? null,
-    categoryIcon: row.categories?.icon ?? null,
+    id: row.entry.id,
+    userId: row.entry.userId,
+    legacyId: row.entry.legacyId,
+    walletId: row.entry.walletId,
+    categoryId: row.entry.categoryId,
+    transferId: row.entry.transferId,
+    economicEventId: row.entry.economicEventId,
+    nature: row.entry.nature,
+    direction: row.entry.direction,
+    amountCents: row.entry.amountCents,
+    occurredOn: row.entry.occurredOn,
+    description: row.entry.description,
+    externalId: row.entry.externalId,
+    economicEvent: row.entry.economicEvent as EconomicEvent | null,
+    receiptPath: row.entry.receiptPath,
+    deletedAt: row.entry.deletedAt,
+    createdAt: row.entry.createdAt,
+    updatedAt: row.entry.updatedAt,
+    walletName: row.walletName,
+    categoryName: row.categoryName,
+    categoryColor: row.categoryColor,
+    categoryIcon: row.categoryIcon,
   };
 }
 
-export const entryRepository = new SupabaseEntryRepository();
+export const entryRepository = new DrizzleEntryRepository();

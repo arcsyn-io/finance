@@ -1,3 +1,5 @@
+import "server-only";
+
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { getEnv } from "@/lib/env";
@@ -13,6 +15,9 @@ function createDatabase() {
   }
 
   const queryClient = postgres(env.DATABASE_URL, {
+    connect_timeout: env.DATABASE_CONNECT_TIMEOUT_SECONDS,
+    idle_timeout: env.DATABASE_IDLE_TIMEOUT_SECONDS,
+    max: env.DATABASE_POOL_MAX,
     prepare: false,
   });
 

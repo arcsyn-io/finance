@@ -85,7 +85,7 @@ class FakeEntryRepository implements EntryRepository {
       legacyId: null,
       transferId: null,
       economicEventId: null,
-      externalId: null,
+      externalId: data.externalId ?? null,
       receiptPath: null,
       deletedAt: null,
       createdAt: now,
@@ -220,6 +220,21 @@ class FakeEntryRepository implements EntryRepository {
     this.entries.set(id, unlinked);
 
     return unlinked;
+  }
+
+  async existsByExternalIdAndWallet(
+    context: ApplicationContext,
+    externalId: string,
+    walletId: string,
+  ): Promise<boolean> {
+    const userId = context.requireUserPrincipal().id;
+
+    return [...this.entries.values()].some(
+      (entry) =>
+        entry.userId === userId &&
+        entry.externalId === externalId &&
+        entry.walletId === walletId,
+    );
   }
 }
 

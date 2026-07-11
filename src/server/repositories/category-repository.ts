@@ -1,10 +1,15 @@
+import "server-only";
+
+import { and, asc, eq } from "drizzle-orm";
+import { db } from "@/db/client";
+import { categories } from "@/db/schema";
 import { Category, CategoryType } from "@/domain/category/category";
 import {
   normalizeCategoryColor,
   normalizeCategoryIcon,
 } from "@/domain/category/category-visual";
 import { ApplicationContext } from "@/server/context/application-context";
-import { createClient } from "@/lib/supabase/server";
+import { resolveDatabaseClient } from "@/server/repositories/database-client";
 
 export type CreateCategoryData = {
   readonly name: string;
@@ -58,44 +63,25 @@ export interface CategoryRepository {
   ): Promise<Category>;
 }
 
-type CategoryRow = {
-  id: string;
-  user_id: string;
-  legacy_id: number | null;
-  name: string;
-  type: CategoryType;
-  icon?: string | null;
-  color?: string | null;
-  active: boolean;
-  archived_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
+type CategoryRow = typeof categories.$inferSelect;
 
-export class SupabaseCategoryRepository implements CategoryRepository {
+export class DrizzleCategoryRepository implements CategoryRepository {
   async list(
     context: ApplicationContext,
     options: { includeInactive: boolean },
   ): Promise<Category[]> {
     const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    let query = supabase
-      .from("categories")
-      .select("*")
-      .eq("user_id", userId)
-      .order("name", { ascending: true });
+    const database = resolveDatabaseClient(context, db);
+    const where = options.includeInactive
+      ? eq(categories.userId, userId)
+      : and(eq(categories.userId, userId), eq(categories.active, true));
+    const rows = await database
+      .select()
+      .from(categories)
+      .where(where)
+      .orderBy(asc(categories.name));
 
-    if (!options.includeInactive) {
-      query = query.eq("active", true);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return (data as CategoryRow[]).map(mapRowToCategory);
+    return rows.map(mapRowToCategory);
   }
 
   async listActiveByType(
@@ -103,20 +89,20 @@ export class SupabaseCategoryRepository implements CategoryRepository {
     type: CategoryType,
   ): Promise<Category[]> {
     const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("categories")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("active", true)
-      .eq("type", type)
-      .order("name", { ascending: true });
+    const database = resolveDatabaseClient(context, db);
+    const rows = await database
+      .select()
+      .from(categories)
+      .where(
+        and(
+          eq(categories.userId, userId),
+          eq(categories.active, true),
+          eq(categories.type, type),
+        ),
+      )
+      .orderBy(asc(categories.name));
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return (data as CategoryRow[]).map(mapRowToCategory);
+    return rows.map(mapRowToCategory);
   }
 
   async findById(
@@ -124,19 +110,14 @@ export class SupabaseCategoryRepository implements CategoryRepository {
     id: string,
   ): Promise<Category | null> {
     const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("categories")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("id", id)
-      .maybeSingle();
+    const database = resolveDatabaseClient(context, db);
+    const [row] = await database
+      .select()
+      .from(categories)
+      .where(and(eq(categories.userId, userId), eq(categories.id, id)))
+      .limit(1);
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return data ? mapRowToCategory(data as CategoryRow) : null;
+    return row ? mapRowToCategory(row) : null;
   }
 
   async findByName(
@@ -158,26 +139,21 @@ export class SupabaseCategoryRepository implements CategoryRepository {
     data: CreateCategoryData,
   ): Promise<Category> {
     const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    const { data: row, error } = await supabase
-      .from("categories")
-      .insert({
-        user_id: userId,
+    const database = resolveDatabaseClient(context, db);
+    const [row] = await database
+      .insert(categories)
+      .values({
+        userId,
         name: data.name,
         type: data.type,
         icon: data.icon,
         color: data.color,
         active: data.active,
-        archived_at: data.active ? null : context.now.toISOString(),
+        archivedAt: data.active ? null : context.now,
       })
-      .select("*")
-      .single();
+      .returning();
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return mapRowToCategory(row as CategoryRow);
+    return mapRowToCategory(row);
   }
 
   async update(
@@ -186,28 +162,22 @@ export class SupabaseCategoryRepository implements CategoryRepository {
     data: UpdateCategoryData,
   ): Promise<Category> {
     const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    const { data: row, error } = await supabase
-      .from("categories")
-      .update({
+    const database = resolveDatabaseClient(context, db);
+    const [row] = await database
+      .update(categories)
+      .set({
         name: data.name,
         type: data.type,
         icon: data.icon,
         color: data.color,
         active: data.active,
-        archived_at: data.active ? null : context.now.toISOString(),
-        updated_at: context.now.toISOString(),
+        archivedAt: data.active ? null : context.now,
+        updatedAt: context.now,
       })
-      .eq("user_id", userId)
-      .eq("id", id)
-      .select("*")
-      .single();
+      .where(and(eq(categories.userId, userId), eq(categories.id, id)))
+      .returning();
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return mapRowToCategory(row as CategoryRow);
+    return mapRowToCategory(row);
   }
 
   async setActive(
@@ -216,41 +186,35 @@ export class SupabaseCategoryRepository implements CategoryRepository {
     active: boolean,
   ): Promise<Category> {
     const userId = context.requireUserPrincipal().id;
-    const supabase = await createClient();
-    const { data: row, error } = await supabase
-      .from("categories")
-      .update({
+    const database = resolveDatabaseClient(context, db);
+    const [row] = await database
+      .update(categories)
+      .set({
         active,
-        archived_at: active ? null : context.now.toISOString(),
-        updated_at: context.now.toISOString(),
+        archivedAt: active ? null : context.now,
+        updatedAt: context.now,
       })
-      .eq("user_id", userId)
-      .eq("id", id)
-      .select("*")
-      .single();
+      .where(and(eq(categories.userId, userId), eq(categories.id, id)))
+      .returning();
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return mapRowToCategory(row as CategoryRow);
+    return mapRowToCategory(row);
   }
 }
 
 function mapRowToCategory(row: CategoryRow): Category {
   return {
     id: row.id,
-    userId: row.user_id,
-    legacyId: row.legacy_id,
+    userId: row.userId,
+    legacyId: row.legacyId,
     name: row.name,
     type: row.type,
     icon: normalizeCategoryIcon(row.icon ?? undefined),
     color: normalizeCategoryColor(row.color ?? undefined, row.type),
     active: row.active,
-    archivedAt: row.archived_at ? new Date(row.archived_at) : null,
-    createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at),
+    archivedAt: row.archivedAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 
-export const categoryRepository = new SupabaseCategoryRepository();
+export const categoryRepository = new DrizzleCategoryRepository();

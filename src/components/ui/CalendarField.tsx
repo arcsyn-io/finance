@@ -18,6 +18,7 @@ import { Dropdown } from "@/components/ui/Dropdown";
 
 type CalendarFieldProps = {
   readonly className?: string;
+  readonly disabled?: boolean;
   readonly label?: string;
   readonly onChange: (date: string) => void;
   readonly value: string;
@@ -25,7 +26,7 @@ type CalendarFieldProps = {
 
 export const CalendarField = forwardRef<HTMLInputElement, CalendarFieldProps>(
   function CalendarField(
-    { className = "", label = "Data", onChange, value },
+    { className = "", disabled = false, label = "Data", onChange, value },
     ref,
   ) {
   const [open, setOpen] = useState(false);
@@ -80,6 +81,7 @@ export const CalendarField = forwardRef<HTMLInputElement, CalendarFieldProps>(
             aria-label={label}
             className="min-w-0 flex-1 bg-transparent px-2.5 text-xs text-foreground outline-none placeholder:text-muted tabular-nums"
             inputMode="numeric"
+            disabled={disabled}
             onChange={changeText}
             onKeyDown={handleKeyDown}
             placeholder="dd/mm/aaaa"
@@ -90,6 +92,7 @@ export const CalendarField = forwardRef<HTMLInputElement, CalendarFieldProps>(
             aria-expanded={dropdownOpen}
             aria-label="Abrir calendario"
             className="flex h-full w-8 shrink-0 items-center justify-center rounded-r-md text-muted transition hover:bg-surface hover:text-foreground"
+            disabled={disabled}
             onClick={toggle}
             type="button"
           >

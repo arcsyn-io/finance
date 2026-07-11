@@ -46,13 +46,11 @@ import {
   PeriodFilter,
   type PeriodFilterRange,
 } from "@/components/ui/PeriodFilter";
-import {
-  FilterSelect,
-  type FilterSelectOption,
-} from "@/components/ui/FilterSelect";
+import { FilterSelect } from "@/components/ui/FilterSelect";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { CurrencyField } from "@/components/ui/CurrencyField";
 import { CalendarField } from "@/components/ui/CalendarField";
+import { CategorySelect } from "@/components/domain/CategorySelect";
 import { CategoryBadge } from "@/modules/categories/components/CategoryBadge";
 
 type EntriesTableProps = {
@@ -80,11 +78,6 @@ type EntryApiResponse = {
   readonly error?: string;
 };
 
-type CategoryApiResponse = {
-  readonly categories?: Category[];
-  readonly error?: string;
-};
-
 const statusMessages: Record<string, string> = {
   created: "Lancamento criado com sucesso",
   updated: "Lancamento atualizado com sucesso",
@@ -106,9 +99,6 @@ export function EntriesTable({
   const [endDate, setEndDate] = useState(initialEndDate);
   const [walletFilters, setWalletFilters] = useState<string[]>([]);
   const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
-  const [categoryFilterOptions, setCategoryFilterOptions] = useState(() =>
-    categories.map(categoryToFilterOption),
-  );
   const [natureFilters, setNatureFilters] = useState<EntryNature[]>([]);
   const [eventFilters, setEventFilters] = useState<EconomicEvent[]>([]);
   const [includeDeleted, setIncludeDeleted] = useState(false);
@@ -139,14 +129,6 @@ export function EntriesTable({
     () => new Map(categories.map((category) => [category.id, category])),
     [categories],
   );
-  const selectedCategoryOptions = useMemo(
-    () =>
-      categoryFilterOptions.filter((option) =>
-        categoryFilters.includes(option.value),
-      ),
-    [categoryFilterOptions, categoryFilters],
-  );
-
   const totals = useMemo(
     () =>
       entries
@@ -175,30 +157,6 @@ export function EntriesTable({
   function successMessage(status: string | undefined) {
     return status ? statusMessages[status] ?? "Operacao concluida" : "Operacao concluida";
   }
-
-  const searchCategories = useCallback(
-    async (searchText: string) => {
-      const params = new URLSearchParams();
-      params.set("search", searchText);
-      params.set("limit", "10");
-
-      const response = await fetch(`/api/categories?${params.toString()}`);
-      const body = (await response.json()) as CategoryApiResponse;
-
-      if (!response.ok) {
-        throw new Error(body.error ?? "Nao foi possivel buscar categorias");
-      }
-
-      const options = (body.categories ?? []).map(categoryToFilterOption);
-
-      setCategoryFilterOptions((current) =>
-        mergeFilterOptions(current, options),
-      );
-
-      return options;
-    },
-    [],
-  );
 
   const refreshEntries = useCallback(async () => {
     const params = new URLSearchParams();
@@ -517,18 +475,9 @@ export function EntriesTable({
           }))}
           selectedValues={walletFilters}
         />
-        <FilterSelect
-          label="Categoria"
+        <CategorySelect
+          categories={categories}
           onChange={setCategoryFilters}
-          options={categoryFilterOptions}
-          search={{
-            emptyLabel: "Nenhuma categoria encontrada",
-            errorLabel: "Nao foi possivel buscar categorias",
-            loadOptions: searchCategories,
-            loadingLabel: "Buscando categorias...",
-            placeholder: "Buscar categoria",
-          }}
-          selectedOptions={selectedCategoryOptions}
           selectedValues={categoryFilters}
         />
         <FilterSelect
@@ -1632,39 +1581,6 @@ function requestFromForm(form: EntryForm) {
     occurredOn: form.occurredOn,
     description: form.description,
   };
-}
-
-function categoryToFilterOption(
-  category: Category,
-): FilterSelectOption<string> {
-  return {
-    value: category.id,
-    label: category.name,
-    content: (
-      <CategoryBadge
-        color={category.color}
-        icon={category.icon}
-        name={category.name}
-      />
-    ),
-  };
-}
-
-function mergeFilterOptions(
-  current: readonly FilterSelectOption<string>[],
-  next: readonly FilterSelectOption<string>[],
-): FilterSelectOption<string>[] {
-  const options = new Map<string, FilterSelectOption<string>>();
-
-  for (const option of current) {
-    options.set(option.value, option);
-  }
-
-  for (const option of next) {
-    options.set(option.value, option);
-  }
-
-  return [...options.values()];
 }
 
 function formatMoney(cents: number): string {
