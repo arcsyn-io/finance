@@ -32,6 +32,7 @@ export async function PUT(request: Request, { params }: EntryRouteContext) {
 
   if (response.status < 400) {
     revalidatePath("/transactions");
+    revalidatePath("/analysis/consumption");
   }
 
   return NextResponse.json(response.body, { status: response.status });

@@ -30,6 +30,7 @@ const overviewLinks: ShellLink[] = [
 ];
 
 const analysisLinks: ShellLink[] = [
+  { href: "/analysis/consumption", label: "Consumo por categoria", icon: PieChart },
   { href: "/", label: "Fluxo de caixa mensal", icon: BarChart2 },
   { href: "/", label: "Receitas x Despesas", icon: ArrowUpDown },
   { href: "/", label: "Composição de despesas", icon: PieChart },
