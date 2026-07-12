@@ -1,9 +1,10 @@
 import "server-only";
 
-import { and, asc, desc, eq, ne } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   categories,
+  importAttachments,
   importRequests,
   importRows,
   wallets,
@@ -118,7 +119,10 @@ export class DrizzleImportRepository implements ImportRepository {
 
     for (const row of rows) {
       requests.push({
-        ...mapRequest(row),
+        ...mapRequest(
+          row,
+          await this.countGlobalAttachments(context, row.request.id),
+        ),
         rows: await this.listRows(context, row.request.id),
       });
     }
@@ -143,7 +147,7 @@ export class DrizzleImportRepository implements ImportRepository {
     if (!row) return null;
 
     return {
-      ...mapRequest(row),
+      ...mapRequest(row, await this.countGlobalAttachments(context, id)),
       rows: await this.listRows(context, id),
     };
   }
@@ -312,7 +316,9 @@ export class DrizzleImportRepository implements ImportRepository {
       throw new Error("Linha de importacao nao encontrada apos persistencia");
     }
 
-    return mapRow(row);
+    const countsByRowId = await this.countRowAttachments(context, [row.row.id]);
+
+    return mapRow(row, countsByRowId.get(row.row.id) ?? 0);
   }
 
   private async listRows(
@@ -334,7 +340,63 @@ export class DrizzleImportRepository implements ImportRepository {
       )
       .orderBy(asc(importRows.rowNumber));
 
-    return rows.map(mapRow);
+    const countsByRowId = await this.countRowAttachments(
+      context,
+      rows.map((row) => row.row.id),
+    );
+
+    return rows.map((row) => mapRow(row, countsByRowId.get(row.row.id) ?? 0));
+  }
+
+  private async countGlobalAttachments(
+    context: ApplicationContext,
+    requestId: string,
+  ): Promise<number> {
+    const userId = context.requireUserPrincipal().id;
+    const database = resolveDatabaseClient(context, db);
+    const [row] = await database
+      .select({ count: count(importAttachments.id) })
+      .from(importAttachments)
+      .where(
+        and(
+          eq(importAttachments.userId, userId),
+          eq(importAttachments.importRequestId, requestId),
+          isNull(importAttachments.importRowId),
+        ),
+      );
+
+    return row?.count ?? 0;
+  }
+
+  private async countRowAttachments(
+    context: ApplicationContext,
+    rowIds: readonly string[],
+  ): Promise<ReadonlyMap<string, number>> {
+    if (rowIds.length === 0) {
+      return new Map();
+    }
+
+    const userId = context.requireUserPrincipal().id;
+    const database = resolveDatabaseClient(context, db);
+    const rows = await database
+      .select({
+        rowId: importAttachments.importRowId,
+        count: count(importAttachments.id),
+      })
+      .from(importAttachments)
+      .where(
+        and(
+          eq(importAttachments.userId, userId),
+          inArray(importAttachments.importRowId, [...rowIds]),
+        ),
+      )
+      .groupBy(importAttachments.importRowId);
+
+    return new Map(
+      rows
+        .filter((row): row is { rowId: string; count: number } => Boolean(row.rowId))
+        .map((row) => [row.rowId, row.count]),
+    );
   }
 }
 
@@ -352,7 +414,10 @@ const rowSelection = {
   categoryIcon: categories.icon,
 };
 
-function mapRequest(row: ImportRequestRow): Omit<ImportRequest, "rows"> {
+function mapRequest(
+  row: ImportRequestRow,
+  attachmentCount: number,
+): Omit<ImportRequest, "rows"> {
   return {
     id: row.request.id,
     userId: row.request.userId,
@@ -366,12 +431,13 @@ function mapRequest(row: ImportRequestRow): Omit<ImportRequest, "rows"> {
     defaultWalletName: row.defaultWalletName,
     defaultCategoryId: row.request.defaultCategoryId,
     defaultCategoryName: row.defaultCategoryName,
+    attachmentCount,
     createdAt: row.request.createdAt,
     updatedAt: row.request.updatedAt,
   };
 }
 
-function mapRow(row: ImportRowRow): ImportRow {
+function mapRow(row: ImportRowRow, attachmentCount: number): ImportRow {
   return {
     id: row.row.id,
     importRequestId: row.row.importRequestId,
@@ -394,6 +460,7 @@ function mapRow(row: ImportRowRow): ImportRow {
     economicEvent: row.row.economicEvent as EconomicEvent | null,
     entryId: row.row.entryId,
     ignoredAt: row.row.ignoredAt,
+    attachmentCount,
     createdAt: row.row.createdAt,
     updatedAt: row.row.updatedAt,
   };

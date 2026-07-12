@@ -225,6 +225,36 @@ export const entries = pgTable(
   }),
 );
 
+export const entryAttachments = pgTable(
+  "entry_attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    entryId: uuid("entry_id")
+      .notNull()
+      .references(() => entries.id, { onDelete: "cascade" }),
+    bucketName: text("bucket_name").notNull(),
+    objectPath: text("object_path").notNull(),
+    originalFileName: text("original_file_name").notNull(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    ...timestamps,
+  },
+  (table) => ({
+    entryIdx: index("entry_attachments_entry_idx").on(table.entryId),
+    userEntryIdx: index("entry_attachments_user_entry_idx").on(
+      table.userId,
+      table.entryId,
+    ),
+    userObjectIdx: uniqueIndex("entry_attachments_user_object_idx").on(
+      table.userId,
+      table.objectPath,
+    ),
+  }),
+);
+
 export const importRequests = pgTable(
   "import_requests",
   {
@@ -296,6 +326,42 @@ export const importRows = pgTable(
     userLegacyIdIdx: uniqueIndex("import_rows_user_legacy_id_idx").on(
       table.userId,
       table.legacyId,
+    ),
+  }),
+);
+
+export const importAttachments = pgTable(
+  "import_attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    importRequestId: uuid("import_request_id")
+      .notNull()
+      .references(() => importRequests.id, { onDelete: "cascade" }),
+    importRowId: uuid("import_row_id").references(() => importRows.id, {
+      onDelete: "cascade",
+    }),
+    bucketName: text("bucket_name").notNull(),
+    objectPath: text("object_path").notNull(),
+    originalFileName: text("original_file_name").notNull(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    ...timestamps,
+  },
+  (table) => ({
+    requestIdx: index("import_attachments_request_idx").on(
+      table.importRequestId,
+    ),
+    rowIdx: index("import_attachments_row_idx").on(table.importRowId),
+    userRequestIdx: index("import_attachments_user_request_idx").on(
+      table.userId,
+      table.importRequestId,
+    ),
+    userObjectIdx: uniqueIndex("import_attachments_user_object_idx").on(
+      table.userId,
+      table.objectPath,
     ),
   }),
 );

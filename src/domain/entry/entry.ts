@@ -33,6 +33,7 @@ export type Entry = {
   readonly externalId: string | null;
   readonly economicEvent: EconomicEvent | null;
   readonly receiptPath: string | null;
+  readonly attachmentCount?: number;
   readonly deletedAt: Date | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;

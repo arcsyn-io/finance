@@ -20,6 +20,7 @@ import {
   FileText,
   LayoutList,
   Loader2,
+  Paperclip,
   Pencil,
   Plus,
   RotateCcw,
@@ -37,6 +38,7 @@ import {
   entryNatures,
 } from "@/domain/entry/entry";
 import type { ImportRequest, ImportRow, ImportSource } from "@/domain/import/import";
+import type { ImportAttachmentWithPreview } from "@/domain/import/import-attachment";
 import { importSourceLabels, importStatusLabels } from "@/domain/import/import";
 import type { Wallet } from "@/domain/wallet/wallet";
 import { SystemToast, type SystemToastMessage } from "@/components/ui/system-toast";
@@ -67,6 +69,18 @@ type ImportApiResponse = {
   readonly status?: string;
   readonly result?: { importedCount: number; skippedCount: number };
   readonly error?: string;
+};
+
+type ImportAttachmentApiResponse = {
+  readonly attachment?: ImportAttachmentWithPreview;
+  readonly attachments?: ImportAttachmentWithPreview[];
+  readonly error?: string;
+};
+
+type ImportAttachmentTarget = {
+  readonly importRequestId: string;
+  readonly importRowId: string | null;
+  readonly title: string;
 };
 
 type RowPatch = {
@@ -361,7 +375,7 @@ function ImportReview({
   readonly onBack: () => void;
   readonly onConfirm: () => void;
   readonly onPatchRow: (rowId: string, patch: Partial<ImportRow>) => void;
-  readonly onRefresh: () => void;
+  readonly onRefresh: () => void | Promise<void>;
   readonly onRemoveRows: (rowIds: readonly string[]) => void;
   readonly onReplaceRow: (row: ImportRow) => void;
   readonly onToast: (tone: "success" | "error", message: string) => void;
@@ -377,6 +391,13 @@ function ImportReview({
   );
   const [viewMode, setViewMode] = useState<ImportRowsViewMode>("status");
   const [showBulkEdit, setShowBulkEdit] = useState(false);
+  const [attachmentTarget, setAttachmentTarget] =
+    useState<ImportAttachmentTarget | null>(null);
+  const [attachments, setAttachments] = useState<ImportAttachmentWithPreview[]>(
+    [],
+  );
+  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
+  const [attachmentUploading, setAttachmentUploading] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<
     ReadonlySet<ImportRowViewStatus>
   >(() => new Set());
@@ -447,6 +468,57 @@ function ImportReview({
       else next.add(status);
       return next;
     });
+  }
+
+  async function openAttachments(target: ImportAttachmentTarget) {
+    setAttachmentTarget(target);
+    setAttachments([]);
+    setAttachmentsLoading(true);
+
+    try {
+      const response = await fetch(importAttachmentUrl(target));
+      const body = (await response.json()) as ImportAttachmentApiResponse;
+
+      if (!response.ok) {
+        onToast("error", body.error ?? "Nao foi possivel carregar anexos");
+        return;
+      }
+
+      setAttachments(body.attachments ?? []);
+    } catch {
+      onToast("error", "Nao foi possivel carregar anexos");
+    } finally {
+      setAttachmentsLoading(false);
+    }
+  }
+
+  async function uploadAttachment(formData: FormData): Promise<boolean> {
+    if (!attachmentTarget) return false;
+
+    setAttachmentUploading(true);
+
+    try {
+      const response = await fetch(importAttachmentUrl(attachmentTarget), {
+        method: "POST",
+        body: formData,
+      });
+      const body = (await response.json()) as ImportAttachmentApiResponse;
+
+      if (!response.ok || !body.attachment) {
+        onToast("error", body.error ?? "Nao foi possivel enviar anexo");
+        return false;
+      }
+
+      onToast("success", "Anexo enviado com sucesso");
+      setAttachmentTarget(null);
+      await onRefresh();
+      return true;
+    } catch {
+      onToast("error", "Nao foi possivel enviar anexo");
+      return false;
+    } finally {
+      setAttachmentUploading(false);
+    }
   }
 
   async function patchRow(row: ImportRow, patch: ImportRowOptimisticPatch) {
@@ -793,6 +865,32 @@ function ImportReview({
         </td>
         <td className="px-3 py-3">
           <div className="flex justify-end gap-1">
+            <button
+              className={iconButtonClass}
+              onClick={() =>
+                void openAttachments({
+                  importRequestId: importRequest.id,
+                  importRowId: row.id,
+                  title: row.description
+                    ? `Anexos de ${row.description}`
+                    : `Anexos da linha ${row.rowNumber}`,
+                })
+              }
+              title={
+                row.attachmentCount > 0
+                  ? `${row.attachmentCount} anexo(s)`
+                  : "Adicionar anexo"
+              }
+              type="button"
+            >
+              <Paperclip
+                className={`size-3.5 ${
+                  row.attachmentCount > 0 ? "text-accent" : ""
+                }`}
+                aria-hidden="true"
+              />
+              <span className="sr-only">Anexos</span>
+            </button>
             {row.ignoredAt ? (
               <button className={iconButtonClass} disabled={confirmed} onClick={() => void setIgnored(row, false)} title="Restaurar" type="button">
                 <RotateCcw className="size-3.5" />
@@ -810,6 +908,17 @@ function ImportReview({
 
   return (
     <div className="flex flex-col gap-4 lg:gap-6">
+      {attachmentTarget ? (
+        <ImportAttachmentsDialog
+          attachments={attachments}
+          loading={attachmentsLoading}
+          onClose={() => setAttachmentTarget(null)}
+          onSubmit={uploadAttachment}
+          target={attachmentTarget}
+          uploading={attachmentUploading}
+        />
+      ) : null}
+
       <div className="flex items-start gap-3">
         <button className={iconButtonClass} onClick={onBack} type="button">
           <ChevronLeft className="size-4" aria-hidden="true" />
@@ -823,6 +932,25 @@ function ImportReview({
             {importSourceLabels[importRequest.source]} · {formatDateTime(importRequest.createdAt)}
           </p>
         </div>
+        <button
+          className="flex h-9 items-center gap-2 rounded-lg border border-border bg-panel px-4 text-xs font-semibold text-foreground transition hover:bg-surface"
+          onClick={() =>
+            void openAttachments({
+              importRequestId: importRequest.id,
+              importRowId: null,
+              title: "Fatura da importacao",
+            })
+          }
+          type="button"
+        >
+          <Paperclip className="size-3.5" aria-hidden="true" />
+          Fatura
+          {importRequest.attachmentCount > 0 ? (
+            <span className="rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] text-accent">
+              {importRequest.attachmentCount}
+            </span>
+          ) : null}
+        </button>
         <button
           className="flex h-9 items-center gap-2 rounded-lg bg-accent px-4 text-xs font-bold text-accent-foreground transition hover:bg-accent/90 disabled:opacity-60"
           disabled={confirmed || pending || totals.active === 0}
@@ -1011,6 +1139,185 @@ function ViewModeButton({
       {icon}
       {label}
     </button>
+  );
+}
+
+function ImportAttachmentsDialog({
+  attachments,
+  loading,
+  onClose,
+  onSubmit,
+  target,
+  uploading,
+}: {
+  readonly attachments: readonly ImportAttachmentWithPreview[];
+  readonly loading: boolean;
+  readonly onClose: () => void;
+  readonly onSubmit: (formData: FormData) => Promise<boolean>;
+  readonly target: ImportAttachmentTarget;
+  readonly uploading: boolean;
+}) {
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const [fileName, setFileName] = useState("");
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!formRef.current || uploading) return;
+
+    const uploaded = await onSubmit(new FormData(formRef.current));
+
+    if (uploaded) {
+      formRef.current.reset();
+      setFileName("");
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-background/70 px-4 backdrop-blur-sm">
+      <div
+        aria-modal="true"
+        className="flex max-h-[calc(100vh-2rem)] w-[min(560px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-border bg-surface-elevated shadow-2xl shadow-black/55"
+        role="dialog"
+      >
+        <div className="flex shrink-0 items-start justify-between border-b border-border px-5 py-4">
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold text-foreground">Anexos</h2>
+            <p className="mt-1 truncate text-xs text-muted">{target.title}</p>
+          </div>
+          <button className={iconButtonClass} onClick={onClose} type="button">
+            <X className="size-3.5" aria-hidden="true" />
+          </button>
+        </div>
+
+        <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit} ref={formRef}>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="grid gap-4 px-5 py-4">
+              <label
+                className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border px-4 py-7 text-center transition ${
+                  uploading
+                    ? "cursor-wait bg-surface opacity-75"
+                    : "cursor-pointer hover:border-accent/60 hover:bg-surface"
+                }`}
+              >
+                {uploading ? (
+                  <Loader2 className="size-6 animate-spin text-accent" />
+                ) : fileName ? (
+                  <FileText className="size-6 text-accent" />
+                ) : (
+                  <Upload className="size-6 text-muted" />
+                )}
+                <span className="text-xs font-semibold">
+                  {uploading
+                    ? "Enviando documento..."
+                    : fileName || "Clique para selecionar um documento"}
+                </span>
+                <span className="text-[10px] text-muted">
+                  PDF, JPG, PNG ou WebP, maximo 10 MB
+                </span>
+                <input
+                  accept="application/pdf,image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  disabled={uploading}
+                  name="file"
+                  onChange={(event) =>
+                    setFileName(event.target.files?.[0]?.name ?? "")
+                  }
+                  required
+                  type="file"
+                />
+              </label>
+            </div>
+
+            <div className="border-t border-border px-5 py-4">
+              {loading ? (
+                <div className="grid gap-3" aria-busy="true">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-muted">
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                    Carregando documentos anexados...
+                  </div>
+                  <SkeletonBlock />
+                  <SkeletonBlock />
+                </div>
+              ) : attachments.length > 0 ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {attachments.map((attachment) => (
+                    <ImportAttachmentCard
+                      attachment={attachment}
+                      key={attachment.id}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="py-4 text-center text-xs italic text-muted">
+                  Nenhum anexo enviado.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex shrink-0 justify-end gap-2 border-t border-border bg-surface-elevated px-5 py-4">
+            <button
+              className="h-9 rounded-lg border border-border bg-panel px-4 text-xs font-semibold text-foreground transition hover:bg-surface disabled:opacity-60"
+              disabled={uploading}
+              onClick={onClose}
+              type="button"
+            >
+              Fechar
+            </button>
+            <button
+              className="flex h-9 items-center gap-2 rounded-lg bg-accent px-4 text-xs font-bold text-accent-foreground transition hover:bg-accent/90 disabled:opacity-60"
+              disabled={uploading}
+              type="submit"
+            >
+              {uploading ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+              ) : (
+                <Upload className="size-3.5" aria-hidden="true" />
+              )}
+              {uploading ? "Enviando..." : "Enviar"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function ImportAttachmentCard({
+  attachment,
+}: {
+  readonly attachment: ImportAttachmentWithPreview;
+}) {
+  const image = attachment.mimeType.startsWith("image/");
+
+  return (
+    <a
+      className="overflow-hidden rounded-lg border border-border bg-panel transition hover:border-accent/50 hover:bg-surface"
+      href={attachment.signedUrl}
+      rel="noreferrer"
+      target="_blank"
+    >
+      <div className="flex aspect-video items-center justify-center bg-surface">
+        {image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            alt={attachment.originalFileName}
+            className="h-full w-full object-cover"
+            src={attachment.signedUrl}
+          />
+        ) : (
+          <FileText className="size-7 text-muted" aria-hidden="true" />
+        )}
+      </div>
+      <div className="grid gap-1 px-3 py-2">
+        <span className="truncate text-xs font-semibold">
+          {attachment.originalFileName}
+        </span>
+        <span className="text-[10px] text-muted">
+          {formatFileSize(attachment.sizeBytes)} - {formatDateTime(attachment.createdAt)}
+        </span>
+      </div>
+    </a>
   );
 }
 
@@ -1539,6 +1846,12 @@ function removeSavingFields(
   return next;
 }
 
+function SkeletonBlock() {
+  return (
+    <div className="h-14 animate-pulse rounded-lg border border-border bg-surface" />
+  );
+}
+
 function getSavingFieldsFromPatch(
   patch: ImportRowOptimisticPatch,
 ): readonly ImportRowSavingField[] {
@@ -1601,11 +1914,23 @@ async function sendImportJson(
   return { ok: response.ok, body: (await response.json()) as ImportApiResponse };
 }
 
+function importAttachmentUrl(target: ImportAttachmentTarget): string {
+  return target.importRowId
+    ? `/api/imports/${target.importRequestId}/rows/${target.importRowId}/attachments`
+    : `/api/imports/${target.importRequestId}/attachments`;
+}
+
 function formatDateTime(value: Date | string): string {
   return new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 const iconButtonClass =

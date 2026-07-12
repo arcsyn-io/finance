@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   and,
+  count,
   desc,
   eq,
   gte,
@@ -10,7 +11,7 @@ import {
   lte,
 } from "drizzle-orm";
 import { db } from "@/db/client";
-import { categories, entries, wallets } from "@/db/schema";
+import { categories, entries, entryAttachments, wallets } from "@/db/schema";
 import type {
   EconomicEvent,
   Entry,
@@ -114,7 +115,7 @@ export class DrizzleEntryRepository implements EntryRepository {
       .where(and(...conditions))
       .orderBy(desc(entries.occurredOn), desc(entries.createdAt));
 
-    return rows.map(mapRowToEntry);
+    return this.withAttachmentCounts(context, rows.map(mapRowToEntry));
   }
 
   async findById(
@@ -131,7 +132,10 @@ export class DrizzleEntryRepository implements EntryRepository {
       .where(and(eq(entries.userId, userId), eq(entries.id, id)))
       .limit(1);
 
-    return row ? mapRowToEntry(row) : null;
+    if (!row) return null;
+
+    const [entry] = await this.withAttachmentCounts(context, [mapRowToEntry(row)]);
+    return entry ?? null;
   }
 
   async findByTransferId(
@@ -148,7 +152,7 @@ export class DrizzleEntryRepository implements EntryRepository {
       .where(and(eq(entries.userId, userId), eq(entries.transferId, transferId)))
       .orderBy(desc(entries.occurredOn), desc(entries.createdAt));
 
-    return rows.map(mapRowToEntry);
+    return this.withAttachmentCounts(context, rows.map(mapRowToEntry));
   }
 
   async create(
@@ -325,6 +329,33 @@ export class DrizzleEntryRepository implements EntryRepository {
 
     return entry;
   }
+
+  private async withAttachmentCounts(
+    context: ApplicationContext,
+    entryRows: Entry[],
+  ): Promise<Entry[]> {
+    if (entryRows.length === 0) {
+      return [];
+    }
+
+    const database = resolveDatabaseClient(context, db);
+    const counts = await database
+      .select({
+        entryId: entryAttachments.entryId,
+        count: count(entryAttachments.id),
+      })
+      .from(entryAttachments)
+      .where(inArray(entryAttachments.entryId, entryRows.map((entry) => entry.id)))
+      .groupBy(entryAttachments.entryId);
+    const countByEntryId = new Map(
+      counts.map((row) => [row.entryId, Number(row.count)]),
+    );
+
+    return entryRows.map((entry) => ({
+      ...entry,
+      attachmentCount: countByEntryId.get(entry.id) ?? 0,
+    }));
+  }
 }
 
 const entrySelection = {
@@ -386,6 +417,7 @@ function mapRowToEntry(row: EntryRow): Entry {
     externalId: row.entry.externalId,
     economicEvent: row.entry.economicEvent as EconomicEvent | null,
     receiptPath: row.entry.receiptPath,
+    attachmentCount: 0,
     deletedAt: row.entry.deletedAt,
     createdAt: row.entry.createdAt,
     updatedAt: row.entry.updatedAt,

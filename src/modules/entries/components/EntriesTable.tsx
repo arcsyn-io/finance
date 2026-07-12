@@ -17,12 +17,15 @@ import {
   ChevronLeft,
   ChevronRight,
   Check,
+  FileText,
   Link2Off,
   Loader2,
+  Paperclip,
   Pencil,
   Plus,
   RotateCcw,
   Trash2,
+  Upload,
   X,
 } from "lucide-react";
 import type { Category } from "@/domain/category/category";
@@ -78,6 +81,22 @@ type EntryApiResponse = {
   readonly error?: string;
 };
 
+type EntryAttachmentView = {
+  readonly id: string;
+  readonly entryId: string;
+  readonly originalFileName: string;
+  readonly mimeType: string;
+  readonly sizeBytes: number;
+  readonly signedUrl: string;
+  readonly createdAt: Date | string;
+};
+
+type EntryAttachmentApiResponse = {
+  readonly attachment?: EntryAttachmentView;
+  readonly attachments?: EntryAttachmentView[];
+  readonly error?: string;
+};
+
 const statusMessages: Record<string, string> = {
   created: "Lancamento criado com sucesso",
   updated: "Lancamento atualizado com sucesso",
@@ -109,6 +128,10 @@ export function EntriesTable({
   const [deleteCandidate, setDeleteCandidate] = useState<Entry | null>(null);
   const [transferSource, setTransferSource] = useState<Entry | null>(null);
   const [unlinkCandidate, setUnlinkCandidate] = useState<Entry | null>(null);
+  const [attachmentEntry, setAttachmentEntry] = useState<Entry | null>(null);
+  const [attachments, setAttachments] = useState<EntryAttachmentView[]>([]);
+  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
+  const [attachmentUploading, setAttachmentUploading] = useState(false);
   const [transferMode, setTransferMode] = useState<"existing" | "create">(
     "existing",
   );
@@ -420,6 +443,70 @@ export function EntriesTable({
     }
   }
 
+  async function openAttachments(entry: Entry) {
+    setAttachmentEntry(entry);
+    setAttachments([]);
+    setAttachmentsLoading(true);
+
+    try {
+      const response = await fetch(`/api/entries/${entry.id}/attachments`);
+      const body = (await response.json()) as EntryAttachmentApiResponse;
+
+      if (!response.ok) {
+        showToast("error", body.error ?? "Nao foi possivel carregar anexos");
+        return;
+      }
+
+      setAttachments(body.attachments ?? []);
+    } catch {
+      showToast("error", "Nao foi possivel carregar anexos");
+    } finally {
+      setAttachmentsLoading(false);
+    }
+  }
+
+  async function uploadAttachment(formData: FormData): Promise<boolean> {
+    if (!attachmentEntry) return false;
+
+    setAttachmentUploading(true);
+
+    try {
+      const response = await fetch(
+        `/api/entries/${attachmentEntry.id}/attachments`,
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
+      const body = (await response.json()) as EntryAttachmentApiResponse;
+
+      if (!response.ok || !body.attachment) {
+        showToast("error", body.error ?? "Nao foi possivel enviar anexo");
+        return false;
+      }
+
+      setAttachments((current) => [body.attachment as EntryAttachmentView, ...current]);
+      setEntries((current) =>
+        current.map((entry) =>
+          entry.id === attachmentEntry.id
+            ? {
+                ...entry,
+                attachmentCount: (entry.attachmentCount ?? 0) + 1,
+              }
+            : entry,
+        ),
+      );
+      showToast("success", "Anexo enviado com sucesso");
+      setAttachmentEntry(null);
+      return true;
+    } catch {
+      showToast("error", "Nao foi possivel enviar anexo");
+      return false;
+    } finally {
+      setAttachmentUploading(false);
+    }
+  }
+
   return (
     <div className="flex w-full flex-col gap-4 lg:gap-6">
       {toast ? <SystemToast onDismiss={() => setToast(null)} toast={toast} /> : null}
@@ -456,6 +543,16 @@ export function EntriesTable({
           onCancel={() => setUnlinkCandidate(null)}
           onConfirm={() => void unlinkTransfer(unlinkCandidate)}
           pending={pending || transferSaving}
+        />
+      ) : null}
+      {attachmentEntry ? (
+        <EntryAttachmentsDialog
+          attachments={attachments}
+          entry={attachmentEntry}
+          loading={attachmentsLoading}
+          onClose={() => setAttachmentEntry(null)}
+          onSubmit={uploadAttachment}
+          uploading={attachmentUploading}
         />
       ) : null}
 
@@ -586,6 +683,7 @@ export function EntriesTable({
                     key={entry.id}
                     onDelete={() => setDeleteCandidate(entry)}
                     onEdit={() => startEdit(entry)}
+                    onAttachments={() => void openAttachments(entry)}
                     onRestore={() => startTransition(() => void restore(entry))}
                     onTransfer={() => startTransfer(entry)}
                     pending={pending}
@@ -636,6 +734,7 @@ function EntryDisplayRow({
   entry,
   onDelete,
   onEdit,
+  onAttachments,
   onRestore,
   onTransfer,
   pending,
@@ -644,6 +743,7 @@ function EntryDisplayRow({
   readonly entry: Entry;
   readonly onDelete: () => void;
   readonly onEdit: () => void;
+  readonly onAttachments: () => void;
   readonly onRestore: () => void;
   readonly onTransfer: () => void;
   readonly pending: boolean;
@@ -690,6 +790,11 @@ function EntryDisplayRow({
             linked={Boolean(entry.transferId)}
             onClick={onTransfer}
           />
+          <AttachmentIndicator
+            count={entry.attachmentCount ?? 0}
+            disabled={pending}
+            onClick={onAttachments}
+          />
           {deleted ? (
             <div className="opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
               <IconButton disabled={pending} label="Restaurar lancamento" onClick={onRestore} tone="positive">
@@ -709,6 +814,41 @@ function EntryDisplayRow({
         </div>
       </td>
     </tr>
+  );
+}
+
+function AttachmentIndicator({
+  count,
+  disabled,
+  onClick,
+}: {
+  readonly count: number;
+  readonly disabled: boolean;
+  readonly onClick: () => void;
+}) {
+  const hasAttachments = count > 0;
+  const className = hasAttachments
+    ? "bg-positive/15 text-positive hover:bg-positive/25 disabled:opacity-40"
+    : "text-muted opacity-0 hover:bg-accent/10 hover:text-accent group-hover:opacity-100 disabled:opacity-40";
+
+  return (
+    <button
+      className={`relative flex size-7 shrink-0 items-center justify-center rounded-md transition ${className}`}
+      disabled={disabled}
+      onClick={onClick}
+      title={hasAttachments ? `${count} anexo(s)` : "Adicionar anexo"}
+      type="button"
+    >
+      <Paperclip className="size-3.5" aria-hidden="true" />
+      {hasAttachments ? (
+        <span className="absolute -right-1 -top-1 flex size-3.5 items-center justify-center rounded-full bg-positive text-[9px] font-bold text-background">
+          {count > 9 ? "9+" : count}
+        </span>
+      ) : null}
+      <span className="sr-only">
+        {hasAttachments ? `${count} anexo(s)` : "Adicionar anexo"}
+      </span>
+    </button>
   );
 }
 
@@ -747,6 +887,195 @@ function TransferIndicator({
       <ArrowLeftRight className="size-3.5" aria-hidden="true" />
       <span className="sr-only">Desvincular transferencia</span>
     </button>
+  );
+}
+
+function EntryAttachmentsDialog({
+  attachments,
+  entry,
+  loading,
+  onClose,
+  onSubmit,
+  uploading,
+}: {
+  readonly attachments: readonly EntryAttachmentView[];
+  readonly entry: Entry;
+  readonly loading: boolean;
+  readonly onClose: () => void;
+  readonly onSubmit: (formData: FormData) => Promise<boolean>;
+  readonly uploading: boolean;
+}) {
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const [fileName, setFileName] = useState("");
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!formRef.current || uploading) return;
+
+    const uploaded = await onSubmit(new FormData(formRef.current));
+
+    if (uploaded) {
+      formRef.current.reset();
+      setFileName("");
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-background/70 px-4 backdrop-blur-sm"
+      role="presentation"
+    >
+      <div
+        aria-modal="true"
+        className="flex max-h-[calc(100vh-2rem)] w-[min(560px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-border bg-surface-elevated shadow-2xl shadow-black/55"
+        role="dialog"
+      >
+        <div className="flex shrink-0 items-start justify-between border-b border-border px-5 py-4">
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold text-foreground">Anexos da transacao</h2>
+            <p className="mt-1 truncate text-xs text-muted">{entryLabel(entry)}</p>
+          </div>
+          <button className={iconButtonClass} onClick={onClose} type="button">
+            <X className="size-3.5" aria-hidden="true" />
+          </button>
+        </div>
+
+        <form
+          className="flex min-h-0 flex-1 flex-col"
+          onSubmit={submit}
+          ref={formRef}
+        >
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="grid gap-4 px-5 py-4">
+              <label
+                aria-busy={uploading}
+                className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border px-4 py-7 text-center transition ${
+                  uploading
+                    ? "cursor-wait bg-surface opacity-75"
+                    : "cursor-pointer hover:border-accent/60 hover:bg-surface"
+                }`}
+              >
+                {uploading ? (
+                  <Loader2
+                    className="size-6 animate-spin text-accent"
+                    aria-hidden="true"
+                  />
+                ) : fileName ? (
+                  <FileText className="size-6 text-accent" aria-hidden="true" />
+                ) : (
+                  <Upload className="size-6 text-muted" aria-hidden="true" />
+                )}
+                <span className="text-xs font-semibold">
+                  {uploading
+                    ? "Enviando documento..."
+                    : fileName || "Clique para selecionar um documento"}
+                </span>
+                <span className="text-[10px] text-muted">
+                  {uploading ? "Aguarde a conclusao do envio" : "PDF, JPG, PNG ou WebP, maximo 10 MB"}
+                </span>
+                <input
+                  accept="application/pdf,image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  disabled={uploading}
+                  name="file"
+                  onChange={(event) =>
+                    setFileName(event.target.files?.[0]?.name ?? "")
+                  }
+                  required
+                  type="file"
+                />
+              </label>
+            </div>
+
+            <div className="border-t border-border px-5 py-4">
+              {loading ? (
+                <div className="grid gap-3" aria-busy="true">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-muted">
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                    Carregando documentos anexados...
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <SkeletonBlock />
+                    <SkeletonBlock />
+                  </div>
+                </div>
+              ) : attachments.length > 0 ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {attachments.map((attachment) => (
+                    <AttachmentCard attachment={attachment} key={attachment.id} />
+                  ))}
+                </div>
+              ) : (
+                <p className="py-4 text-center text-xs italic text-muted">
+                  Nenhum anexo enviado.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex shrink-0 justify-end gap-2 border-t border-border bg-surface-elevated px-5 py-4">
+            <button
+              className="h-9 rounded-lg border border-border bg-panel px-4 text-xs font-semibold text-foreground transition hover:bg-surface disabled:opacity-60"
+              disabled={uploading}
+              onClick={onClose}
+              type="button"
+            >
+              Fechar
+            </button>
+            <button
+              className="flex h-9 items-center gap-2 rounded-lg bg-accent px-4 text-xs font-bold text-accent-foreground transition hover:bg-accent/90 disabled:opacity-60"
+              disabled={uploading}
+              type="submit"
+            >
+              {uploading ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+              ) : (
+                <Upload className="size-3.5" aria-hidden="true" />
+              )}
+              {uploading ? "Enviando..." : "Enviar"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function AttachmentCard({
+  attachment,
+}: {
+  readonly attachment: EntryAttachmentView;
+}) {
+  const image = attachment.mimeType.startsWith("image/");
+
+  return (
+    <a
+      className="overflow-hidden rounded-lg border border-border bg-panel transition hover:border-accent/50 hover:bg-surface"
+      href={attachment.signedUrl}
+      rel="noreferrer"
+      target="_blank"
+    >
+      <div className="flex aspect-video items-center justify-center bg-surface">
+        {image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            alt={attachment.originalFileName}
+            className="h-full w-full object-cover"
+            src={attachment.signedUrl}
+          />
+        ) : (
+          <FileText className="size-8 text-muted" aria-hidden="true" />
+        )}
+      </div>
+      <div className="grid gap-1 px-3 py-2">
+        <span className="truncate text-xs font-semibold text-foreground">
+          {attachment.originalFileName}
+        </span>
+        <span className="text-[10px] text-muted">
+          {formatFileSize(attachment.sizeBytes)} - {formatDateTime(attachment.createdAt)}
+        </span>
+      </div>
+    </a>
   );
 }
 
@@ -1530,6 +1859,8 @@ function IconButton({
 
 const inputClass =
   "h-8 rounded-md border border-border bg-surface/70 px-2.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-accent";
+const iconButtonClass =
+  "flex size-8 shrink-0 items-center justify-center rounded-md text-muted transition hover:bg-surface hover:text-foreground disabled:opacity-50";
 const prefixedControlClass =
   "h-9 w-full rounded-lg border border-border bg-surface/70 pl-24 pr-3 text-xs text-foreground outline-none focus:ring-1 focus:ring-accent";
 function defaultForm(
@@ -1597,6 +1928,19 @@ function entryLabel(entry: Entry): string {
 function formatDate(value: string): string {
   const [year, month, day] = value.split("-");
   return `${day}/${month}/${year}`;
+}
+
+function formatDateTime(value: Date | string): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1).replace(".", ",")} MB`;
 }
 
 function transferCandidates(

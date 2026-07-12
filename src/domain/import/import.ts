@@ -34,6 +34,7 @@ export type ImportRequest = {
   readonly defaultWalletName: string | null;
   readonly defaultCategoryId: string | null;
   readonly defaultCategoryName: string | null;
+  readonly attachmentCount: number;
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly rows: readonly ImportRow[];
@@ -61,6 +62,7 @@ export type ImportRow = {
   readonly economicEvent: EconomicEvent | null;
   readonly entryId: string | null;
   readonly ignoredAt: Date | null;
+  readonly attachmentCount: number;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 };
