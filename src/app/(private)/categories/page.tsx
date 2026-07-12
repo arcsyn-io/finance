@@ -26,7 +26,7 @@ export default async function CategoriesPage({
 
   return (
     <div className="flex w-full flex-col gap-5 lg:gap-6">
-      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <header className="flex flex-col items-start gap-4">
         <div>
           <Link className="text-[10px] font-semibold uppercase tracking-widest text-accent" href="/">
             REGISTROS
@@ -39,7 +39,7 @@ export default async function CategoriesPage({
             transacoes.
           </p>
         </div>
-        <Button asChild variant="outline">
+        <Button asChild className="self-start" variant="outline">
           <Link href={showInactive ? "/categories" : "/categories?showInactive=true"}>
             {showInactive ? (
               <EyeOff aria-hidden="true" />
