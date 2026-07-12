@@ -109,10 +109,7 @@ export function AppShell({ children }: { readonly children: React.ReactNode }) {
     loadingRoute !== null &&
     loadingRoute !== pathname &&
     skeletonRoutes.has(loadingRoute);
-  const mainClassName =
-    pathname === "/imports"
-      ? "min-w-0 px-4 py-5 sm:px-8 lg:px-16 lg:py-7"
-      : "mx-auto min-w-0 max-w-[1400px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7";
+  const mainClassName = "min-w-0 px-4 py-5 sm:px-8 lg:px-16 lg:py-7";
 
   return (
     <div className="min-h-screen bg-background text-foreground lg:grid lg:grid-cols-[224px_minmax(0,1fr)]">

@@ -29,7 +29,7 @@ export default async function CategoriesPage({
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <Link className="text-[10px] font-semibold uppercase tracking-widest text-accent" href="/">
-            Operacao
+            REGISTROS
           </Link>
           <h1 className="mt-2 text-xl font-semibold tracking-tight">
             Categorias
