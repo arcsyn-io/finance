@@ -36,7 +36,12 @@ class FakeImportService {
   }
 
   async confirm() {
-    return { importedCount: 0, skippedCount: 0 };
+    return {
+      importedCount: 0,
+      skippedCount: 0,
+      startDate: null,
+      endDate: null,
+    };
   }
 
   async cancel() {

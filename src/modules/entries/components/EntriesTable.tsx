@@ -62,6 +62,7 @@ type EntriesTableProps = {
   readonly categories: readonly Category[];
   readonly initialStartDate: string;
   readonly initialEndDate: string;
+  readonly initialToastMessage?: string;
 };
 
 type EntryForm = {
@@ -111,6 +112,7 @@ export function EntriesTable({
   initialEndDate,
   initialEntries,
   initialStartDate,
+  initialToastMessage,
   wallets,
 }: EntriesTableProps) {
   const [entries, setEntries] = useState(() => [...initialEntries]);
@@ -143,7 +145,11 @@ export function EntriesTable({
   const [form, setForm] = useState<EntryForm>(() =>
     defaultForm(wallets, categories),
   );
-  const [toast, setToast] = useState<SystemToastMessage | null>(null);
+  const [toast, setToast] = useState<SystemToastMessage | null>(() =>
+    initialToastMessage
+      ? { id: Date.now(), message: initialToastMessage, tone: "success" }
+      : null,
+  );
   const [pending, startTransition] = useTransition();
   const addButtonRef = useRef<HTMLButtonElement | null>(null);
   const filtersInitializedRef = useRef(false);

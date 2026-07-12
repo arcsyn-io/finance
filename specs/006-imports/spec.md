@@ -28,6 +28,11 @@ O usuario precisa importar lancamentos exportados do Nubank sem gravar fatos fin
 - Uma linha da importacao pode ter anexos proprios, usados quando cada item possui comprovante individual.
 - Um anexo por linha deve pertencer obrigatoriamente a uma linha da mesma importacao.
 - Anexos de importacao devem ser privados e visiveis apenas para o usuario dono da importacao.
+- Ao confirmar a importacao, cada anexo global deve ser vinculado a todos os lancamentos criados, por meio de registros em `entry_attachments` que apontam para o mesmo objeto no storage.
+- Ao confirmar a importacao, cada anexo de linha deve ser vinculado somente ao lancamento criado a partir daquela linha.
+- A confirmacao nao deve duplicar o arquivo no storage; os vinculos de lancamento reutilizam bucket, caminho e metadados do anexo da importacao.
+- O mesmo objeto do storage pode ser vinculado a lancamentos distintos, mas nao pode ser vinculado mais de uma vez ao mesmo lancamento.
+- Linhas ignoradas ou descartadas como duplicadas nao criam lancamento nem vinculo de anexo.
 
 ## UI Esperada
 
@@ -46,6 +51,11 @@ O usuario precisa importar lancamentos exportados do Nubank sem gravar fatos fin
 
 - Nenhum registro e inserido em `entries` no upload.
 - Confirmar importacao cria lancamentos definitivos e marca o pedido como `CONFIRMED`.
+- Confirmar importacao vincula a cada lancamento seus anexos de linha e todos os anexos globais da importacao.
+- Falhas nas operacoes de importacao exibem um toaster de erro com mensagem apropriada.
+- Operacoes concluidas exibem um toaster de sucesso.
+- Apos uma confirmacao que cria lancamentos, o usuario e redirecionado para `/transactions`, filtrado entre a menor e a maior data dos lancamentos criados, e visualiza o toaster de sucesso na tela de destino.
+- Durante a confirmacao, o botao deve permanecer desabilitado e exibir indicador de carregamento ate ocorrer erro, conclusao sem redirecionamento ou navegacao para Transacoes.
 - Erros de validacao retornam mensagens em portugues.
 - A tela funciona com dados reais de carteiras, categorias e importacoes do usuario autenticado.
 - O usuario consegue anexar uma fatura global e tambem anexos individuais em linhas da mesma importacao.

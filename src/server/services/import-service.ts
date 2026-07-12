@@ -1,8 +1,8 @@
-import { CategoryNotFoundError } from "@/domain/category/category-errors";
-import type { EconomicEvent } from "@/domain/entry/entry";
-import { InvalidImportError, ImportNotFoundError } from "@/domain/import/import-errors";
-import { parseImportCsv } from "@/domain/import/import-csv-parser";
-import { WalletNotFoundError } from "@/domain/wallet/wallet-errors";
+import { CategoryNotFoundError } from "../../domain/category/category-errors";
+import type { EconomicEvent } from "../../domain/entry/entry";
+import { InvalidImportError, ImportNotFoundError } from "../../domain/import/import-errors";
+import { parseImportCsv } from "../../domain/import/import-csv-parser";
+import { WalletNotFoundError } from "../../domain/wallet/wallet-errors";
 import type {
   ConfirmImportCommand,
   CreateImportCommand,
@@ -10,23 +10,29 @@ import type {
   ListImportsCommand,
   SetImportRowIgnoredCommand,
   UpdateImportRowCommand,
-} from "@/server/commands/import-commands";
-import type { ApplicationContext } from "@/server/context/application-context";
-import type { CategoryRepository } from "@/server/repositories/category-repository";
-import type { EntryRepository } from "@/server/repositories/entry-repository";
-import type { ImportRepository } from "@/server/repositories/import-repository";
-import type { WalletRepository } from "@/server/repositories/wallet-repository";
-import type { UnitOfWork } from "@/server/unit-of-work/unit-of-work";
-import { inferDirection, inferEconomicEvent } from "@/server/usecases/entry/entry-validation";
+} from "../commands/import-commands";
+import type { ApplicationContext } from "../context/application-context";
+import type { CategoryRepository } from "../repositories/category-repository";
+import type { EntryRepository } from "../repositories/entry-repository";
+import type { EntryAttachmentRepository } from "../repositories/entry-attachment-repository";
+import type { ImportAttachmentRepository } from "../repositories/import-attachment-repository";
+import type { ImportRepository } from "../repositories/import-repository";
+import type { WalletRepository } from "../repositories/wallet-repository";
+import type { UnitOfWork } from "../unit-of-work/unit-of-work";
+import { inferDirection, inferEconomicEvent } from "../usecases/entry/entry-validation";
 
 export type ConfirmImportResult = {
   readonly importedCount: number;
   readonly skippedCount: number;
+  readonly startDate: string | null;
+  readonly endDate: string | null;
 };
 
 export type ImportServiceDependencies = {
   readonly repository: ImportRepository;
   readonly entryRepository: EntryRepository;
+  readonly importAttachmentRepository: ImportAttachmentRepository;
+  readonly entryAttachmentRepository: EntryAttachmentRepository;
   readonly walletRepository: WalletRepository;
   readonly categoryRepository: CategoryRepository;
   readonly unitOfWork: UnitOfWork;
@@ -125,6 +131,14 @@ export class ImportService {
 
       let importedCount = 0;
       let skippedCount = 0;
+      let startDate: string | null = null;
+      let endDate: string | null = null;
+      const globalAttachments =
+        await this.dependencies.importAttachmentRepository.listByImportRequestId(
+          txContext,
+          request.id,
+          { importRowId: null },
+        );
 
       for (const row of activeRows) {
         const walletId = row.walletId ?? request.defaultWalletId;
@@ -177,12 +191,31 @@ export class ImportService {
           description: row.description,
           externalId: row.externalId,
         });
+        const rowAttachments =
+          await this.dependencies.importAttachmentRepository.listByImportRequestId(
+            txContext,
+            request.id,
+            { importRowId: row.id },
+          );
+
+        for (const attachment of [...globalAttachments, ...rowAttachments]) {
+          await this.dependencies.entryAttachmentRepository.create(txContext, {
+            entryId: entry.id,
+            bucketName: attachment.bucketName,
+            objectPath: attachment.objectPath,
+            originalFileName: attachment.originalFileName,
+            mimeType: attachment.mimeType,
+            sizeBytes: attachment.sizeBytes,
+          });
+        }
         await this.dependencies.repository.setRowEntryId(txContext, row.id, entry.id);
         importedCount += 1;
+        startDate = earliestDate(startDate, row.occurredOn);
+        endDate = latestDate(endDate, row.occurredOn);
       }
 
       await this.dependencies.repository.confirmRequest(txContext, request.id);
-      return { importedCount, skippedCount };
+      return { importedCount, skippedCount, startDate, endDate };
     });
   }
 
@@ -217,6 +250,14 @@ export class ImportService {
       if (!category) throw new CategoryNotFoundError();
     }
   }
+}
+
+function earliestDate(current: string | null, candidate: string): string {
+  return current === null || candidate < current ? candidate : current;
+}
+
+function latestDate(current: string | null, candidate: string): string {
+  return current === null || candidate > current ? candidate : current;
 }
 
 function validateRowFields(command: UpdateImportRowCommand): string[] {

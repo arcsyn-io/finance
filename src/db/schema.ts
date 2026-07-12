@@ -248,8 +248,11 @@ export const entryAttachments = pgTable(
       table.userId,
       table.entryId,
     ),
-    userObjectIdx: uniqueIndex("entry_attachments_user_object_idx").on(
+    userEntryObjectIdx: uniqueIndex(
+      "entry_attachments_user_entry_object_idx",
+    ).on(
       table.userId,
+      table.entryId,
       table.objectPath,
     ),
   }),

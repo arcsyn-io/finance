@@ -7,12 +7,20 @@ import { createWalletService } from "@/server/services/wallet-service-factory";
 
 export const dynamic = "force-dynamic";
 
-export default async function TransactionsPage() {
+type TransactionsPageProps = {
+  readonly searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function TransactionsPage({ searchParams }: TransactionsPageProps) {
   const context = await getCurrentApplicationContext();
   const entryService = createEntryService();
   const walletService = createWalletService();
   const categoryService = await createCategoryService();
-  const { startDate, endDate } = currentMonthRange();
+  const params = (await searchParams) ?? {};
+  const currentRange = currentMonthRange();
+  const startDate = validDateParam(params.startDate) ?? currentRange.startDate;
+  const endDate = validDateParam(params.endDate) ?? currentRange.endDate;
+  const importedCount = validCountParam(params.importedCount);
 
   const [entries, wallets, categories] = await Promise.all([
     entryService.list(context, {
@@ -49,10 +57,26 @@ export default async function TransactionsPage() {
         initialEndDate={endDate}
         initialEntries={entries}
         initialStartDate={startDate}
+        initialToastMessage={
+          importedCount === null
+            ? undefined
+            : `Importacao confirmada: ${importedCount} lancamentos criados`
+        }
         wallets={wallets}
       />
     </div>
   );
+}
+
+function validDateParam(value: string | string[] | undefined): string | null {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? value
+    : null;
+}
+
+function validCountParam(value: string | string[] | undefined): number | null {
+  if (typeof value !== "string" || !/^\d+$/.test(value)) return null;
+  return Number(value);
 }
 
 function currentMonthRange() {

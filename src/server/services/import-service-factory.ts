@@ -1,5 +1,7 @@
 import { categoryRepository } from "@/server/repositories/category-repository";
 import { entryRepository } from "@/server/repositories/entry-repository";
+import { entryAttachmentRepository } from "@/server/repositories/entry-attachment-repository";
+import { importAttachmentRepository } from "@/server/repositories/import-attachment-repository";
 import { importRepository } from "@/server/repositories/import-repository";
 import { walletRepository } from "@/server/repositories/wallet-repository";
 import { ImportService } from "@/server/services/import-service";
@@ -9,6 +11,8 @@ export function createImportService(): ImportService {
   return new ImportService({
     repository: importRepository,
     entryRepository,
+    entryAttachmentRepository,
+    importAttachmentRepository,
     walletRepository,
     categoryRepository,
     unitOfWork,

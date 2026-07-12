@@ -6,3 +6,4 @@
 4. Criar pagina privada `/imports` e componente cliente de revisao inspirado no prototipo.
 5. Adicionar anexos de importacao com tabela `import_attachments`, storage privado e rotas para anexo global e por linha.
 6. Adicionar link no shell e validar com testes, lint e typecheck.
+7. Na confirmacao, reutilizar os objetos dos anexos da importacao e criar os respectivos vinculos em `entry_attachments` para cada lancamento criado.

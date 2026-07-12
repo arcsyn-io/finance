@@ -10,6 +10,7 @@ import {
   useState,
   useTransition,
 } from "react";
+import { useRouter } from "next/navigation";
 import {
   Ban,
   CalendarDays,
@@ -67,7 +68,12 @@ type ImportApiResponse = {
   readonly row?: ImportRow;
   readonly deletedRowId?: string;
   readonly status?: string;
-  readonly result?: { importedCount: number; skippedCount: number };
+  readonly result?: {
+    importedCount: number;
+    skippedCount: number;
+    startDate: string | null;
+    endDate: string | null;
+  };
   readonly error?: string;
 };
 
@@ -137,10 +143,12 @@ export function ImportsWorkspace({
   initialImports,
   wallets,
 }: ImportsWorkspaceProps) {
+  const router = useRouter();
   const [imports, setImports] = useState(() => [...initialImports]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [toast, setToast] = useState<SystemToastMessage | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const selected = imports.find((item) => item.id === selectedId) ?? null;
@@ -232,36 +240,60 @@ export function ImportsWorkspace({
   }
 
   async function confirmImport(id: string) {
-    const response = await fetch(`/api/imports/${id}/confirm`, { method: "POST" });
-    const body = (await response.json()) as ImportApiResponse;
+    if (confirming) return;
+    setConfirming(true);
 
-    if (!response.ok) {
-      showToast("error", body.error ?? "Nao foi possivel confirmar importacao");
-      return;
+    try {
+      const response = await fetch(`/api/imports/${id}/confirm`, { method: "POST" });
+      const body = (await response.json()) as ImportApiResponse;
+
+      if (!response.ok) {
+        showToast("error", body.error ?? "Nao foi possivel confirmar importacao");
+        setConfirming(false);
+        return;
+      }
+
+      const result = body.result;
+      if (result?.startDate && result.endDate) {
+        const params = new URLSearchParams({
+          startDate: result.startDate,
+          endDate: result.endDate,
+          importedCount: String(result.importedCount),
+        });
+        router.push(`/transactions?${params.toString()}`);
+        return;
+      }
+
+      await refreshImport(id);
+      showToast(
+        "success",
+        `Importacao confirmada: ${result?.importedCount ?? 0} lancamentos criados`,
+      );
+      setConfirming(false);
+    } catch {
+      showToast("error", "Nao foi possivel confirmar importacao");
+      setConfirming(false);
     }
-
-    await refreshImport(id);
-    showToast(
-      "success",
-      `Importacao confirmada: ${body.result?.importedCount ?? 0} lancamentos criados`,
-    );
   }
 
   if (selected) {
     return (
-      <ImportReview
-        categories={categories}
-        importRequest={selected}
-        onBack={() => setSelectedId(null)}
-        onPatchRow={(rowId, patch) => patchImportRow(selected.id, rowId, patch)}
-        onRefresh={() => refreshImport(selected.id)}
-        onRemoveRows={(rowIds) => removeImportRows(selected.id, rowIds)}
-        onReplaceRow={(row) => replaceImportRow(selected.id, row)}
-        onToast={showToast}
-        onConfirm={() => startTransition(() => void confirmImport(selected.id))}
-        pending={pending}
-        wallets={wallets}
-      />
+      <>
+        {toast ? <SystemToast onDismiss={() => setToast(null)} toast={toast} /> : null}
+        <ImportReview
+          categories={categories}
+          importRequest={selected}
+          onBack={() => setSelectedId(null)}
+          onPatchRow={(rowId, patch) => patchImportRow(selected.id, rowId, patch)}
+          onRefresh={() => refreshImport(selected.id)}
+          onRemoveRows={(rowIds) => removeImportRows(selected.id, rowIds)}
+          onReplaceRow={(row) => replaceImportRow(selected.id, row)}
+          onToast={showToast}
+          confirming={confirming}
+          onConfirm={() => void confirmImport(selected.id)}
+          wallets={wallets}
+        />
+      </>
     );
   }
 
@@ -359,6 +391,7 @@ export function ImportsWorkspace({
 
 function ImportReview({
   categories,
+  confirming,
   importRequest,
   onBack,
   onConfirm,
@@ -367,10 +400,10 @@ function ImportReview({
   onRemoveRows,
   onReplaceRow,
   onToast,
-  pending,
   wallets,
 }: {
   readonly categories: readonly Category[];
+  readonly confirming: boolean;
   readonly importRequest: ImportRequest;
   readonly onBack: () => void;
   readonly onConfirm: () => void;
@@ -379,7 +412,6 @@ function ImportReview({
   readonly onRemoveRows: (rowIds: readonly string[]) => void;
   readonly onReplaceRow: (row: ImportRow) => void;
   readonly onToast: (tone: "success" | "error", message: string) => void;
-  readonly pending: boolean;
   readonly wallets: readonly Wallet[];
 }) {
   const tableRef = useRef<HTMLTableElement | null>(null);
@@ -953,12 +985,13 @@ function ImportReview({
         </button>
         <button
           className="flex h-9 items-center gap-2 rounded-lg bg-accent px-4 text-xs font-bold text-accent-foreground transition hover:bg-accent/90 disabled:opacity-60"
-          disabled={confirmed || pending || totals.active === 0}
+          aria-busy={confirming}
+          disabled={confirmed || confirming || totals.active === 0}
           onClick={onConfirm}
           type="button"
         >
-          {pending ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Check className="size-3.5" aria-hidden="true" />}
-          Confirmar importacao
+          {confirming ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Check className="size-3.5" aria-hidden="true" />}
+          {confirming ? "Confirmando..." : "Confirmar importacao"}
         </button>
       </div>
 
@@ -1162,12 +1195,13 @@ function ImportAttachmentsDialog({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!formRef.current || uploading) return;
+    if (uploading) return;
 
-    const uploaded = await onSubmit(new FormData(formRef.current));
+    const form = event.currentTarget;
+    const uploaded = await onSubmit(new FormData(form));
 
     if (uploaded) {
-      formRef.current.reset();
+      form.reset();
       setFileName("");
     }
   }
