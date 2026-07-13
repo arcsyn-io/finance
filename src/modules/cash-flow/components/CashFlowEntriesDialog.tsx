@@ -5,7 +5,16 @@ import { createPortal } from "react-dom";
 import { Check, LoaderCircle, Pencil, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Category } from "@/domain/category/category";
-import type { Entry, EntryDirection } from "@/domain/entry/entry";
+import {
+  economicEventLabels,
+  economicEvents,
+  entryNatureLabels,
+  entryNatures,
+  type EconomicEvent,
+  type Entry,
+  type EntryDirection,
+  type EntryNature,
+} from "@/domain/entry/entry";
 import type { Wallet } from "@/domain/wallet/wallet";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -30,6 +39,8 @@ type CashFlowEntriesDialogProps = {
 type EditableEntryFields = {
   readonly categoryId: string;
   readonly description: string;
+  readonly economicEvent: EconomicEvent | "";
+  readonly nature: EntryNature;
   readonly walletId: string;
 };
 
@@ -129,6 +140,8 @@ export function CashFlowEntriesDialog({
     setForm({
       categoryId: entry.categoryId ?? "",
       description: entry.description ?? "",
+      economicEvent: entry.economicEvent ?? "",
+      nature: entry.nature,
       walletId: entry.walletId,
     });
     setError(null);
@@ -158,8 +171,8 @@ export function CashFlowEntriesDialog({
           amountCents: entry.amountCents,
           categoryId: form.categoryId,
           description: form.description.trim() || undefined,
-          economicEvent: entry.economicEvent ?? undefined,
-          nature: entry.nature,
+          economicEvent: form.economicEvent || undefined,
+          nature: form.nature,
           occurredOn: entry.occurredOn,
           walletId: form.walletId,
         }),
@@ -210,7 +223,7 @@ export function CashFlowEntriesDialog({
         onClick={onClose}
         type="button"
       />
-      <section className="relative flex max-h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-border bg-panel shadow-2xl">
+      <section className="relative flex max-h-[88vh] w-full max-w-7xl flex-col overflow-hidden rounded-xl border border-border bg-panel shadow-2xl">
         <header className="flex items-start justify-between gap-4 border-b border-border px-4 py-4 sm:px-6">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-accent">
@@ -254,7 +267,7 @@ export function CashFlowEntriesDialog({
               </p>
             </div>
           ) : (
-            <table className="w-full min-w-[900px] border-collapse">
+            <table className="w-full min-w-[1200px] border-collapse">
               <thead>
                 <tr>
                   {[
@@ -262,6 +275,8 @@ export function CashFlowEntriesDialog({
                     "Descrição",
                     "Categoria",
                     "Carteira",
+                    "Natureza",
+                    "Evento econômico",
                     "Valor",
                     "Ações",
                   ].map((label) => (
@@ -335,6 +350,55 @@ export function CashFlowEntriesDialog({
                           entry.walletName ?? "Carteira não encontrada"
                         )}
                       </td>
+                      <td className="min-w-40 border-t border-border px-4 py-3 text-xs">
+                        {editing ? (
+                          <Select
+                            aria-label="Natureza"
+                            className="h-8"
+                            onChange={(event) =>
+                              setForm({
+                                ...form,
+                                nature: event.target.value as EntryNature,
+                              })
+                            }
+                            value={form.nature}
+                          >
+                            {entryNatures.map((nature) => (
+                              <option key={nature} value={nature}>
+                                {entryNatureLabels[nature]}
+                              </option>
+                            ))}
+                          </Select>
+                        ) : (
+                          entryNatureLabels[entry.nature]
+                        )}
+                      </td>
+                      <td className="min-w-48 border-t border-border px-4 py-3 text-xs">
+                        {editing ? (
+                          <Select
+                            aria-label="Evento econômico"
+                            className="h-8"
+                            onChange={(event) =>
+                              setForm({
+                                ...form,
+                                economicEvent: event.target.value as EconomicEvent | "",
+                              })
+                            }
+                            value={form.economicEvent}
+                          >
+                            <option value="">Inferir automaticamente</option>
+                            {economicEvents.map((economicEvent) => (
+                              <option key={economicEvent} value={economicEvent}>
+                                {economicEventLabels[economicEvent]}
+                              </option>
+                            ))}
+                          </Select>
+                        ) : entry.economicEvent ? (
+                          economicEventLabels[entry.economicEvent]
+                        ) : (
+                          "-"
+                        )}
+                      </td>
                       <td className="border-t border-border px-4 py-3 text-right text-xs font-semibold tabular-nums">
                         {formatMoney(entry.amountCents)}
                       </td>
@@ -360,7 +424,7 @@ export function CashFlowEntriesDialog({
               </tbody>
               <tfoot>
                 <tr>
-                  <td className="border-t border-border bg-surface/50 px-4 py-3 text-xs font-semibold" colSpan={4}>
+                  <td className="border-t border-border bg-surface/50 px-4 py-3 text-xs font-semibold" colSpan={6}>
                     Total da célula
                   </td>
                   <td className="border-t border-border bg-surface/50 px-4 py-3 text-right text-xs font-semibold tabular-nums">

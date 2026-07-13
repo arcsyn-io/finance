@@ -15,7 +15,7 @@ O usuário precisa avaliar se a operação cotidiana gera caixa suficiente ao lo
 - apresentar três gráficos mensais e uma matriz anual com os indicadores;
 - agrupar recebimentos e despesas por categoria, com expansão das linhas;
 - apresentar separadamente as movimentações de carteiras `CASH` que sejam patrimoniais ou façam parte de transferência;
-- permitir abrir os lançamentos que compõem uma célula não vazia e editar categoria, carteira e descrição;
+- permitir abrir os lançamentos que compõem uma célula não vazia e editar categoria, carteira, natureza, evento econômico e descrição;
 - exibir valores monetários em reais somente na interface.
 
 ## Regras de negócio
@@ -65,6 +65,6 @@ O usuário precisa avaliar se a operação cotidiana gera caixa suficiente ao lo
 6. Os agrupamentos por categoria conciliam com os totais mensais, incluindo uma linha `Sem categoria` quando necessário.
 7. Saldo inicial e caixa mínimo podem ser salvos para um mês e, opcionalmente, replicados até dezembro.
 8. O drill-down de totais e categorias lista somente os lançamentos da célula escolhida.
-9. A edição de categoria, carteira ou descrição remove ou reposiciona o lançamento na análise após a atualização.
+9. A edição de categoria, carteira, natureza, evento econômico ou descrição remove ou reposiciona o lançamento na análise após a atualização.
 10. Estados de zero, carregamento, vazio, erro e sucesso são apresentados em português.
 11. Testes automatizados comprovam consolidação anual, fórmulas e propagação da configuração; lint e typecheck permanecem verdes.

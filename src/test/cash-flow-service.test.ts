@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import test from "node:test";
 import {
   ApplicationContext,
@@ -11,6 +13,25 @@ import type {
   UpsertCashFlowConfigData,
 } from "../server/repositories/cash-flow-repository";
 import { CashFlowService } from "../server/services/cash-flow-service";
+
+test("modal permite editar natureza e evento economico", () => {
+  const source = readFileSync(
+    join(
+      process.cwd(),
+      "src",
+      "modules",
+      "cash-flow",
+      "components",
+      "CashFlowEntriesDialog.tsx",
+    ),
+    "utf8",
+  );
+
+  assert.match(source, /aria-label="Natureza"/);
+  assert.match(source, /aria-label="Evento econômico"/);
+  assert.match(source, /nature: form\.nature/);
+  assert.match(source, /economicEvent: form\.economicEvent \|\| undefined/);
+});
 import type { UnitOfWork } from "../server/unit-of-work/unit-of-work";
 
 const context = ApplicationContext.user({

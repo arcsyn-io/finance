@@ -8,3 +8,6 @@
 - [X] T006 Implementar expansão por categoria, seção não operacional e drill-down editável.
 - [X] T007 Atualizar navegação e revalidação após edição de lançamentos.
 - [X] T008 Rodar testes, lint, typecheck e validar a interface em desktop e mobile.
+- [X] T009 Escrever teste de regressão para natureza e evento econômico na modal.
+- [X] T010 Adicionar natureza e evento econômico à edição do drill-down.
+- [X] T011 Rodar testes, lint e typecheck.
