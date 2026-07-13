@@ -3,7 +3,10 @@ import test from "node:test";
 
 import type { Entry } from "../domain/entry/entry";
 import type { ImportAttachment } from "../domain/import/import-attachment";
-import type { ImportRequest } from "../domain/import/import";
+import type {
+  ImportRequest,
+  PreparedImportRow,
+} from "../domain/import/import";
 import { ApplicationContext } from "../server/context/application-context";
 import type { CategoryRepository } from "../server/repositories/category-repository";
 import type { EntryAttachmentRepository } from "../server/repositories/entry-attachment-repository";
@@ -13,8 +16,196 @@ import type { ImportRepository } from "../server/repositories/import-repository"
 import type { WalletRepository } from "../server/repositories/wallet-repository";
 import { ImportService } from "../server/services/import-service";
 import type { UnitOfWork } from "../server/unit-of-work/unit-of-work";
+import { PrepareImportRowsUseCase } from "../server/usecases/import/prepare-import-rows.usecase";
 
 const now = new Date("2026-07-12T12:00:00.000Z");
+
+test("criacao preenche categoria natureza e evento sugeridos pelo historico", async () => {
+  const insertedRows: PreparedImportRow[] = [];
+  const historyQueries: Array<{
+    readonly direction: string;
+    readonly walletId: string | null;
+    readonly limit: number;
+  }> = [];
+  const entryRepository = {
+    async listSuggestionHistory(
+      _context: ApplicationContext,
+      query: {
+        readonly direction: string;
+        readonly walletId: string | null;
+        readonly limit: number;
+      },
+    ) {
+      historyQueries.push(query);
+      return [
+        {
+          categoryId: "category-history",
+          nature: "OPERATIONAL" as const,
+          economicEvent: "CONSUMPTION" as const,
+          description: "Subzero",
+        },
+      ];
+    },
+  } as unknown as EntryRepository;
+  const request = makeRequest({ rows: [] });
+  const service = createServiceForImportCreation({
+    entryRepository,
+    request,
+    onInsertRows(rows) {
+      insertedRows.push(...rows);
+    },
+  });
+
+  await service.create(makeContext(), {
+    fileName: "fatura.csv",
+    fileContent: "date,title,amount\n2026-07-12,Subzero,10.00",
+    fileSizeBytes: 48,
+    source: "NUBANK_CSV",
+    defaultWalletId: "wallet-history",
+    defaultCategoryId: null,
+    nature: null,
+    economicEvent: null,
+  });
+
+  assert.deepEqual(historyQueries, [
+    { direction: "OUT", walletId: "wallet-history", limit: 1000 },
+  ]);
+  assert.deepEqual(
+    insertedRows.map(({ categoryId, nature, economicEvent }) => ({
+      categoryId,
+      nature,
+      economicEvent,
+    })),
+    [
+      {
+        categoryId: "category-history",
+        nature: "OPERATIONAL",
+        economicEvent: "CONSUMPTION",
+      },
+    ],
+  );
+});
+
+test("criacao preserva default de categoria e sugere somente campos sem default", async () => {
+  const insertedRows: PreparedImportRow[] = [];
+  const entryRepository = {
+    async listSuggestionHistory() {
+      return [
+        {
+          categoryId: "category-history",
+          nature: "OPERATIONAL" as const,
+          economicEvent: "CONSUMPTION" as const,
+          description: "Subzero",
+        },
+      ];
+    },
+  } as unknown as EntryRepository;
+  const request = makeRequest({ rows: [] });
+  const service = createServiceForImportCreation({
+    entryRepository,
+    request,
+    onInsertRows(rows) {
+      insertedRows.push(...rows);
+    },
+  });
+
+  await service.create(makeContext(), {
+    fileName: "fatura.csv",
+    fileContent: "date,title,amount\n2026-07-12,Subzero,10.00",
+    fileSizeBytes: 48,
+    source: "NUBANK_CSV",
+    defaultWalletId: null,
+    defaultCategoryId: "category-default",
+    nature: null,
+    economicEvent: null,
+  });
+
+  assert.equal(insertedRows[0]?.categoryId, null);
+  assert.equal(insertedRows[0]?.nature, "OPERATIONAL");
+  assert.equal(insertedRows[0]?.economicEvent, "CONSUMPTION");
+});
+
+test("criacao preserva todos os defaults sem consultar o historico", async () => {
+  const insertedRows: PreparedImportRow[] = [];
+  let historyQueried = false;
+  const entryRepository = {
+    async listSuggestionHistory() {
+      historyQueried = true;
+      return [];
+    },
+  } as unknown as EntryRepository;
+  const service = createServiceForImportCreation({
+    entryRepository,
+    request: makeRequest({ rows: [] }),
+    onInsertRows(rows) {
+      insertedRows.push(...rows);
+    },
+  });
+
+  await service.create(makeContext(), {
+    fileName: "fatura.csv",
+    fileContent: "date,title,amount\n2026-07-12,Subzero,10.00",
+    fileSizeBytes: 48,
+    source: "NUBANK_CSV",
+    defaultWalletId: null,
+    defaultCategoryId: "category-default",
+    nature: "PATRIMONIAL",
+    economicEvent: "INVESTMENT",
+  });
+
+  assert.equal(historyQueried, false);
+  assert.deepEqual(
+    insertedRows.map(({ categoryId, nature, economicEvent }) => ({
+      categoryId,
+      nature,
+      economicEvent,
+    })),
+    [{ categoryId: null, nature: null, economicEvent: null }],
+  );
+});
+
+test("criacao mantem campos vazios quando o historico nao atinge o score minimo", async () => {
+  const insertedRows: PreparedImportRow[] = [];
+  const entryRepository = {
+    async listSuggestionHistory() {
+      return [
+        {
+          categoryId: "category-history",
+          nature: "OPERATIONAL" as const,
+          economicEvent: "CONSUMPTION" as const,
+          description: "Posto de gasolina",
+        },
+      ];
+    },
+  } as unknown as EntryRepository;
+  const service = createServiceForImportCreation({
+    entryRepository,
+    request: makeRequest({ rows: [] }),
+    onInsertRows(rows) {
+      insertedRows.push(...rows);
+    },
+  });
+
+  await service.create(makeContext(), {
+    fileName: "fatura.csv",
+    fileContent: "date,title,amount\n2026-07-12,Padaria,10.00",
+    fileSizeBytes: 47,
+    source: "NUBANK_CSV",
+    defaultWalletId: null,
+    defaultCategoryId: null,
+    nature: null,
+    economicEvent: null,
+  });
+
+  assert.deepEqual(
+    insertedRows.map(({ categoryId, nature, economicEvent }) => ({
+      categoryId,
+      nature,
+      economicEvent,
+    })),
+    [{ categoryId: null, nature: null, economicEvent: null }],
+  );
+});
 
 test("confirmacao vincula anexo global a cada entry e anexo de linha somente ao seu entry", async () => {
   const entryAttachments: Array<Parameters<EntryAttachmentRepository["create"]>[1]> = [];
@@ -68,6 +259,9 @@ test("confirmacao vincula anexo global a cada entry e anexo de linha somente ao 
         return { id: "category-1", userId: "user-1", name: "Compras", type: "EXPENSE", icon: "tag", color: "#000000", active: true, archivedAt: null, createdAt: now, updatedAt: now };
       },
     } as unknown as CategoryRepository,
+    prepareImportRowsUseCase: new PrepareImportRowsUseCase(
+      {} as EntryRepository,
+    ),
     unitOfWork: {
       async execute(context, work) { return work(context.withTransaction({ client: "tx" })); },
     } as UnitOfWork,
@@ -95,7 +289,56 @@ function makeContext() {
   return ApplicationContext.user({ principalId: "user-1", now });
 }
 
-function makeRequest(): ImportRequest {
+function createServiceForImportCreation({
+  entryRepository,
+  request,
+  onInsertRows,
+}: {
+  readonly entryRepository: EntryRepository;
+  readonly request: ImportRequest;
+  readonly onInsertRows: (rows: readonly PreparedImportRow[]) => void;
+}): ImportService {
+  return new ImportService({
+    repository: {
+      async createRequest() { return request; },
+      async insertRows(
+        _context: ApplicationContext,
+        _requestId: string,
+        rows: readonly PreparedImportRow[],
+      ) { onInsertRows(rows); },
+      async findById() { return request; },
+    } as unknown as ImportRepository,
+    entryRepository,
+    prepareImportRowsUseCase: new PrepareImportRowsUseCase(entryRepository),
+    importAttachmentRepository: {} as ImportAttachmentRepository,
+    entryAttachmentRepository: {} as EntryAttachmentRepository,
+    walletRepository: {
+      async findById() {
+        return {
+          id: "wallet-history", userId: "user-1", name: "Cartao",
+          type: "CREDIT_CARD", initialBalanceCents: 0, active: true,
+          archivedAt: null, createdAt: now, updatedAt: now,
+        };
+      },
+    } as unknown as WalletRepository,
+    categoryRepository: {
+      async findById() {
+        return {
+          id: "category-default", userId: "user-1", name: "Default",
+          type: "EXPENSE", icon: "tag", color: "#000000", active: true,
+          archivedAt: null, createdAt: now, updatedAt: now,
+        };
+      },
+    } as unknown as CategoryRepository,
+    unitOfWork: {
+      async execute(context, work) {
+        return work(context.withTransaction({ client: "tx" }));
+      },
+    } as UnitOfWork,
+  });
+}
+
+function makeRequest(patch: Partial<ImportRequest> = {}): ImportRequest {
   const baseRow = {
     importRequestId: "import-1", userId: "user-1", occurredOn: "2026-07-12", amountCents: 1000,
     direction: "OUT" as const, nature: "OPERATIONAL" as const, walletId: "wallet-1", walletName: "Cartao",
@@ -118,6 +361,7 @@ function makeRequest(): ImportRequest {
         description: "Item 2",
       },
     ],
+    ...patch,
   };
 }
 

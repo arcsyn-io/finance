@@ -18,8 +18,11 @@ import type {
   EntryDirection,
   EntryNature,
 } from "@/domain/entry/entry";
+import type { ImportSuggestionHistoryEntry } from "@/domain/import/import-suggestion";
 import type { ApplicationContext } from "@/server/context/application-context";
+import type { ListImportSuggestionHistoryQuery } from "@/server/dto/import-suggestion-dto";
 import { resolveDatabaseClient } from "@/server/repositories/database-client";
+import { buildImportSuggestionHistoryQuery } from "@/server/repositories/entry-suggestion-history-query";
 
 export type ListEntriesFilters = {
   readonly startDate?: string;
@@ -89,6 +92,11 @@ export interface EntryRepository {
     externalId: string,
     walletId: string,
   ): Promise<boolean>;
+
+  listSuggestionHistory(
+    context: ApplicationContext,
+    query: ListImportSuggestionHistoryQuery,
+  ): Promise<ImportSuggestionHistoryEntry[]>;
 }
 
 type EntryRow = {
@@ -270,6 +278,32 @@ export class DrizzleEntryRepository implements EntryRepository {
       .limit(1);
 
     return rows.length > 0;
+  }
+
+  async listSuggestionHistory(
+    context: ApplicationContext,
+    query: ListImportSuggestionHistoryQuery,
+  ): Promise<ImportSuggestionHistoryEntry[]> {
+    const userId = context.requireUserPrincipal().id;
+    const database = resolveDatabaseClient(context, db);
+    const rows = await buildImportSuggestionHistoryQuery(
+      database,
+      userId,
+      query,
+    );
+
+    return rows.flatMap((row) =>
+      row.categoryId
+        ? [
+            {
+              categoryId: row.categoryId,
+              nature: row.nature,
+              economicEvent: row.economicEvent as EconomicEvent | null,
+              description: row.description,
+            },
+          ]
+        : [],
+    );
   }
 
   private async insert(

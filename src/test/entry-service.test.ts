@@ -3,6 +3,7 @@ import test from "node:test";
 
 import type { Category } from "../domain/category/category";
 import type { Entry } from "../domain/entry/entry";
+import type { ImportSuggestionHistoryEntry } from "../domain/import/import-suggestion";
 import type { Transfer } from "../domain/transfer/transfer";
 import {
   EntryNotFoundError,
@@ -70,6 +71,10 @@ class FakeEntryRepository implements EntryRepository {
     return [...this.entries.values()].filter(
       (entry) => entry.userId === userId && entry.transferId === transferId,
     );
+  }
+
+  async listSuggestionHistory(): Promise<ImportSuggestionHistoryEntry[]> {
+    return [];
   }
 
   async create(

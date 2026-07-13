@@ -19,7 +19,7 @@ import type {
   ImportRow,
   ImportSource,
   ImportStatus,
-  ParsedImportRow,
+  PreparedImportRow,
 } from "@/domain/import/import";
 import type { ApplicationContext } from "@/server/context/application-context";
 import { resolveDatabaseClient } from "@/server/repositories/database-client";
@@ -58,7 +58,7 @@ export interface ImportRepository {
   insertRows(
     context: ApplicationContext,
     requestId: string,
-    rows: readonly ParsedImportRow[],
+    rows: readonly PreparedImportRow[],
   ): Promise<void>;
   updateRow(
     context: ApplicationContext,
@@ -184,7 +184,7 @@ export class DrizzleImportRepository implements ImportRepository {
   async insertRows(
     context: ApplicationContext,
     requestId: string,
-    rows: readonly ParsedImportRow[],
+    rows: readonly PreparedImportRow[],
   ): Promise<void> {
     if (rows.length === 0) {
       return;
@@ -201,7 +201,10 @@ export class DrizzleImportRepository implements ImportRepository {
         description: row.description,
         amountCents: row.amountCents,
         direction: row.direction,
+        nature: row.nature,
+        categoryId: row.categoryId,
         externalId: row.externalId,
+        economicEvent: row.economicEvent,
         valid: true,
       })),
     );

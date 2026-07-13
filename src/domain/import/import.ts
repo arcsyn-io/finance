@@ -76,6 +76,12 @@ export type ParsedImportRow = {
   readonly externalId: string | null;
 };
 
+export type PreparedImportRow = ParsedImportRow & {
+  readonly categoryId: string | null;
+  readonly nature: EntryNature | null;
+  readonly economicEvent: EconomicEvent | null;
+};
+
 export const importSourceLabels: Record<ImportSource, string> = {
   NUBANK_CSV: "Cartão de Crédito",
   NU_CONTA_CSV: "Conta Corrente",

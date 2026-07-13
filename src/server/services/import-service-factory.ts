@@ -6,6 +6,7 @@ import { importRepository } from "@/server/repositories/import-repository";
 import { walletRepository } from "@/server/repositories/wallet-repository";
 import { ImportService } from "@/server/services/import-service";
 import { unitOfWork } from "@/server/unit-of-work/drizzle-unit-of-work";
+import { PrepareImportRowsUseCase } from "@/server/usecases/import/prepare-import-rows.usecase";
 
 export function createImportService(): ImportService {
   return new ImportService({
@@ -15,6 +16,7 @@ export function createImportService(): ImportService {
     importAttachmentRepository,
     walletRepository,
     categoryRepository,
+    prepareImportRowsUseCase: new PrepareImportRowsUseCase(entryRepository),
     unitOfWork,
   });
 }

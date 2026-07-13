@@ -20,6 +20,7 @@ import type { ImportRepository } from "../repositories/import-repository";
 import type { WalletRepository } from "../repositories/wallet-repository";
 import type { UnitOfWork } from "../unit-of-work/unit-of-work";
 import { inferDirection, inferEconomicEvent } from "../usecases/entry/entry-validation";
+import type { PrepareImportRowsUseCase } from "../usecases/import/prepare-import-rows.usecase";
 
 export type ConfirmImportResult = {
   readonly importedCount: number;
@@ -35,6 +36,7 @@ export type ImportServiceDependencies = {
   readonly entryAttachmentRepository: EntryAttachmentRepository;
   readonly walletRepository: WalletRepository;
   readonly categoryRepository: CategoryRepository;
+  readonly prepareImportRowsUseCase: PrepareImportRowsUseCase;
   readonly unitOfWork: UnitOfWork;
 };
 
@@ -60,8 +62,22 @@ export class ImportService {
         source: command.source,
         sizeBytes: command.fileSizeBytes,
       });
+      const preparedRows = await this.dependencies.prepareImportRowsUseCase.execute(
+        txContext,
+        {
+          rows,
+          defaultWalletId: command.defaultWalletId,
+          defaultCategoryId: command.defaultCategoryId,
+          nature: command.nature,
+          economicEvent: command.economicEvent,
+        },
+      );
       const request = await this.dependencies.repository.createRequest(txContext, command);
-      await this.dependencies.repository.insertRows(txContext, request.id, rows);
+      await this.dependencies.repository.insertRows(
+        txContext,
+        request.id,
+        preparedRows,
+      );
       return this.findById(txContext, request.id);
     });
   }
