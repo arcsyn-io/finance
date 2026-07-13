@@ -63,6 +63,39 @@ Como usuario autenticado, quero filtrar transacoes por periodo, carteira, catego
 - **SC-004**: A UI de transacoes nao importa Server Actions.
 - **SC-005**: Todas as chamadas da UI para backend usam `fetch` com JSON.
 
+## Extension 2026-07-13 - Listagem adequada para dispositivos móveis
+
+### Problema
+
+A tabela de transações possui informações e ações que exigem rolagem horizontal em telas pequenas. Isso dificulta a consulta e torna ações secundárias, como anexos e transferências, pouco descobríveis em dispositivos de toque.
+
+### User Story 4 - Consultar e operar transações no celular (Priority: P1)
+
+Como usuário de celular, quero ver uma lista compacta das minhas transações com suas informações essenciais e ações acessíveis, para consultar e corrigir meus lançamentos sem rolar uma tabela horizontalmente.
+
+**Independent Test**: A apresentação móvel deriva de cada lançamento a data, a categoria, o valor assinado e os rótulos de ações disponíveis, sem alterar os dados financeiros de origem.
+
+**Acceptance Scenarios**:
+
+1. **Given** uma viewport menor que `md`, **When** acesso `/transactions`, **Then** vejo uma lista de cards, e não a tabela horizontal completa.
+2. **Given** uma transação na lista móvel, **When** a visualizo, **Then** vejo "Ocorrido em", categoria e valor; a descrição aparece como informação secundária quando existir.
+3. **Given** uma transação ativa, **When** abro suas ações no celular, **Then** consigo editar, excluir, vincular ou desvincular transferência e abrir anexos usando os mesmos fluxos JSON já existentes.
+4. **Given** uma transação excluída exibida pelo filtro correspondente, **When** abro suas ações, **Then** consigo restaurá-la.
+5. **Given** que crio ou edito uma transação em celular, **When** abro o formulário, **Then** todos os campos existentes podem ser preenchidos sem depender da tabela desktop.
+
+### Additional Requirements
+
+- **FR-023**: A tabela completa MUST ser exibida somente a partir do breakpoint `md`; a lista móvel MUST ocupar a viewport menor.
+- **FR-024**: Cada item móvel MUST exibir data, categoria e valor assinado; deve preservar a cor semântica de receita/despesa.
+- **FR-025**: Ações móveis MUST ter alvo de toque visível e acessível, sem depender de `hover`.
+- **FR-026**: A lista e o formulário móveis MUST reutilizar o estado, os filtros e as mutações JSON da tela de transações.
+- **FR-027**: O componente móvel MUST suportar os estados de carregamento, inclusão, edição e lista vazia.
+
+### Out of Scope
+
+- Alterar regras financeiras, persistência, endpoints ou contratos JSON.
+- Criar suporte offline, sincronização em segundo plano ou manifesto PWA nesta mudança.
+
 ## Extension 2026-07-10 - Vinculo de transferencia pela listagem
 
 ### User Story 3 - Vincular transferencias pela listagem (Priority: P1)

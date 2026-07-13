@@ -55,6 +55,8 @@ import { CurrencyField } from "@/components/ui/CurrencyField";
 import { CalendarField } from "@/components/ui/CalendarField";
 import { CategorySelect } from "@/components/domain/CategorySelect";
 import { CategoryBadge } from "@/modules/categories/components/CategoryBadge";
+import { EntriesMobileList } from "@/modules/entries/components/EntriesMobileList";
+import type { EntryForm } from "@/modules/entries/view-models/entry-form";
 
 type EntriesTableProps = {
   readonly initialEntries: readonly Entry[];
@@ -63,16 +65,6 @@ type EntriesTableProps = {
   readonly initialStartDate: string;
   readonly initialEndDate: string;
   readonly initialToastMessage?: string;
-};
-
-type EntryForm = {
-  readonly walletId: string;
-  readonly categoryId: string;
-  readonly nature: EntryNature;
-  readonly economicEvent: EconomicEvent | "";
-  readonly amountCents: number;
-  readonly occurredOn: string;
-  readonly description: string;
 };
 
 type EntryApiResponse = {
@@ -628,7 +620,29 @@ export function EntriesTable({
         />
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border">
+      <EntriesMobileList
+        adding={adding}
+        categories={categories}
+        editingId={editingId}
+        entries={entries}
+        errorRow={errorRow}
+        form={form}
+        onAttachments={(entry) => void openAttachments(entry)}
+        onCancel={cancelForm}
+        onChangeForm={setForm}
+        onDelete={setDeleteCandidate}
+        onEdit={startEdit}
+        onRestore={(entry) => startTransition(() => void restore(entry))}
+        onSaveAdd={(event) => startTransition(() => void saveAdd(event))}
+        onSaveEdit={(event) => startTransition(() => void saveEdit(event))}
+        onStartAdd={startAdd}
+        onTransfer={startTransfer}
+        pending={pending}
+        savingRow={savingRow}
+        wallets={wallets}
+      />
+
+      <div className="hidden overflow-hidden rounded-xl border border-border md:block">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[920px] text-xs">
             <thead>
