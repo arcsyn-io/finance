@@ -1,8 +1,12 @@
 import "server-only";
 
-import { and, asc, eq, gte, isNotNull, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { categories, entries } from "@/db/schema";
+import {
+  consumptionEconomicEvent,
+  toExclusiveEndDate,
+} from "@/domain/entry/consumption";
 import type { ApplicationContext } from "@/server/context/application-context";
 import { resolveDatabaseClient } from "@/server/repositories/database-client";
 
@@ -46,12 +50,10 @@ export class DrizzleConsumptionRepository implements ConsumptionRepository {
         and(
           eq(entries.userId, userId),
           eq(categories.userId, userId),
-          eq(entries.nature, "PATRIMONIAL"),
-          eq(entries.direction, "OUT"),
-          isNotNull(entries.categoryId),
+          eq(entries.economicEvent, consumptionEconomicEvent),
           isNull(entries.deletedAt),
           gte(entries.occurredOn, range.startDate),
-          lte(entries.occurredOn, range.endDate),
+          lt(entries.occurredOn, toExclusiveEndDate(range.endDate)),
         ),
       )
       .groupBy(categories.id, categories.name, categories.color, categories.icon, month)

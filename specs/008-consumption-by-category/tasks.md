@@ -9,3 +9,6 @@
 - [X] T007 Implementar modal com listagem e edicao inline.
 - [X] T008 Revalidar a analise depois da edicao.
 - [X] T009 Rodar testes, lint e typecheck.
+- [X] T010 Escrever testes para o criterio por evento economico e intervalo semiaberto.
+- [X] T011 Ajustar repository e modal para usar exclusivamente `CONSUMPTION`.
+- [X] T012 Rodar testes, lint e typecheck.

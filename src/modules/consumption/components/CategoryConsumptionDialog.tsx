@@ -6,6 +6,10 @@ import { Check, LoaderCircle, Pencil, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Category } from "@/domain/category/category";
 import {
+  consumptionEconomicEvent,
+  isConsumptionEntryForCategory,
+} from "@/domain/entry/consumption";
+import {
   economicEventLabels,
   economicEvents,
   entryNatureLabels,
@@ -58,7 +62,7 @@ export function CategoryConsumptionDialog({
       startDate,
       endDate,
       categoryIds: category.categoryId,
-      natures: "PATRIMONIAL",
+      economicEvents: consumptionEconomicEvent,
     });
 
     async function load() {
@@ -73,7 +77,11 @@ export function CategoryConsumptionDialog({
           readonly error?: string;
         };
         if (!response.ok) throw new Error(body.error ?? "Nao foi possivel carregar os lancamentos");
-        setEntries((body.entries ?? []).filter((entry) => entry.direction === "OUT"));
+        setEntries(
+          (body.entries ?? []).filter((entry) =>
+            isConsumptionEntryForCategory(entry, category.categoryId),
+          ),
+        );
       } catch (loadError) {
         if (!controller.signal.aborted) {
           setError(loadError instanceof Error ? loadError.message : "Nao foi possivel carregar os lancamentos");
@@ -122,12 +130,11 @@ export function CategoryConsumptionDialog({
         setError(body.error ?? "Nao foi possivel atualizar o lancamento");
         return;
       }
+      const updatedEntry = body.entry;
 
       setEntries((current) =>
-        body.entry?.nature === "PATRIMONIAL" &&
-        body.entry.direction === "OUT" &&
-        body.entry.categoryId === category.categoryId
-          ? current.map((item) => (item.id === entry.id ? body.entry as Entry : item))
+        isConsumptionEntryForCategory(updatedEntry, category.categoryId)
+          ? current.map((item) => (item.id === entry.id ? updatedEntry : item))
           : current.filter((item) => item.id !== entry.id),
       );
       setEditingId(null);

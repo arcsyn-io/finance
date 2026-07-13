@@ -40,8 +40,8 @@ export default async function ConsumptionPage({ searchParams }: ConsumptionPageP
             Consumo por categoria
           </h1>
           <p className="mt-1 max-w-3xl text-xs leading-5 text-muted">
-            Distribuicao do consumo patrimonial por competencia, sem misturar
-            pagamentos, transferencias ou movimentacoes de caixa.
+            Distribuicao por competencia dos lancamentos classificados com o
+            evento economico Consumo.
           </p>
         </div>
         <ConsumptionPeriodControl
@@ -74,7 +74,7 @@ export default async function ConsumptionPage({ searchParams }: ConsumptionPageP
               {report.categories.length}
             </strong>
             <p className="mt-1 text-[11px] text-muted">
-              Lancamentos patrimoniais de saida
+              Evento economico Consumo
             </p>
           </CardContent>
         </Card>
@@ -88,7 +88,7 @@ export default async function ConsumptionPage({ searchParams }: ConsumptionPageP
             </span>
             <h2 className="mt-4 text-sm font-semibold">Nenhum consumo no periodo</h2>
             <p className="mt-1 max-w-md text-xs leading-5 text-muted">
-              Ajuste o periodo ou registre lancamentos patrimoniais de saida com categoria.
+              Ajuste o periodo ou classifique lancamentos com o evento economico Consumo.
             </p>
           </CardContent>
         </Card>

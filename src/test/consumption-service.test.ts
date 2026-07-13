@@ -6,6 +6,10 @@ import type {
   MonthlyCategoryConsumptionRow,
 } from "../server/repositories/consumption-repository";
 import { ConsumptionService } from "../server/services/consumption-service";
+import {
+  isConsumptionEntryForCategory,
+  toExclusiveEndDate,
+} from "../domain/entry/consumption";
 
 const context = ApplicationContext.user({
   principalId: "00000000-0000-0000-0000-000000000001",
@@ -88,4 +92,34 @@ test("retorna percentuais zerados quando nao ha consumo", async () => {
   assert.equal(result.totalCents, 0);
   assert.deepEqual(result.months, ["2026-07"]);
   assert.deepEqual(result.categories, []);
+});
+
+test("converte a data final inclusiva para limite exclusivo", () => {
+  assert.equal(toExclusiveEndDate("2026-07-31"), "2026-08-01");
+  assert.equal(toExclusiveEndDate("2026-12-31"), "2027-01-01");
+});
+
+test("mantem na modal somente lancamentos de consumo da categoria", () => {
+  const baseEntry = {
+    categoryId: "food",
+    economicEvent: "CONSUMPTION" as const,
+    deletedAt: null,
+  };
+
+  assert.equal(isConsumptionEntryForCategory(baseEntry, "food"), true);
+  assert.equal(
+    isConsumptionEntryForCategory(
+      { ...baseEntry, economicEvent: "INVESTMENT" },
+      "food",
+    ),
+    false,
+  );
+  assert.equal(
+    isConsumptionEntryForCategory({ ...baseEntry, categoryId: "home" }, "food"),
+    false,
+  );
+  assert.equal(
+    isConsumptionEntryForCategory({ ...baseEntry, deletedAt: new Date() }, "food"),
+    false,
+  );
 });
