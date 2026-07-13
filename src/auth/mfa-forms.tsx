@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useTransition } from "react";
+import { LoaderCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,7 +64,8 @@ export function EnrollTotpForm() {
         className="w-full"
         disabled={pending}
       >
-        Configurar app autenticador
+        {pending ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : null}
+        {pending ? "Configurando..." : "Configurar app autenticador"}
       </Button>
     </form>
   );
@@ -126,6 +128,7 @@ function MfaCodeForm({
           maxLength={6}
           name="code"
           required
+          disabled={pending}
         />
       </Label>
 
@@ -133,7 +136,8 @@ function MfaCodeForm({
         className="w-full"
         disabled={pending}
       >
-        {buttonLabel}
+        {pending ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : null}
+        {pending ? "Verificando..." : buttonLabel}
       </Button>
     </form>
   );

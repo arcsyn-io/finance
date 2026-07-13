@@ -25,6 +25,7 @@ export type PeriodFilterRange = {
 };
 
 type PeriodFilterProps = {
+  readonly disabled?: boolean;
   readonly initialStartDate: string;
   readonly initialEndDate: string;
   readonly initialPreset?: PeriodFilterPreset;
@@ -58,6 +59,7 @@ const shortMonthNames = [
 ] as const;
 
 export function PeriodFilter({
+  disabled = false,
   initialEndDate,
   initialPreset = "current-month",
   initialStartDate,
@@ -124,7 +126,7 @@ export function PeriodFilter({
       <button
         aria-label="Periodo anterior"
         className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-panel text-muted transition hover:bg-surface-elevated hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45"
-        disabled={!canNavigate}
+        disabled={disabled || !canNavigate}
         onClick={() => navigate(-1)}
         type="button"
       >
@@ -147,6 +149,7 @@ export function PeriodFilter({
           <button
             aria-expanded={open}
             className="flex h-8 min-w-[180px] items-center justify-center gap-2 rounded-lg border border-border bg-panel px-3 text-xs font-semibold text-foreground shadow-sm transition hover:bg-surface-elevated focus:outline-none focus-visible:ring-1 focus-visible:ring-accent sm:min-w-[210px]"
+            disabled={disabled}
             onClick={() => {
               setMenuOpen((current) => !current);
               setCalendarOpen(false);
@@ -167,6 +170,7 @@ export function PeriodFilter({
             {presets.map((option) => (
               <button
                 className="flex min-h-10 w-full items-center justify-between px-4 text-left text-sm font-medium text-foreground transition hover:bg-surface"
+                disabled={disabled}
                 key={option.id}
                 onClick={() => selectPreset(option.id)}
                 type="button"
@@ -197,7 +201,7 @@ export function PeriodFilter({
       <button
         aria-label="Proximo periodo"
         className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-panel text-muted transition hover:bg-surface-elevated hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45"
-        disabled={!canNavigate}
+        disabled={disabled || !canNavigate}
         onClick={() => navigate(1)}
         type="button"
       >

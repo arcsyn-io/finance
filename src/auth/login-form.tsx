@@ -2,7 +2,7 @@
 
 import { FormEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, LayoutGrid, Lock, Mail } from "lucide-react";
+import { Eye, EyeOff, LayoutGrid, LoaderCircle, Lock, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -72,6 +72,7 @@ export function LoginForm() {
               autoComplete="email"
               placeholder="seu@email.com"
               required
+              disabled={pending}
             />
           </span>
         </Label>
@@ -81,6 +82,7 @@ export function LoginForm() {
             Senha
             <button
               className="text-[10px] normal-case tracking-normal text-accent hover:underline"
+              disabled={pending}
               type="button"
             >
               Esqueceu a senha?
@@ -98,10 +100,12 @@ export function LoginForm() {
               autoComplete="current-password"
               placeholder="********"
               required
+              disabled={pending}
             />
             <button
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted transition-colors hover:text-foreground"
               onClick={() => setShowPassword((value) => !value)}
+              disabled={pending}
               type="button"
             >
               {showPassword ? (
@@ -117,6 +121,7 @@ export function LoginForm() {
         </Label>
 
         <Button className="mt-2 w-full" disabled={pending}>
+          {pending ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : null}
           {pending ? "Entrando..." : "Entrar"}
         </Button>
       </form>

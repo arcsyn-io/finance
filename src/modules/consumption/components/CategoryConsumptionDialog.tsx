@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { Check, LoaderCircle, Pencil, X } from "lucide-react";
+import { Check, Pencil, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { Category } from "@/domain/category/category";
 import {
   consumptionEconomicEvent,
@@ -164,9 +165,7 @@ export function CategoryConsumptionDialog({
 
         <div className="overflow-auto">
           {loading ? (
-            <div className="flex min-h-48 items-center justify-center gap-2 text-xs text-muted">
-              <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> Carregando lancamentos...
-            </div>
+            <CategoryEntriesSkeleton />
           ) : entries.length === 0 ? (
             <p className="p-8 text-center text-xs text-muted">Nenhum lancamento permanece nesta categoria.</p>
           ) : (
@@ -218,6 +217,28 @@ export function CategoryConsumptionDialog({
 }
 
 const selectClass = "h-8 min-w-32 rounded-md border border-border bg-surface px-2 text-xs text-foreground outline-none focus:border-accent";
+
+function CategoryEntriesSkeleton() {
+  return (
+    <div aria-busy="true" className="min-w-[850px] p-4" role="status">
+      <span className="sr-only">Carregando lançamentos...</span>
+      <div className="grid grid-cols-[90px_1.4fr_1fr_1fr_1fr_110px_48px] gap-4 border-b border-border px-2 pb-3">
+        {Array.from({ length: 7 }).map((_, index) => (
+          <Skeleton className="h-3" key={index} />
+        ))}
+      </div>
+      <div className="divide-y divide-border">
+        {Array.from({ length: 5 }).map((_, rowIndex) => (
+          <div className="grid grid-cols-[90px_1.4fr_1fr_1fr_1fr_110px_48px] gap-4 px-2 py-4" key={rowIndex}>
+            {Array.from({ length: 7 }).map((__, columnIndex) => (
+              <Skeleton className="h-4" key={columnIndex} />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function IconButton({ children, disabled, label, onClick }: { readonly children: React.ReactElement; readonly disabled?: boolean; readonly label: string; readonly onClick: () => void }) {
   return <button aria-label={label} className="flex size-7 items-center justify-center rounded-md text-muted transition hover:bg-surface-elevated hover:text-foreground disabled:opacity-50 [&_svg]:size-3.5" disabled={disabled} onClick={onClick} type="button">{children}</button>;

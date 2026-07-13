@@ -18,6 +18,7 @@ import {
 import type { Wallet } from "@/domain/wallet/wallet";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatMoney } from "@/modules/cash-flow/components/CashFlowMoneyCell";
 
 export type CashFlowDetailSelection = {
@@ -251,10 +252,7 @@ export function CashFlowEntriesDialog({
 
         <div className="finance-scrollbar min-h-0 flex-1 overflow-auto">
           {loading ? (
-            <div className="flex min-h-52 items-center justify-center gap-2 text-xs text-muted">
-              <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
-              Carregando lançamentos...
-            </div>
+            <EntryDetailsSkeleton />
           ) : error && entries.length === 0 ? (
             <div className="flex min-h-52 items-center justify-center p-8 text-center text-xs text-negative">
               {error}
@@ -450,6 +448,28 @@ export function CashFlowEntriesDialog({
       </section>
     </div>,
     document.body,
+  );
+}
+
+function EntryDetailsSkeleton() {
+  return (
+    <div aria-busy="true" className="min-w-[850px] p-4" role="status">
+      <span className="sr-only">Carregando lançamentos...</span>
+      <div className="grid grid-cols-[90px_1.4fr_1fr_1fr_1fr_110px_80px] gap-4 border-b border-border px-2 pb-3">
+        {Array.from({ length: 7 }).map((_, index) => (
+          <Skeleton className="h-3" key={index} />
+        ))}
+      </div>
+      <div className="divide-y divide-border">
+        {Array.from({ length: 5 }).map((_, rowIndex) => (
+          <div className="grid grid-cols-[90px_1.4fr_1fr_1fr_1fr_110px_80px] gap-4 px-2 py-4" key={rowIndex}>
+            {Array.from({ length: 7 }).map((__, columnIndex) => (
+              <Skeleton className="h-4" key={columnIndex} />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

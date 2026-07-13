@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTransition } from "react";
 import {
   PeriodFilter,
   type PeriodFilterPreset,
@@ -19,6 +20,7 @@ export function ConsumptionPeriodControl({
   preset,
 }: ConsumptionPeriodControlProps) {
   const router = useRouter();
+  const [pending, startTransition] = useTransition();
 
   function handleChange(range: PeriodFilterRange) {
     const params = new URLSearchParams({
@@ -26,15 +28,25 @@ export function ConsumptionPeriodControl({
       endDate: range.endDate,
       preset: range.preset,
     });
-    router.push(`/analysis/consumption?${params.toString()}`);
+    startTransition(() => {
+      router.push(`/analysis/consumption?${params.toString()}`);
+    });
   }
 
   return (
-    <PeriodFilter
-      initialEndDate={endDate}
-      initialPreset={preset}
-      initialStartDate={startDate}
-      onChange={handleChange}
-    />
+    <div aria-busy={pending} className="flex items-center gap-2">
+      <PeriodFilter
+        disabled={pending}
+        initialEndDate={endDate}
+        initialPreset={preset}
+        initialStartDate={startDate}
+        onChange={handleChange}
+      />
+      {pending ? (
+        <span className="text-[10px] font-medium text-muted" role="status">
+          Atualizando...
+        </span>
+      ) : null}
+    </div>
   );
 }

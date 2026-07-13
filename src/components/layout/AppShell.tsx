@@ -9,6 +9,7 @@ import {
   FileUp,
   LayoutGrid,
   List,
+  LoaderCircle,
   LogOut,
   Menu,
   PieChart,
@@ -16,6 +17,10 @@ import {
   Tag,
   type LucideIcon,
 } from "lucide-react";
+import {
+  PrivatePageSkeleton,
+  type PrivatePageSkeletonPage,
+} from "@/components/layout/PrivatePageSkeleton";
 
 type ShellLink = {
   readonly href: string;
@@ -40,6 +45,9 @@ const registryLinks: ShellLink[] = [
 ];
 
 const skeletonRoutes = new Set([
+  "/",
+  "/analysis/cash-flow",
+  "/analysis/consumption",
   "/transactions",
   "/imports",
   "/wallets",
@@ -166,6 +174,9 @@ export function AppShell({ children }: { readonly children: React.ReactNode }) {
             type="button"
           >
             <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
+            {logoutPending ? (
+              <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            ) : null}
             {logoutPending ? "Saindo..." : "Sair"}
           </button>
           {logoutError ? (
@@ -219,7 +230,7 @@ export function AppShell({ children }: { readonly children: React.ReactNode }) {
         </header>
         <main className={mainClassName}>
           {showSkeleton ? (
-            <MenuNavigationSkeleton route={loadingRoute} />
+            <PrivatePageSkeleton page={skeletonPageForRoute(loadingRoute)} />
           ) : (
             children
           )}
@@ -280,147 +291,12 @@ function ShellNav({
   );
 }
 
-function MenuNavigationSkeleton({ route }: { readonly route: string }) {
-  const title =
-    route === "/transactions"
-      ? "Transacoes"
-      : route === "/imports"
-        ? "Importacoes"
-      : route === "/wallets"
-        ? "Carteiras"
-        : "Categorias";
-
-  return (
-    <div
-      aria-busy="true"
-      aria-label={`Carregando ${title}`}
-      className="flex w-full animate-pulse flex-col gap-5 lg:gap-6"
-      role="status"
-    >
-      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div className="min-w-0 flex-1">
-          <SkeletonBlock className="h-3 w-20" />
-          <SkeletonBlock className="mt-3 h-7 w-44" />
-          <SkeletonBlock className="mt-3 h-4 w-full max-w-2xl" />
-        </div>
-        {route === "/categories" ? (
-          <SkeletonBlock className="h-9 w-36 rounded-lg" />
-        ) : null}
-      </header>
-
-      {route === "/transactions" ? <TransactionsPageSkeleton /> : null}
-      {route === "/imports" ? <ImportsPageSkeleton /> : null}
-      {route === "/wallets" ? <WalletsPageSkeleton /> : null}
-      {route === "/categories" ? <CategoriesPageSkeleton /> : null}
-    </div>
-  );
-}
-
-function TransactionsPageSkeleton() {
-  return (
-    <>
-      <div className="flex flex-wrap items-end gap-2">
-        {Array.from({ length: 6 }).map((_, index) => (
-          <SkeletonBlock className="h-8 w-28 rounded-lg" key={index} />
-        ))}
-        <div className="flex-1" />
-        <SkeletonBlock className="h-8 w-24 rounded-lg" />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <SkeletonBlock className="h-20 rounded-lg" key={index} />
-        ))}
-      </div>
-
-      <div className="overflow-hidden rounded-xl border border-border bg-panel">
-        <div className="divide-y divide-border">
-          {Array.from({ length: 7 }).map((_, rowIndex) => (
-            <div
-              className="grid grid-cols-[110px_150px_1fr_130px_100px_130px_100px] gap-4 px-4 py-3"
-              key={rowIndex}
-            >
-              {Array.from({ length: 7 }).map((__, columnIndex) => (
-                <SkeletonBlock className="h-5 rounded-md" key={columnIndex} />
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-    </>
-  );
-}
-
-function ImportsPageSkeleton() {
-  return (
-    <>
-      <div className="flex justify-end">
-        <SkeletonBlock className="h-8 w-28 rounded-lg" />
-      </div>
-      <div className="overflow-hidden rounded-xl border border-border bg-panel">
-        <div className="divide-y divide-border">
-          {Array.from({ length: 6 }).map((_, rowIndex) => (
-            <div
-              className="grid grid-cols-[120px_1fr_140px_110px_70px_90px_90px_70px] gap-4 px-4 py-3"
-              key={rowIndex}
-            >
-              {Array.from({ length: 8 }).map((__, columnIndex) => (
-                <SkeletonBlock className="h-5 rounded-md" key={columnIndex} />
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-    </>
-  );
-}
-
-function WalletsPageSkeleton() {
-  return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      {Array.from({ length: 6 }).map((_, index) => (
-        <div className="rounded-lg border border-border bg-panel p-4" key={index}>
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <SkeletonBlock className="h-5 w-36" />
-              <SkeletonBlock className="mt-3 h-4 w-24" />
-            </div>
-            <SkeletonBlock className="size-8 rounded-md" />
-          </div>
-          <SkeletonBlock className="mt-5 h-4 w-full" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function CategoriesPageSkeleton() {
-  return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      {Array.from({ length: 2 }).map((_, groupIndex) => (
-        <div
-          className="rounded-lg border border-border bg-panel p-4"
-          key={groupIndex}
-        >
-          <SkeletonBlock className="h-5 w-32" />
-          <div className="mt-4 grid gap-2">
-            {Array.from({ length: 5 }).map((__, index) => (
-              <div
-                className="flex items-center gap-3 rounded-md border border-border bg-surface/70 p-3"
-                key={index}
-              >
-                <SkeletonBlock className="size-7 rounded-md" />
-                <SkeletonBlock className="h-4 flex-1" />
-                <SkeletonBlock className="h-7 w-16 rounded-md" />
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function SkeletonBlock({ className }: { readonly className: string }) {
-  return <span className={`block bg-surface-elevated ${className}`} />;
+function skeletonPageForRoute(route: string): PrivatePageSkeletonPage {
+  if (route === "/analysis/cash-flow") return "cash-flow";
+  if (route === "/analysis/consumption") return "consumption";
+  if (route === "/transactions") return "transactions";
+  if (route === "/imports") return "imports";
+  if (route === "/wallets") return "wallets";
+  if (route === "/categories") return "categories";
+  return "dashboard";
 }
