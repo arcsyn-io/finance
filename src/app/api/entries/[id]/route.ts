@@ -33,6 +33,7 @@ export async function PUT(request: Request, { params }: EntryRouteContext) {
   if (response.status < 400) {
     revalidatePath("/transactions");
     revalidatePath("/analysis/consumption");
+    revalidatePath("/analysis/cash-flow");
   }
 
   return NextResponse.json(response.body, { status: response.status });
@@ -57,6 +58,7 @@ export async function DELETE(_request: Request, { params }: EntryRouteContext) {
 
   if (response.status < 400) {
     revalidatePath("/transactions");
+    revalidatePath("/analysis/cash-flow");
   }
 
   return NextResponse.json(response.body, { status: response.status });
@@ -90,6 +92,7 @@ export async function PATCH(request: Request, { params }: EntryRouteContext) {
 
   if (response.status < 400) {
     revalidatePath("/transactions");
+    revalidatePath("/analysis/cash-flow");
   }
 
   return NextResponse.json(response.body, { status: response.status });

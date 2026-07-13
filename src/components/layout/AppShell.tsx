@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { type MouseEvent, useEffect, useState, useTransition } from "react";
 import {
-  ArrowUpDown,
   BarChart2,
   CreditCard,
   FileUp,
@@ -15,7 +14,6 @@ import {
   PieChart,
   Settings,
   Tag,
-  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 
@@ -31,10 +29,7 @@ const overviewLinks: ShellLink[] = [
 
 const analysisLinks: ShellLink[] = [
   { href: "/analysis/consumption", label: "Consumo por categoria", icon: PieChart },
-  { href: "/", label: "Fluxo de caixa mensal", icon: BarChart2 },
-  { href: "/", label: "Receitas x Despesas", icon: ArrowUpDown },
-  { href: "/", label: "Composição de despesas", icon: PieChart },
-  { href: "/", label: "Projeção de saldo", icon: TrendingUp },
+  { href: "/analysis/cash-flow", label: "Fluxo de caixa mensal", icon: BarChart2 },
 ];
 
 const registryLinks: ShellLink[] = [
@@ -215,6 +210,10 @@ export function AppShell({ children }: { readonly children: React.ReactNode }) {
               ? "Carteiras"
               : pathname === "/categories"
                 ? "Categorias"
+                : pathname === "/analysis/cash-flow"
+                  ? "Fluxo de caixa"
+                  : pathname === "/analysis/consumption"
+                    ? "Consumo por categoria"
                 : "Painel"}
           </span>
         </header>
