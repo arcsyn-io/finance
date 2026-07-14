@@ -86,10 +86,11 @@ lançamentos ativos, considerando `IN` positivo e `OUT` negativo.
    lançamentos `IN` e `OUT` da carteira.
 2. **Given** um lançamento excluído, **When** o saldo da carteira é calculado,
    **Then** ele não altera o valor exibido.
-3. **Given** uma carteira na lista, **When** clico nela, **Then** a tela abre a
-   lista de lançamentos daquela carteira com ocorrido em, categoria, descrição,
-   natureza, evento econômico, valor, vínculo de transferência, anexos e edição.
-4. **Given** o detalhamento da carteira está sendo consultado, **When** a
+3. **Given** uma carteira na lista, **When** clico nela, **Then** sou levado para
+   `/wallets/[id]`, uma página dedicada com a lista de lançamentos daquela
+   carteira: ocorrido em, categoria, descrição, natureza, evento econômico,
+   valor, vínculo de transferência, anexos e edição.
+4. **Given** a página de detalhe da carteira está sendo carregada, **When** a
    requisição ainda não terminou, **Then** vejo skeletons e estado acessível de
    carregamento em vez de uma área vazia.
 5. **Given** abro o detalhamento de uma carteira, **When** edito, excluo,
@@ -103,9 +104,9 @@ lançamentos ativos, considerando `IN` positivo e `OUT` negativo.
 - **FR-012**: O saldo calculado deve incluir somente lançamentos não excluídos;
   `IN` soma e `OUT` subtrai `amountCents`.
 - **FR-013**: A lista de transações deve ser reutilizável nas telas `/transactions`
-  e `/wallets`, com um modo contextual que omite controles globais da tela de
-  transações, mas preserva as ações JSON existentes.
-- **FR-014**: A consulta sob demanda dos lançamentos de uma carteira deve ter
+  e `/wallets/[id]`, com um modo contextual que omite controles globais da tela
+  de transações, mas preserva as ações JSON existentes.
+- **FR-014**: A rota `/wallets/[id]` deve ter um fallback de carregamento com
   `aria-busy`, rótulo em português e skeleton proporcional à lista.
 
 ### Out of Scope

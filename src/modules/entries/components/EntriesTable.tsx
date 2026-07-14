@@ -69,7 +69,6 @@ type EntriesTableProps = {
   readonly initialEndDate: string;
   readonly initialToastMessage?: string;
   readonly mode?: EntriesTableMode;
-  readonly onEntriesChanged?: () => void;
   readonly transferEntries?: readonly Entry[];
   readonly walletId?: string;
 };
@@ -113,7 +112,6 @@ export function EntriesTable({
   initialStartDate,
   initialToastMessage,
   mode = "transactions",
-  onEntriesChanged,
   transferEntries,
   walletId,
   wallets,
@@ -189,10 +187,6 @@ export function EntriesTable({
 
   function showToast(tone: "success" | "error", message: string) {
     setToast({ id: Date.now(), message, tone });
-  }
-
-  function notifyEntriesChanged() {
-    onEntriesChanged?.();
   }
 
   function entriesInScope(items: readonly Entry[]): Entry[] {
@@ -305,8 +299,6 @@ export function EntriesTable({
       );
     }
 
-    notifyEntriesChanged();
-
     setAdding(false);
     setSavingRow(null);
     setErrorRow(null);
@@ -348,8 +340,6 @@ export function EntriesTable({
       );
     }
 
-    notifyEntriesChanged();
-
     setEditingId(null);
     setSavingRow(null);
     setErrorRow(null);
@@ -374,7 +364,6 @@ export function EntriesTable({
       setEntries((current) => current.filter((item) => item.id !== entry.id));
     }
 
-    notifyEntriesChanged();
     showToast("success", successMessage(response.body.status));
     setDeleteCandidate(null);
   }
@@ -399,7 +388,6 @@ export function EntriesTable({
       );
     }
 
-    notifyEntriesChanged();
     showToast("success", successMessage(response.body.status));
   }
 
@@ -447,7 +435,6 @@ export function EntriesTable({
       setEntries((current) =>
         entriesInScope(mergeEntries(current, response.body.entries ?? [])),
       );
-      notifyEntriesChanged();
       showToast("success", successMessage(response.body.status));
     } finally {
       setTransferSaving(false);
@@ -476,7 +463,6 @@ export function EntriesTable({
       setEntries((current) =>
         entriesInScope(mergeEntries(current, response.body.entries ?? [])),
       );
-      notifyEntriesChanged();
       showToast("success", successMessage(response.body.status));
     } finally {
       setTransferSaving(false);

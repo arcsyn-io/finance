@@ -2,7 +2,6 @@ import Link from "next/link";
 import { WalletsList } from "@/modules/wallets/components/WalletsList";
 import { createWalletListItems } from "@/modules/wallets/view-models/wallet-list-item";
 import { getCurrentApplicationContext } from "@/server/context/current-application-context";
-import { createCategoryService } from "@/server/services/category-service-factory";
 import { createEntryService } from "@/server/services/entry-service-factory";
 import { createWalletService } from "@/server/services/wallet-service-factory";
 
@@ -12,11 +11,9 @@ export default async function WalletsPage() {
   const context = await getCurrentApplicationContext();
   const walletService = createWalletService();
   const entryService = createEntryService();
-  const categoryService = await createCategoryService();
-  const [wallets, entries, categories] = await Promise.all([
+  const [wallets, entries] = await Promise.all([
     walletService.list(context, { includeInactive: true }),
     entryService.list(context, { includeDeleted: false }),
-    categoryService.list(context, { includeInactive: false }),
   ]);
 
   return (
@@ -39,10 +36,7 @@ export default async function WalletsPage() {
         </div>
       </header>
 
-      <WalletsList
-        categories={categories}
-        initialWallets={createWalletListItems(wallets, entries)}
-      />
+      <WalletsList initialWallets={createWalletListItems(wallets, entries)} />
     </div>
   );
 }
