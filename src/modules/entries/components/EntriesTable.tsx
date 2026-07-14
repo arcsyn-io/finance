@@ -56,6 +56,7 @@ import { CalendarField } from "@/components/ui/CalendarField";
 import { CategorySelect } from "@/components/domain/CategorySelect";
 import { CategoryBadge } from "@/modules/categories/components/CategoryBadge";
 import { EntriesMobileList } from "@/modules/entries/components/EntriesMobileList";
+import { TransactionImportButton } from "@/modules/entries/components/TransactionImportButton";
 import type { EntryForm } from "@/modules/entries/view-models/entry-form";
 
 type EntriesTableProps = {
@@ -607,6 +608,7 @@ export function EntriesTable({
           <Plus className="size-3.5" aria-hidden="true" />
           Adicionar
         </button>
+        <TransactionImportButton categories={categories} wallets={wallets} />
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

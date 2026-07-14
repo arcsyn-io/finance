@@ -38,7 +38,12 @@ import {
   entryNatureLabels,
   entryNatures,
 } from "@/domain/entry/entry";
-import type { ImportRequest, ImportRow, ImportSource } from "@/domain/import/import";
+import type {
+  ImportRequest,
+  ImportRequestSummary,
+  ImportRow,
+  ImportSource,
+} from "@/domain/import/import";
 import type { ImportAttachmentWithPreview } from "@/domain/import/import-attachment";
 import { importSourceLabels, importStatusLabels } from "@/domain/import/import";
 import type { Wallet } from "@/domain/wallet/wallet";
@@ -55,9 +60,11 @@ import {
   type ImportRowsViewMode,
   type ImportRowViewStatus,
 } from "@/modules/imports/view-models/import-row-view";
+import { toImportRequestSummaryView } from "@/modules/imports/view-models/import-request-summary-view";
 
 type ImportsWorkspaceProps = {
-  readonly initialImports: readonly ImportRequest[];
+  readonly initialImports: readonly ImportRequestSummary[];
+  readonly initialSelectedImport: ImportRequest | null;
   readonly wallets: readonly Wallet[];
   readonly categories: readonly Category[];
 };
@@ -141,17 +148,19 @@ type ImportRowOptimisticPatch = Partial<RowPatch> &
 export function ImportsWorkspace({
   categories,
   initialImports,
+  initialSelectedImport,
   wallets,
 }: ImportsWorkspaceProps) {
   const router = useRouter();
   const [imports, setImports] = useState(() => [...initialImports]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<ImportRequest | null>(
+    initialSelectedImport,
+  );
+  const [openingImportId, setOpeningImportId] = useState<string | null>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [toast, setToast] = useState<SystemToastMessage | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
-
-  const selected = imports.find((item) => item.id === selectedId) ?? null;
 
   function showToast(tone: "success" | "error", message: string) {
     setToast({ id: Date.now(), tone, message });
@@ -166,24 +175,49 @@ export function ImportsWorkspace({
       return;
     }
 
+    updateSelectedImport(body.importRequest as ImportRequest);
+  }
+
+  async function openImport(id: string) {
+    setOpeningImportId(id);
+
+    try {
+      const response = await fetch(`/api/imports/${id}`);
+      const body = (await response.json()) as ImportApiResponse;
+
+      if (!response.ok || !body.importRequest) {
+        showToast("error", body.error ?? "Nao foi possivel carregar importacao");
+        return;
+      }
+
+      setSelected(body.importRequest);
+    } catch {
+      showToast("error", "Nao foi possivel carregar importacao");
+    } finally {
+      setOpeningImportId(null);
+    }
+  }
+
+  function updateSelectedImport(importRequest: ImportRequest) {
+    setSelected(importRequest);
     setImports((current) =>
-      current.map((item) => (item.id === id ? body.importRequest as ImportRequest : item)),
+      current.map((item) =>
+        item.id === importRequest.id
+          ? toImportRequestSummaryView(importRequest)
+          : item,
+      ),
     );
   }
 
   function replaceImportRow(importRequestId: string, row: ImportRow) {
-    setImports((current) =>
-      current.map((item) =>
-        item.id === importRequestId
-          ? {
-              ...item,
-              rows: item.rows.map((currentRow) =>
-                currentRow.id === row.id ? row : currentRow,
-              ),
-            }
-          : item,
+    if (!selected || selected.id !== importRequestId) return;
+
+    updateSelectedImport({
+      ...selected,
+      rows: selected.rows.map((currentRow) =>
+        currentRow.id === row.id ? row : currentRow,
       ),
-    );
+    });
   }
 
   function patchImportRow(
@@ -191,34 +225,24 @@ export function ImportsWorkspace({
     rowId: string,
     patch: Partial<ImportRow>,
   ) {
-    setImports((current) =>
-      current.map((item) =>
-        item.id === importRequestId
-          ? {
-              ...item,
-              rows: item.rows.map((currentRow) =>
-                currentRow.id === rowId
-                  ? { ...currentRow, ...patch }
-                  : currentRow,
-              ),
-            }
-          : item,
+    if (!selected || selected.id !== importRequestId) return;
+
+    updateSelectedImport({
+      ...selected,
+      rows: selected.rows.map((currentRow) =>
+        currentRow.id === rowId ? { ...currentRow, ...patch } : currentRow,
       ),
-    );
+    });
   }
 
   function removeImportRows(importRequestId: string, rowIds: readonly string[]) {
     const rowIdSet = new Set(rowIds);
-    setImports((current) =>
-      current.map((item) =>
-        item.id === importRequestId
-          ? {
-              ...item,
-              rows: item.rows.filter((row) => !rowIdSet.has(row.id)),
-            }
-          : item,
-      ),
-    );
+    if (!selected || selected.id !== importRequestId) return;
+
+    updateSelectedImport({
+      ...selected,
+      rows: selected.rows.filter((row) => !rowIdSet.has(row.id)),
+    });
   }
 
   async function createImport(formData: FormData) {
@@ -233,8 +257,9 @@ export function ImportsWorkspace({
       return;
     }
 
-    setImports((current) => [body.importRequest as ImportRequest, ...current]);
-    setSelectedId(body.importRequest.id);
+    const importRequest = body.importRequest as ImportRequest;
+    setImports((current) => [toImportRequestSummaryView(importRequest), ...current]);
+    setSelected(importRequest);
     setShowUpload(false);
     showToast("success", "Arquivo enviado para revisao");
   }
@@ -283,7 +308,7 @@ export function ImportsWorkspace({
         <ImportReview
           categories={categories}
           importRequest={selected}
-          onBack={() => setSelectedId(null)}
+          onBack={() => setSelected(null)}
           onPatchRow={(rowId, patch) => patchImportRow(selected.id, rowId, patch)}
           onRefresh={() => refreshImport(selected.id)}
           onRemoveRows={(rowIds) => removeImportRows(selected.id, rowIds)}
@@ -348,14 +373,11 @@ export function ImportsWorkspace({
                 </tr>
               ) : null}
               {imports.map((item) => {
-                const ignored = item.rows.filter((row) => row.ignoredAt).length;
-                const pendingRows = item.rows.filter((row) => !row.entryId && !row.ignoredAt).length;
-
                 return (
                   <tr
                     className="cursor-pointer transition hover:bg-surface-elevated"
                     key={item.id}
-                    onClick={() => setSelectedId(item.id)}
+                    onClick={() => void openImport(item.id)}
                   >
                     <td className="px-4 py-3 text-muted">{formatDateTime(item.createdAt)}</td>
                     <td className="px-4 py-3">
@@ -366,10 +388,12 @@ export function ImportsWorkspace({
                     </td>
                     <td className="px-4 py-3 text-muted">{importSourceLabels[item.source]}</td>
                     <td className="px-4 py-3"><StatusBadge label={importStatusLabels[item.status]} /></td>
-                    <td className="px-4 py-3 text-right font-semibold tabular-nums">{item.rows.length}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-warning">{pendingRows}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-muted">{ignored}</td>
-                    <td className="px-4 py-3 text-right text-accent">Revisar</td>
+                    <td className="px-4 py-3 text-right font-semibold tabular-nums">{item.totalRows}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-warning">{item.pendingRows}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-muted">{item.ignoredRows}</td>
+                    <td className="px-4 py-3 text-right text-accent">
+                      {openingImportId === item.id ? "Abrindo..." : "Revisar"}
+                    </td>
                   </tr>
                 );
               })}
@@ -1550,14 +1574,16 @@ function BulkDropdown({
   );
 }
 
-function UploadImportDialog({
+export function UploadImportDialog({
   categories,
+  error,
   onClose,
   onSubmit,
   pending,
   wallets,
 }: {
   readonly categories: readonly Category[];
+  readonly error?: string;
   readonly onClose: () => void;
   readonly onSubmit: (formData: FormData) => void;
   readonly pending: boolean;
@@ -1589,6 +1615,11 @@ function UploadImportDialog({
             <X className="size-3.5" />
           </button>
         </div>
+        {error ? (
+          <p className="border-b border-negative/20 bg-negative/10 px-5 py-3 text-xs text-negative">
+            {error}
+          </p>
+        ) : null}
         <div className="grid gap-4 px-5 py-4">
           <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border px-4 py-7 text-center transition hover:border-accent/60 hover:bg-surface">
             {fileName ? <FileText className="size-6 text-accent" /> : <Upload className="size-6 text-muted" />}

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, inArray, isNull, ne } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   categories,
@@ -16,6 +16,7 @@ import type {
 } from "@/domain/entry/entry";
 import type {
   ImportRequest,
+  ImportRequestSummary,
   ImportRow,
   ImportSource,
   ImportStatus,
@@ -50,6 +51,10 @@ export interface ImportRepository {
     context: ApplicationContext,
     options: { includeConfirmed: boolean },
   ): Promise<ImportRequest[]>;
+  listSummaries(
+    context: ApplicationContext,
+    options: { includeConfirmed: boolean },
+  ): Promise<ImportRequestSummary[]>;
   findById(context: ApplicationContext, id: string): Promise<ImportRequest | null>;
   createRequest(
     context: ApplicationContext,
@@ -95,6 +100,49 @@ type ImportRowRow = {
 };
 
 export class DrizzleImportRepository implements ImportRepository {
+  async listSummaries(
+    context: ApplicationContext,
+    options: { includeConfirmed: boolean },
+  ): Promise<ImportRequestSummary[]> {
+    const userId = context.requireUserPrincipal().id;
+    const database = resolveDatabaseClient(context, db);
+    const where = options.includeConfirmed
+      ? eq(importRequests.userId, userId)
+      : and(
+          eq(importRequests.userId, userId),
+          ne(importRequests.status, "CONFIRMED"),
+        );
+    const rows = await database
+      .select({
+        request: importRequests,
+        totalRows: count(importRows.id),
+        pendingRows: sql<number>`count(${importRows.id}) filter (where ${importRows.entryId} is null and ${importRows.ignoredAt} is null)`.mapWith(Number),
+        ignoredRows: sql<number>`count(${importRows.id}) filter (where ${importRows.ignoredAt} is not null)`.mapWith(Number),
+      })
+      .from(importRequests)
+      .leftJoin(
+        importRows,
+        and(
+          eq(importRows.importRequestId, importRequests.id),
+          eq(importRows.userId, userId),
+        ),
+      )
+      .where(where)
+      .groupBy(importRequests.id)
+      .orderBy(desc(importRequests.createdAt));
+
+    return rows.map(({ request, totalRows, pendingRows, ignoredRows }) => ({
+      id: request.id,
+      source: request.source as ImportSource,
+      status: request.status as ImportStatus,
+      fileName: request.fileName,
+      createdAt: request.createdAt,
+      totalRows,
+      pendingRows,
+      ignoredRows,
+    }));
+  }
+
   async list(
     context: ApplicationContext,
     options: { includeConfirmed: boolean },

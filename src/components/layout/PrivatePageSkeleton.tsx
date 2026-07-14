@@ -5,6 +5,7 @@ export type PrivatePageSkeletonPage =
   | "cash-flow"
   | "consumption"
   | "dashboard"
+  | "help"
   | "imports"
   | "transactions"
   | "wallets";
@@ -18,6 +19,7 @@ const labels: Record<PrivatePageSkeletonPage, string> = {
   "cash-flow": "Fluxo de caixa operacional",
   consumption: "Consumo por categoria",
   dashboard: "Painel",
+  help: "Ajuda",
   imports: "Importações",
   transactions: "Transações",
   wallets: "Carteiras",
@@ -39,6 +41,7 @@ export function PrivatePageSkeleton({ page }: PrivatePageSkeletonProps) {
       {page === "categories" ? <CategoriesSkeleton /> : null}
       {page === "consumption" ? <ConsumptionSkeleton /> : null}
       {page === "cash-flow" ? <CashFlowSkeleton /> : null}
+      {page === "help" ? <HelpSkeleton /> : null}
       <span className="sr-only">Carregando {labels[page]}...</span>
     </div>
   );
@@ -156,6 +159,20 @@ function CashFlowSkeleton() {
       </section>
       <TableSkeleton columns={8} rows={10} />
       <TableSkeleton columns={6} rows={4} />
+    </>
+  );
+}
+
+function HelpSkeleton() {
+  return (
+    <>
+      <Skeleton className="h-44 rounded-xl" />
+      <div className="grid gap-4 xl:grid-cols-2">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <Skeleton className="h-52 rounded-xl" key={index} />
+        ))}
+      </div>
+      <Skeleton className="h-72 rounded-xl" />
     </>
   );
 }

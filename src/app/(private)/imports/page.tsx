@@ -7,16 +7,26 @@ import { createWalletService } from "@/server/services/wallet-service-factory";
 
 export const dynamic = "force-dynamic";
 
-export default async function ImportsPage() {
+type ImportsPageProps = {
+  readonly searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function ImportsPage({ searchParams }: ImportsPageProps) {
   const context = await getCurrentApplicationContext();
   const importService = createImportService();
   const walletService = createWalletService();
   const categoryService = await createCategoryService();
+  const params = (await searchParams) ?? {};
+  const initialSelectedImportId =
+    typeof params.importId === "string" ? params.importId : undefined;
 
-  const [imports, wallets, categories] = await Promise.all([
-    importService.list(context, { includeConfirmed: true }),
+  const [imports, wallets, categories, initialSelectedImport] = await Promise.all([
+    importService.listSummaries(context, { includeConfirmed: true }),
     walletService.list(context, { includeInactive: false }),
     categoryService.list(context, { includeInactive: false }),
+    initialSelectedImportId
+      ? importService.findById(context, initialSelectedImportId)
+      : Promise.resolve(null),
   ]);
 
   return (
@@ -42,6 +52,7 @@ export default async function ImportsPage() {
       <ImportsWorkspace
         categories={categories}
         initialImports={imports}
+        initialSelectedImport={initialSelectedImport}
         wallets={wallets}
       />
     </div>

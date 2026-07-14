@@ -47,6 +47,10 @@ export class ImportService {
     return this.dependencies.repository.list(context, command);
   }
 
+  async listSummaries(context: ApplicationContext, command: ListImportsCommand) {
+    return this.dependencies.repository.listSummaries(context, command);
+  }
+
   async findById(context: ApplicationContext, id: string) {
     const request = await this.dependencies.repository.findById(context, id);
     if (!request) throw new ImportNotFoundError();

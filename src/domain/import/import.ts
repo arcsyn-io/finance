@@ -40,6 +40,17 @@ export type ImportRequest = {
   readonly rows: readonly ImportRow[];
 };
 
+export type ImportRequestSummary = {
+  readonly id: string;
+  readonly source: ImportSource;
+  readonly status: ImportStatus;
+  readonly fileName: string;
+  readonly createdAt: Date;
+  readonly totalRows: number;
+  readonly pendingRows: number;
+  readonly ignoredRows: number;
+};
+
 export type ImportRow = {
   readonly id: string;
   readonly importRequestId: string;

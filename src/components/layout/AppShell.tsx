@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { type MouseEvent, useEffect, useState, useTransition } from "react";
 import {
   BarChart2,
+  CircleHelp,
   CreditCard,
   FileUp,
   LayoutGrid,
@@ -44,6 +45,8 @@ const registryLinks: ShellLink[] = [
   { href: "/categories", label: "Categorias", icon: Tag },
 ];
 
+const helpLink: ShellLink = { href: "/help", label: "Ajuda", icon: CircleHelp };
+
 const skeletonRoutes = new Set([
   "/",
   "/analysis/cash-flow",
@@ -52,6 +55,7 @@ const skeletonRoutes = new Set([
   "/imports",
   "/wallets",
   "/categories",
+  "/help",
 ]);
 
 export function AppShell({ children }: { readonly children: React.ReactNode }) {
@@ -167,6 +171,23 @@ export function AppShell({ children }: { readonly children: React.ReactNode }) {
             <Settings className="h-3.5 w-3.5" aria-hidden="true" />
             Configurações
           </button>
+          <Link
+            className={`flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-xs font-medium transition ${
+              pathname === helpLink.href
+                ? "bg-surface-elevated text-foreground"
+                : "text-muted hover:bg-surface-elevated hover:text-foreground"
+            }`}
+            href={helpLink.href}
+            onClick={(event) => handleMenuNavigate(helpLink, event)}
+          >
+            <CircleHelp
+              className={`h-3.5 w-3.5 ${
+                pathname === helpLink.href ? "text-accent" : ""
+              }`}
+              aria-hidden="true"
+            />
+            Ajuda
+          </Link>
           <button
             className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-xs font-medium text-muted transition hover:bg-negative/10 hover:text-negative disabled:opacity-60"
             disabled={logoutPending}
@@ -225,6 +246,8 @@ export function AppShell({ children }: { readonly children: React.ReactNode }) {
                   ? "Fluxo de caixa"
                   : pathname === "/analysis/consumption"
                     ? "Consumo por categoria"
+                    : pathname === "/help"
+                      ? "Ajuda"
                 : "Painel"}
           </span>
         </header>
@@ -298,5 +321,6 @@ function skeletonPageForRoute(route: string): PrivatePageSkeletonPage {
   if (route === "/imports") return "imports";
   if (route === "/wallets") return "wallets";
   if (route === "/categories") return "categories";
+  if (route === "/help") return "help";
   return "dashboard";
 }
