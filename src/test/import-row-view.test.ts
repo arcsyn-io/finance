@@ -4,6 +4,7 @@ import test from "node:test";
 import type { ImportRow } from "../domain/import/import";
 import {
   getImportRowViewStatus,
+  getVisibleImportRowStatus,
   groupImportRowsByStatus,
   orderImportRowsByDate,
 } from "../modules/imports/view-models/import-row-view";
@@ -53,6 +54,20 @@ test("deriva status visual da linha de importacao", () => {
     "ready",
   );
   assert.equal(getImportRowViewStatus(row({})), "pending");
+});
+
+test("mantem o status anterior enquanto a linha esta em edicao", () => {
+  const completeRow = row({
+    categoryId: "category-1",
+    walletId: "wallet-1",
+    nature: "OPERATIONAL",
+  });
+
+  assert.equal(
+    getVisibleImportRowStatus(completeRow, undefined, "pending"),
+    "pending",
+  );
+  assert.equal(getVisibleImportRowStatus(completeRow), "ready");
 });
 
 test("ordena linhas por data e numero original da linha", () => {

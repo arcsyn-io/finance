@@ -51,6 +51,7 @@ O usuario precisa importar lancamentos exportados do Nubank sem gravar fatos fin
 - O modal de nova importacao coleta arquivo, origem, carteira, categoria, natureza e evento economico default.
 - Durante o envio do arquivo, o modal informa que a importacao esta sendo preparada e bloqueia fechamento, reenvio e edicao dos campos.
 - A revisao exibe linhas editaveis com data, descricao, carteira, categoria, natureza, evento, valor e status.
+- Enquanto uma linha estiver em edicao, seu status visual permanece o que era ao receber foco. O status deve ser recalculado somente quando o foco sair da linha.
 - A revisao exibe os valores sugeridos como valores especificos da linha e permite que o usuario os substitua antes da confirmacao.
 - A revisao permite anexar documentos na importacao inteira e em cada linha.
 - A revisao indica quando uma importacao ou linha possui anexos.
@@ -81,4 +82,5 @@ O usuario precisa importar lancamentos exportados do Nubank sem gravar fatos fin
 - O usuario consegue anexar uma fatura global e tambem anexos individuais em linhas da mesma importacao.
 - O usuario consegue remover em lote importacoes pendentes e confirmadas sem remover os lancamentos financeiros ja criados.
 - Uma edicao em lote atualiza atomicamente todas as linhas selecionadas que pertencem a importacao aberta.
+- O preenchimento do ultimo campo obrigatorio nao muda o status visual da linha durante a edicao; ao perder o foco, a linha passa a exibir o status recalculado.
 - Testes cobrem parsing do CSV, matching historico, precedencia de defaults e confirmacao sem inserir antes da confirmacao.

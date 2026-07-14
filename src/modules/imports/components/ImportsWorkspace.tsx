@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type FocusEvent,
   FormEvent,
   type KeyboardEvent,
   type ReactNode,
@@ -53,6 +54,7 @@ import { Dropdown } from "@/components/ui/Dropdown";
 import { CategorySelect } from "@/components/domain/CategorySelect";
 import {
   getImportRowViewStatus,
+  getVisibleImportRowStatus,
   groupImportRowsByStatus,
   importRowStatusLabels,
   orderImportRowsByDate,
@@ -547,6 +549,9 @@ function ImportReview({
   const [collapsedGroups, setCollapsedGroups] = useState<
     ReadonlySet<ImportRowViewStatus>
   >(() => new Set());
+  const [statusBeforeEditingByRow, setStatusBeforeEditingByRow] = useState<
+    ReadonlyMap<string, ImportRowViewStatus>
+  >(() => new Map());
   const confirmed = importRequest.status === "CONFIRMED";
   const totals = summarizeRows(importRequest.rows);
   const readinessDefaults = useMemo(
@@ -566,8 +571,13 @@ function ImportReview({
     [importRequest.rows],
   );
   const statusGroups = useMemo(
-    () => groupImportRowsByStatus(importRequest.rows, readinessDefaults),
-    [importRequest.rows, readinessDefaults],
+    () =>
+      groupImportRowsByStatus(
+        importRequest.rows,
+        readinessDefaults,
+        statusBeforeEditingByRow,
+      ),
+    [importRequest.rows, readinessDefaults, statusBeforeEditingByRow],
   );
   const navigationRows = useMemo(
     () =>
@@ -605,6 +615,32 @@ function ImportReview({
   function clearSelection() {
     setSelectedRowIds(new Set());
     setShowBulkEdit(false);
+  }
+
+  function preserveStatusWhileEditing(row: ImportRow) {
+    setStatusBeforeEditingByRow((current) => {
+      if (current.has(row.id)) return current;
+
+      const next = new Map(current);
+      next.set(row.id, getImportRowViewStatus(row, readinessDefaults));
+      return next;
+    });
+  }
+
+  function releaseStatusAfterEditing(event: FocusEvent<HTMLTableRowElement>) {
+    const rowElement = event.currentTarget;
+
+    window.setTimeout(() => {
+      if (rowElement.contains(document.activeElement)) return;
+
+      setStatusBeforeEditingByRow((current) => {
+        if (!current.has(rowElement.dataset.importRowId ?? "")) return current;
+
+        const next = new Map(current);
+        next.delete(rowElement.dataset.importRowId ?? "");
+        return next;
+      });
+    }, 0);
   }
 
   function toggleGroup(status: ImportRowViewStatus) {
@@ -866,7 +902,11 @@ function ImportReview({
   }
 
   function renderRow(row: ImportRow) {
-    const rowStatus = getImportRowViewStatus(row, readinessDefaults);
+    const rowStatus = getVisibleImportRowStatus(
+      row,
+      readinessDefaults,
+      statusBeforeEditingByRow.get(row.id),
+    );
     const selected = selectedRowIds.has(row.id);
     const selectedCategory = row.categoryId
       ? categories.find((category) => category.id === row.categoryId)
@@ -882,6 +922,9 @@ function ImportReview({
           selected ? "bg-accent/5" : ""
         }`}
         key={row.id}
+        data-import-row-id={row.id}
+        onBlurCapture={releaseStatusAfterEditing}
+        onFocusCapture={() => preserveStatusWhileEditing(row)}
       >
         <td className="px-3 py-3">
           <button

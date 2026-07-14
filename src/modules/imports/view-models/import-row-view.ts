@@ -50,6 +50,14 @@ export function getImportRowViewStatus(
   return "pending";
 }
 
+export function getVisibleImportRowStatus(
+  row: ImportRow,
+  defaults?: ImportRowReadinessDefaults,
+  statusBeforeEditing?: ImportRowViewStatus,
+): ImportRowViewStatus {
+  return statusBeforeEditing ?? getImportRowViewStatus(row, defaults);
+}
+
 export function orderImportRowsByDate(
   rows: readonly ImportRow[],
 ): readonly ImportRow[] {
@@ -63,13 +71,19 @@ export function orderImportRowsByDate(
 export function groupImportRowsByStatus(
   rows: readonly ImportRow[],
   defaults?: ImportRowReadinessDefaults,
+  statusBeforeEditingByRow?: ReadonlyMap<string, ImportRowViewStatus>,
 ): readonly ImportRowStatusGroup[] {
   const orderedRows = orderImportRowsByDate(rows);
 
   return statusOrder
     .map((status) => {
       const groupRows = orderedRows.filter(
-        (row) => getImportRowViewStatus(row, defaults) === status,
+        (row) =>
+          getVisibleImportRowStatus(
+            row,
+            defaults,
+            statusBeforeEditingByRow?.get(row.id),
+          ) === status,
       );
 
       return {
