@@ -120,12 +120,12 @@ test("criacao preserva default de categoria e sugere somente campos sem default"
     economicEvent: null,
   });
 
-  assert.equal(insertedRows[0]?.categoryId, null);
+  assert.equal(insertedRows[0]?.categoryId, "category-default");
   assert.equal(insertedRows[0]?.nature, "OPERATIONAL");
   assert.equal(insertedRows[0]?.economicEvent, "CONSUMPTION");
 });
 
-test("criacao preserva todos os defaults sem consultar o historico", async () => {
+test("criacao aplica todos os defaults selecionados a cada linha sem consultar o historico", async () => {
   const insertedRows: PreparedImportRow[] = [];
   let historyQueried = false;
   const entryRepository = {
@@ -147,21 +147,27 @@ test("criacao preserva todos os defaults sem consultar o historico", async () =>
     fileContent: "date,title,amount\n2026-07-12,Subzero,10.00",
     fileSizeBytes: 48,
     source: "NUBANK_CSV",
-    defaultWalletId: null,
+    defaultWalletId: "wallet-history",
     defaultCategoryId: "category-default",
     nature: "PATRIMONIAL",
     economicEvent: "INVESTMENT",
   });
 
   assert.equal(historyQueried, false);
-  assert.deepEqual(
-    insertedRows.map(({ categoryId, nature, economicEvent }) => ({
-      categoryId,
-      nature,
-      economicEvent,
-    })),
-    [{ categoryId: null, nature: null, economicEvent: null }],
-  );
+  assert.deepEqual(insertedRows, [
+    {
+      rowNumber: 2,
+      occurredOn: "2026-07-12",
+      description: "Subzero",
+      amountCents: 1000,
+      direction: "OUT",
+      externalId: null,
+      walletId: "wallet-history",
+      categoryId: "category-default",
+      nature: "PATRIMONIAL",
+      economicEvent: "INVESTMENT",
+    },
+  ]);
 });
 
 test("criacao mantem campos vazios quando o historico nao atinge o score minimo", async () => {

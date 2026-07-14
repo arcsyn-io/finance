@@ -262,6 +262,7 @@ export class DrizzleImportRepository implements ImportRepository {
         description: row.description,
         amountCents: row.amountCents,
         direction: row.direction,
+        walletId: row.walletId,
         nature: row.nature,
         categoryId: row.categoryId,
         externalId: row.externalId,

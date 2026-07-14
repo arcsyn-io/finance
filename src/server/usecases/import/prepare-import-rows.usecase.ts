@@ -48,11 +48,12 @@ export class PrepareImportRowsUseCase {
 
       preparedRows.push({
         ...row,
+        walletId: input.defaultWalletId,
         categoryId:
-          input.defaultCategoryId === null ? suggestion.categoryId : null,
-        nature: input.nature === null ? suggestion.nature : null,
+          input.defaultCategoryId ?? suggestion.categoryId,
+        nature: input.nature ?? suggestion.nature,
         economicEvent:
-          input.economicEvent === null ? suggestion.economicEvent : null,
+          input.economicEvent ?? suggestion.economicEvent,
       });
     }
 

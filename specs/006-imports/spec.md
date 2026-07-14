@@ -25,7 +25,7 @@ O usuario precisa importar lancamentos exportados do Nubank sem gravar fatos fin
 - A descricao usada na comparacao deve ser normalizada removendo acentos, diferencas entre maiusculas e minusculas, pontuacao e espacos repetidos. No matching por tokens, devem ser ignorados tokens de ate dois caracteres e as palavras `compra`, `debito`, `credito`, `cartao`, `nubank`, `pagamento`, `recebido`, `nu`, `pay`, `nupay`, `de`, `do`, `da`, `no`, `na` e `em`.
 - O score de similaridade deve ser 100 para descricao normalizada identica, 85 quando uma descricao normalizada contem a outra e, nos demais casos, o percentual arredondado da intersecao de tokens sobre o menor conjunto, multiplicado por 80. Scores menores que 55 devem ser descartados.
 - Os matches devem ser agrupados pela tupla categoria, natureza e evento economico. Vence a maior soma de scores; em empate, a maior quantidade de ocorrencias; persistindo o empate, a tupla da ocorrencia historica mais recente.
-- A sugestao deve preencher cada campo da linha somente quando o respectivo default nao tiver sido informado no pedido. A precedencia efetiva deve ser: valor editado na linha, default do pedido e sugestao historica.
+- Os defaults selecionados no modal devem ser persistidos em cada linha criada pela importacao. A sugestao deve preencher somente os campos que nao receberam default. A precedencia efetiva deve ser: valor editado na linha, default do pedido e sugestao historica.
 - Sem match elegivel, os campos sem default devem permanecer vazios para revisao manual. Alterar a descricao durante a revisao nao deve recalcular a sugestao.
 - Categorias inativas presentes no historico continuam elegiveis, preservando o comportamento anterior. Registros sem categoria valida nao participam da sugestao.
 - Importacoes confirmadas nao podem ser editadas, canceladas ou confirmadas novamente.
@@ -65,6 +65,7 @@ O usuario precisa importar lancamentos exportados do Nubank sem gravar fatos fin
 
 - Nenhum registro e inserido em `entries` no upload.
 - O upload persiste em `import_rows` a categoria, a natureza e o evento sugeridos quando seus respectivos defaults nao foram informados.
+- O upload persiste em cada `import_row` a carteira, categoria, natureza e evento selecionados como defaults no modal.
 - Descricoes equivalentes apesar de acentos, caixa, pontuacao ou termos ignorados recebem a mesma sugestao historica quando atingem o score minimo.
 - Defaults informados pelo usuario nao sao sobrescritos por sugestoes, e importacoes sem match permanecem pendentes para preenchimento manual.
 - Quando mais de uma tupla historica for elegivel, soma, quantidade e recencia determinam o resultado nesta ordem.

@@ -88,6 +88,7 @@ export type ParsedImportRow = {
 };
 
 export type PreparedImportRow = ParsedImportRow & {
+  readonly walletId: string | null;
   readonly categoryId: string | null;
   readonly nature: EntryNature | null;
   readonly economicEvent: EconomicEvent | null;
