@@ -1,11 +1,12 @@
 "use client";
 
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, LayoutGrid, LoaderCircle, Lock, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { usePendingRequest } from "@/hooks/use-pending-request";
 
 type AuthApiResponse = {
   readonly redirectTo?: string;
@@ -15,25 +16,27 @@ type AuthApiResponse = {
 export function LoginForm() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const { isPending, run } = usePendingRequest();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const response = await fetch("/api/auth/sign-in", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: String(formData.get("email") ?? ""),
-        password: String(formData.get("password") ?? ""),
-      }),
-    });
-    const body = (await response.json()) as AuthApiResponse;
+    await run(async () => {
+      const response = await fetch("/api/auth/sign-in", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: String(formData.get("email") ?? ""),
+          password: String(formData.get("password") ?? ""),
+        }),
+      });
+      const body = (await response.json()) as AuthApiResponse;
 
-    router.push(body.redirectTo ?? "/login?error=invalid_credentials");
-    router.refresh();
+      router.push(body.redirectTo ?? "/login?error=invalid_credentials");
+      router.refresh();
+    });
   }
 
   return (
@@ -55,7 +58,8 @@ export function LoginForm() {
       </div>
 
       <form
-        onSubmit={(event) => startTransition(() => void handleSubmit(event))}
+        aria-busy={isPending}
+        onSubmit={(event) => void handleSubmit(event)}
         className="flex flex-col gap-4"
       >
         <Label className="flex flex-col gap-1.5 text-[10px] font-semibold uppercase tracking-wider">
@@ -72,7 +76,7 @@ export function LoginForm() {
               autoComplete="email"
               placeholder="seu@email.com"
               required
-              disabled={pending}
+              disabled={isPending}
             />
           </span>
         </Label>
@@ -82,7 +86,7 @@ export function LoginForm() {
             Senha
             <button
               className="text-[10px] normal-case tracking-normal text-accent hover:underline"
-              disabled={pending}
+              disabled={isPending}
               type="button"
             >
               Esqueceu a senha?
@@ -100,12 +104,12 @@ export function LoginForm() {
               autoComplete="current-password"
               placeholder="********"
               required
-              disabled={pending}
+              disabled={isPending}
             />
             <button
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted transition-colors hover:text-foreground"
               onClick={() => setShowPassword((value) => !value)}
-              disabled={pending}
+              disabled={isPending}
               type="button"
             >
               {showPassword ? (
@@ -120,9 +124,9 @@ export function LoginForm() {
           </span>
         </Label>
 
-        <Button className="mt-2 w-full" disabled={pending}>
-          {pending ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : null}
-          {pending ? "Entrando..." : "Entrar"}
+        <Button className="mt-2 w-full" disabled={isPending}>
+          {isPending ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : null}
+          {isPending ? "Entrando..." : "Entrar"}
         </Button>
       </form>
 

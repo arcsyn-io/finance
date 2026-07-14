@@ -1,11 +1,12 @@
 "use client";
 
-import { FormEvent, useTransition } from "react";
+import { FormEvent } from "react";
 import { LoaderCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { usePendingRequest } from "@/hooks/use-pending-request";
 
 type MfaApiResponse = {
   readonly redirectTo?: string;
@@ -38,34 +39,37 @@ export function ChallengeTotpForm({
 
 export function EnrollTotpForm() {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const { isPending, run } = usePendingRequest();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const response = await fetch("/api/mfa/enroll", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({}),
-    });
-    const body = (await response.json()) as MfaApiResponse;
+    await run(async () => {
+      const response = await fetch("/api/mfa/enroll", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      });
+      const body = (await response.json()) as MfaApiResponse;
 
-    router.push(body.redirectTo ?? "/mfa?error=enroll_failed");
-    router.refresh();
+      router.push(body.redirectTo ?? "/mfa?error=enroll_failed");
+      router.refresh();
+    });
   }
 
   return (
     <form
-      onSubmit={(event) => startTransition(() => void handleSubmit(event))}
+      aria-busy={isPending}
+      onSubmit={(event) => void handleSubmit(event)}
       className="mt-6"
     >
       <Button
         className="w-full"
-        disabled={pending}
+        disabled={isPending}
       >
-        {pending ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : null}
-        {pending ? "Configurando..." : "Configurar app autenticador"}
+        {isPending ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : null}
+        {isPending ? "Configurando..." : "Configurar app autenticador"}
       </Button>
     </form>
   );
@@ -83,30 +87,33 @@ function MfaCodeForm({
   readonly secret?: string;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const { isPending, run } = usePendingRequest();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const response = await fetch(action, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        factorId,
-        code: String(formData.get("code") ?? ""),
-      }),
-    });
-    const body = (await response.json()) as MfaApiResponse;
+    await run(async () => {
+      const response = await fetch(action, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          factorId,
+          code: String(formData.get("code") ?? ""),
+        }),
+      });
+      const body = (await response.json()) as MfaApiResponse;
 
-    router.push(body.redirectTo ?? "/mfa?error=invalid_code");
-    router.refresh();
+      router.push(body.redirectTo ?? "/mfa?error=invalid_code");
+      router.refresh();
+    });
   }
 
   return (
     <form
-      onSubmit={(event) => startTransition(() => void handleSubmit(event))}
+      aria-busy={isPending}
+      onSubmit={(event) => void handleSubmit(event)}
       className="mt-6 space-y-4"
     >
       {secret ? (
@@ -128,16 +135,16 @@ function MfaCodeForm({
           maxLength={6}
           name="code"
           required
-          disabled={pending}
+          disabled={isPending}
         />
       </Label>
 
       <Button
         className="w-full"
-        disabled={pending}
+        disabled={isPending}
       >
-        {pending ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : null}
-        {pending ? "Verificando..." : buttonLabel}
+        {isPending ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : null}
+        {isPending ? "Verificando..." : buttonLabel}
       </Button>
     </form>
   );
