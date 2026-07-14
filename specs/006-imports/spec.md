@@ -29,6 +29,8 @@ O usuario precisa importar lancamentos exportados do Nubank sem gravar fatos fin
 - Sem match elegivel, os campos sem default devem permanecer vazios para revisao manual. Alterar a descricao durante a revisao nao deve recalcular a sugestao.
 - Categorias inativas presentes no historico continuam elegiveis, preservando o comportamento anterior. Registros sem categoria valida nao participam da sugestao.
 - Importacoes confirmadas nao podem ser editadas, canceladas ou confirmadas novamente.
+- O usuario pode selecionar uma ou mais importacoes na listagem e removê-las em lote, inclusive quando estiverem confirmadas.
+- Remover uma importacao apaga apenas o pedido, suas linhas e os vinculos de anexos da importacao. Lancamentos ja criados na confirmacao, incluindo seus vinculos de anexos, permanecem intactos.
 - A confirmacao exige carteira, categoria e natureza em cada linha ou nos defaults do pedido.
 - Linhas ignoradas nao geram lancamentos.
 - Duplicatas com `external_id` na mesma carteira devem ser ignoradas na confirmacao.
@@ -55,6 +57,7 @@ O usuario precisa importar lancamentos exportados do Nubank sem gravar fatos fin
 - Na visualizacao por status, as linhas sao agrupadas em Pendente, Concluido e Ignorada, com contagem por grupo.
 - Ao selecionar linhas, a revisao exibe acoes em lote para editar, concluir, ignorar e remover as linhas selecionadas.
 - A edicao em lote exibe uma linha de campos editaveis no formato `Nome do campo: valor selecionado`.
+- Cada importacao da listagem possui um checkbox. Ao haver selecao, a tela exibe a acao para remover as importacoes selecionadas.
 
 ## Criterios de Aceite
 
@@ -72,4 +75,5 @@ O usuario precisa importar lancamentos exportados do Nubank sem gravar fatos fin
 - Erros de validacao retornam mensagens em portugues.
 - A tela funciona com dados reais de carteiras, categorias e importacoes do usuario autenticado.
 - O usuario consegue anexar uma fatura global e tambem anexos individuais em linhas da mesma importacao.
+- O usuario consegue remover em lote importacoes pendentes e confirmadas sem remover os lancamentos financeiros ja criados.
 - Testes cobrem parsing do CSV, matching historico, precedencia de defaults e confirmacao sem inserir antes da confirmacao.

@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { DeleteImportRowCommand } from "../server/commands/import-commands";
+import type { DeleteImportRowCommand, DeleteImportsCommand } from "../server/commands/import-commands";
 import { ApplicationContext } from "../server/context/application-context";
-import { deleteImportRowJson } from "../server/controllers/import-controller";
+import { deleteImportRowJson, deleteImportsJson } from "../server/controllers/import-controller";
 
 class FakeImportService {
   deleteCommand: DeleteImportRowCommand | null = null;
+  deleteImportsCommand: DeleteImportsCommand | null = null;
 
   async list() {
     return [];
@@ -47,7 +48,40 @@ class FakeImportService {
   async cancel() {
     return undefined;
   }
+
+  async deleteMany(
+    _context: ApplicationContext,
+    command: DeleteImportsCommand,
+  ): Promise<void> {
+    this.deleteImportsCommand = command;
+  }
 }
+
+test("controller remove importacoes selecionadas, inclusive confirmadas", async () => {
+  const service = new FakeImportService();
+  const response = await deleteImportsJson({
+    context: makeContext(),
+    service,
+    body: {
+      ids: [
+        "00000000-0000-0000-0000-000000000001",
+        "00000000-0000-0000-0000-000000000002",
+      ],
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body.deletedImportIds, [
+    "00000000-0000-0000-0000-000000000001",
+    "00000000-0000-0000-0000-000000000002",
+  ]);
+  assert.deepEqual(service.deleteImportsCommand, {
+    ids: [
+      "00000000-0000-0000-0000-000000000001",
+      "00000000-0000-0000-0000-000000000002",
+    ],
+  });
+});
 
 test("controller remove linha de importacao por ids validos", async () => {
   const service = new FakeImportService();

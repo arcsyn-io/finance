@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
-import { createImportJson, listImportsJson } from "@/server/controllers/import-controller";
+import { createImportJson, deleteImportsJson, listImportsJson } from "@/server/controllers/import-controller";
 import { getApiApplicationContext } from "@/server/context/api-application-context";
 import { createImportService } from "@/server/services/import-service-factory";
 
@@ -50,6 +50,20 @@ export async function POST(request: Request) {
     revalidatePath("/imports");
   }
 
+  return NextResponse.json(response.body, { status: response.status });
+}
+
+export async function DELETE(request: Request) {
+  const context = await getApiApplicationContext();
+  if (!context) return unauthorized();
+
+  const response = await deleteImportsJson({
+    context,
+    service: createImportService(),
+    body: await request.json().catch(() => null),
+  });
+
+  if (response.status < 400) revalidatePath("/imports");
   return NextResponse.json(response.body, { status: response.status });
 }
 

@@ -7,6 +7,7 @@ import type {
   ConfirmImportCommand,
   CreateImportCommand,
   DeleteImportRowCommand,
+  DeleteImportsCommand,
   ListImportsCommand,
   SetImportRowIgnoredCommand,
   UpdateImportRowCommand,
@@ -243,6 +244,12 @@ export class ImportService {
     return this.dependencies.unitOfWork.execute(context, async (txContext) => {
       await this.findEditable(txContext, command.id);
       await this.dependencies.repository.deleteRequest(txContext, command.id);
+    });
+  }
+
+  async deleteMany(context: ApplicationContext, command: DeleteImportsCommand) {
+    return this.dependencies.unitOfWork.execute(context, async (txContext) => {
+      await this.dependencies.repository.deleteMany(txContext, command.ids);
     });
   }
 

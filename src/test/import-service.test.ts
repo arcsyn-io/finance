@@ -285,6 +285,30 @@ test("confirmacao vincula anexo global a cada entry e anexo de linha somente ao 
   );
 });
 
+test("remocao em lote permite importacoes confirmadas sem tocar nos lancamentos", async () => {
+  let deletedIds: readonly string[] = [];
+  const service = new ImportService({
+    repository: {
+      async deleteMany(_context: ApplicationContext, ids: readonly string[]) {
+        deletedIds = ids;
+      },
+    } as unknown as ImportRepository,
+    entryRepository: {} as EntryRepository,
+    importAttachmentRepository: {} as ImportAttachmentRepository,
+    entryAttachmentRepository: {} as EntryAttachmentRepository,
+    walletRepository: {} as WalletRepository,
+    categoryRepository: {} as CategoryRepository,
+    prepareImportRowsUseCase: new PrepareImportRowsUseCase({} as EntryRepository),
+    unitOfWork: {
+      async execute(context, work) { return work(context.withTransaction({ client: "tx" })); },
+    } as UnitOfWork,
+  });
+
+  await service.deleteMany(makeContext(), { ids: ["pending-import", "confirmed-import"] });
+
+  assert.deepEqual(deletedIds, ["pending-import", "confirmed-import"]);
+});
+
 function makeContext() {
   return ApplicationContext.user({ principalId: "user-1", now });
 }

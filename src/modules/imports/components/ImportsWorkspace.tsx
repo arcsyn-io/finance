@@ -74,6 +74,7 @@ type ImportApiResponse = {
   readonly importRequest?: ImportRequest;
   readonly row?: ImportRow;
   readonly deletedRowId?: string;
+  readonly deletedImportIds?: readonly string[];
   readonly status?: string;
   readonly result?: {
     importedCount: number;
@@ -160,6 +161,9 @@ export function ImportsWorkspace({
   const [showUpload, setShowUpload] = useState(false);
   const [toast, setToast] = useState<SystemToastMessage | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [selectedImportIds, setSelectedImportIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const [pending, startTransition] = useTransition();
 
   function showToast(tone: "success" | "error", message: string) {
@@ -301,6 +305,49 @@ export function ImportsWorkspace({
     }
   }
 
+  function toggleImportSelection(id: string) {
+    setSelectedImportIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAllImports() {
+    setSelectedImportIds((current) =>
+      current.size === imports.length ? new Set() : new Set(imports.map((item) => item.id)),
+    );
+  }
+
+  async function removeSelectedImports() {
+    const ids = [...selectedImportIds];
+    if (ids.length === 0) return;
+    if (!window.confirm(`Remover ${ids.length} importacao(oes) selecionada(s)? Os lancamentos confirmados serao preservados.`)) return;
+
+    try {
+      const response = await fetch("/api/imports", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      const body = (await response.json()) as ImportApiResponse;
+
+      if (!response.ok) {
+        showToast("error", body.error ?? "Nao foi possivel remover importacoes");
+        return;
+      }
+
+      const removedIds = new Set(body.deletedImportIds ?? ids);
+      setImports((current) => current.filter((item) => !removedIds.has(item.id)));
+      setSelectedImportIds(new Set());
+      if (selected && removedIds.has(selected.id)) setSelected(null);
+      showToast("success", "Importacoes selecionadas removidas");
+    } catch {
+      showToast("error", "Nao foi possivel remover importacoes");
+    }
+  }
+
   if (selected) {
     return (
       <>
@@ -336,6 +383,28 @@ export function ImportsWorkspace({
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
+        <button
+          className="flex h-8 items-center gap-2 rounded-lg border border-border bg-panel px-3 text-xs font-medium text-muted transition hover:bg-surface hover:text-foreground"
+          onClick={toggleAllImports}
+          type="button"
+        >
+          {selectedImportIds.size === imports.length && imports.length > 0 ? (
+            <CheckSquare className="size-3.5 text-accent" aria-hidden="true" />
+          ) : (
+            <Square className="size-3.5" aria-hidden="true" />
+          )}
+          {selectedImportIds.size === imports.length && imports.length > 0 ? "Desmarcar todas" : "Selecionar todas"}
+        </button>
+        {selectedImportIds.size > 0 ? (
+          <button
+            className="flex h-8 items-center gap-1.5 rounded-lg border border-negative/40 bg-negative/10 px-3 text-xs font-medium text-negative transition hover:bg-negative/20"
+            onClick={() => void removeSelectedImports()}
+            type="button"
+          >
+            <Trash2 className="size-3.5" aria-hidden="true" />
+            Remover {selectedImportIds.size}
+          </button>
+        ) : null}
         <div className="flex-1" />
         <button
           className="flex h-8 items-center gap-1.5 rounded-lg bg-accent px-3 text-xs font-semibold text-accent-foreground transition hover:bg-accent/90"
@@ -352,12 +421,12 @@ export function ImportsWorkspace({
           <table className="w-full min-w-[760px] text-xs">
             <thead>
               <tr className="border-b border-border bg-panel">
-                {["Criado em", "Arquivo", "Origem", "Status", "Total", "Pendentes", "Ignoradas", ""].map((heading) => (
+                {["", "Criado em", "Arquivo", "Origem", "Status", "Total", "Pendentes", "Ignoradas", ""].map((heading, index) => (
                   <th
                     className={`px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted ${
                       ["Total", "Pendentes", "Ignoradas"].includes(heading) ? "text-right" : "text-left"
                     }`}
-                    key={heading}
+                    key={`${heading}-${index}`}
                   >
                     {heading}
                   </th>
@@ -367,18 +436,32 @@ export function ImportsWorkspace({
             <tbody className="divide-y divide-border bg-panel">
               {imports.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-xs italic text-muted" colSpan={8}>
+                  <td className="px-4 py-8 text-center text-xs italic text-muted" colSpan={9}>
                     Nenhuma importacao encontrada.
                   </td>
                 </tr>
               ) : null}
               {imports.map((item) => {
+                const selectedImport = selectedImportIds.has(item.id);
                 return (
                   <tr
-                    className="cursor-pointer transition hover:bg-surface-elevated"
+                    className={`cursor-pointer transition hover:bg-surface-elevated ${selectedImport ? "bg-accent/5" : ""}`}
                     key={item.id}
                     onClick={() => void openImport(item.id)}
                   >
+                    <td className="px-4 py-3">
+                      <button
+                        aria-label={selectedImport ? "Desmarcar importacao" : "Selecionar importacao"}
+                        className="flex size-5 items-center justify-center text-muted transition hover:text-foreground"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleImportSelection(item.id);
+                        }}
+                        type="button"
+                      >
+                        {selectedImport ? <CheckSquare className="size-3.5 text-accent" aria-hidden="true" /> : <Square className="size-3.5" aria-hidden="true" />}
+                      </button>
+                    </td>
                     <td className="px-4 py-3 text-muted">{formatDateTime(item.createdAt)}</td>
                     <td className="px-4 py-3">
                       <span className="flex items-center gap-2 font-semibold text-foreground">

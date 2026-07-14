@@ -42,6 +42,10 @@ export type DeleteImportRowCommand = {
   readonly rowId: string;
 };
 
+export type DeleteImportsCommand = {
+  readonly ids: readonly string[];
+};
+
 export type ConfirmImportCommand = {
   readonly id: string;
 };

@@ -6,6 +6,7 @@ import type { HttpJsonResponse } from "../responses/http-json-response";
 import {
   createImportRequestSchema,
   importIdRequestSchema,
+  deleteImportsRequestSchema,
   listImportsRequestSchema,
   setImportRowIgnoredRequestSchema,
   updateImportRowRequestSchema,
@@ -16,7 +17,7 @@ type ImportControllerDependencies = {
   readonly context: ApplicationContext;
   readonly service: Pick<
     ImportService,
-    "list" | "findById" | "create" | "updateRow" | "setRowIgnored" | "deleteRow" | "confirm" | "cancel"
+    "list" | "findById" | "create" | "updateRow" | "setRowIgnored" | "deleteRow" | "confirm" | "cancel" | "deleteMany"
   >;
 };
 
@@ -25,6 +26,7 @@ type ImportResponse = HttpJsonResponse<{
   readonly importRequest?: Awaited<ReturnType<ImportService["findById"]>>;
   readonly row?: Awaited<ReturnType<ImportService["setRowIgnored"]>>;
   readonly deletedRowId?: string;
+  readonly deletedImportIds?: readonly string[];
   readonly result?: Awaited<ReturnType<ImportService["confirm"]>>;
   readonly status?: string;
   readonly error?: string;
@@ -206,6 +208,25 @@ export async function cancelImportJson({
   try {
     await service.cancel(context, result.data);
     return { status: 200, body: { status: "cancelled" } };
+  } catch (error) {
+    return importError(error);
+  }
+}
+
+export async function deleteImportsJson({
+  body,
+  context,
+  service,
+}: ImportControllerDependencies & { readonly body: unknown }): Promise<ImportResponse> {
+  const result = deleteImportsRequestSchema.safeParse(body);
+  if (!result.success) return validationError(result.error.issues[0]?.message);
+
+  try {
+    await service.deleteMany(context, result.data);
+    return {
+      status: 200,
+      body: { status: "deleted", deletedImportIds: result.data.ids },
+    };
   } catch (error) {
     return importError(error);
   }

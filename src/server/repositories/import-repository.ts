@@ -83,6 +83,7 @@ export interface ImportRepository {
   deleteRow(context: ApplicationContext, rowId: string): Promise<void>;
   confirmRequest(context: ApplicationContext, id: string): Promise<void>;
   deleteRequest(context: ApplicationContext, id: string): Promise<void>;
+  deleteMany(context: ApplicationContext, ids: readonly string[]): Promise<void>;
 }
 
 type ImportRequestRow = {
@@ -347,6 +348,19 @@ export class DrizzleImportRepository implements ImportRepository {
     await database
       .delete(importRequests)
       .where(and(eq(importRequests.userId, userId), eq(importRequests.id, id)));
+  }
+
+  async deleteMany(
+    context: ApplicationContext,
+    ids: readonly string[],
+  ): Promise<void> {
+    if (ids.length === 0) return;
+
+    const userId = context.requireUserPrincipal().id;
+    const database = resolveDatabaseClient(context, db);
+    await database
+      .delete(importRequests)
+      .where(and(eq(importRequests.userId, userId), inArray(importRequests.id, [...ids])));
   }
 
   private async requireRow(

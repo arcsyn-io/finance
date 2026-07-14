@@ -38,3 +38,7 @@ export const setImportRowIgnoredRequestSchema = z.object({
 export const importIdRequestSchema = z.object({
   id: z.string().uuid(),
 });
+
+export const deleteImportsRequestSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1, "Selecione ao menos uma importacao"),
+});
