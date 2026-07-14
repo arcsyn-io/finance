@@ -53,6 +53,11 @@ export type BulkUpdateImportRowsData = Partial<
   >
 >;
 
+export type ImportRowEntryId = {
+  readonly rowId: string;
+  readonly entryId: string;
+};
+
 export interface ImportRepository {
   list(
     context: ApplicationContext,
@@ -91,6 +96,10 @@ export interface ImportRepository {
     context: ApplicationContext,
     rowId: string,
     entryId: string,
+  ): Promise<void>;
+  setRowEntryIds(
+    context: ApplicationContext,
+    entries: readonly ImportRowEntryId[],
   ): Promise<void>;
   deleteRow(context: ApplicationContext, rowId: string): Promise<void>;
   confirmRequest(context: ApplicationContext, id: string): Promise<void>;
@@ -352,6 +361,35 @@ export class DrizzleImportRepository implements ImportRepository {
       .update(importRows)
       .set({ entryId, updatedAt: context.now })
       .where(and(eq(importRows.userId, userId), eq(importRows.id, rowId)));
+  }
+
+  async setRowEntryIds(
+    context: ApplicationContext,
+    entries: readonly ImportRowEntryId[],
+  ): Promise<void> {
+    if (entries.length === 0) return;
+
+    const userId = context.requireUserPrincipal().id;
+    const database = resolveDatabaseClient(context, db);
+    const entryIdCases = sql.join(
+      entries.map(
+        ({ entryId, rowId }) =>
+          sql`when ${importRows.id} = ${rowId} then ${entryId}`,
+      ),
+      sql.raw(" "),
+    );
+    await database
+      .update(importRows)
+      .set({
+        entryId: sql`case ${entryIdCases} else ${importRows.entryId} end`,
+        updatedAt: context.now,
+      })
+      .where(
+        and(
+          eq(importRows.userId, userId),
+          inArray(importRows.id, entries.map((entry) => entry.rowId)),
+        ),
+      );
   }
 
   async deleteRow(context: ApplicationContext, rowId: string): Promise<void> {

@@ -59,6 +59,18 @@ class FakeAttachmentRepository implements ImportAttachmentRepository {
         attachment.importRowId === options.importRowId,
     );
   }
+
+  async listAllByImportRequestId(
+    context: ApplicationContext,
+    importRequestId: string,
+  ): Promise<ImportAttachment[]> {
+    const userId = context.requireUserPrincipal().id;
+    return this.attachments.filter(
+      (attachment) =>
+        attachment.userId === userId &&
+        attachment.importRequestId === importRequestId,
+    );
+  }
 }
 
 class FakeStorage implements ImportAttachmentStorage {

@@ -28,6 +28,11 @@ export interface ImportAttachmentRepository {
     importRequestId: string,
     options: { readonly importRowId: string | null },
   ): Promise<ImportAttachment[]>;
+
+  listAllByImportRequestId(
+    context: ApplicationContext,
+    importRequestId: string,
+  ): Promise<ImportAttachment[]>;
 }
 
 export class DrizzleImportAttachmentRepository
@@ -75,6 +80,26 @@ export class DrizzleImportAttachmentRepository
           eq(importAttachments.userId, userId),
           eq(importAttachments.importRequestId, importRequestId),
           rowCondition,
+        ),
+      )
+      .orderBy(desc(importAttachments.createdAt));
+
+    return rows.map(mapRow);
+  }
+
+  async listAllByImportRequestId(
+    context: ApplicationContext,
+    importRequestId: string,
+  ): Promise<ImportAttachment[]> {
+    const userId = context.requireUserPrincipal().id;
+    const database = resolveDatabaseClient(context, db);
+    const rows = await database
+      .select()
+      .from(importAttachments)
+      .where(
+        and(
+          eq(importAttachments.userId, userId),
+          eq(importAttachments.importRequestId, importRequestId),
         ),
       )
       .orderBy(desc(importAttachments.createdAt));

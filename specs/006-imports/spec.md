@@ -43,6 +43,7 @@ O usuario precisa importar lancamentos exportados do Nubank sem gravar fatos fin
 - A confirmacao nao deve duplicar o arquivo no storage; os vinculos de lancamento reutilizam bucket, caminho e metadados do anexo da importacao.
 - O mesmo objeto do storage pode ser vinculado a lancamentos distintos, mas nao pode ser vinculado mais de uma vez ao mesmo lancamento.
 - Linhas ignoradas ou descartadas como duplicadas nao criam lancamento nem vinculo de anexo.
+- A confirmacao deve processar as linhas ativas com consultas e gravacoes em lote, sem executar operacoes de persistencia repetidas por linha.
 
 ## UI Esperada
 
@@ -83,4 +84,5 @@ O usuario precisa importar lancamentos exportados do Nubank sem gravar fatos fin
 - O usuario consegue remover em lote importacoes pendentes e confirmadas sem remover os lancamentos financeiros ja criados.
 - Uma edicao em lote atualiza atomicamente todas as linhas selecionadas que pertencem a importacao aberta.
 - O preenchimento do ultimo campo obrigatorio nao muda o status visual da linha durante a edicao; ao perder o foco, a linha passa a exibir o status recalculado.
+- A confirmacao de uma importacao com varias linhas usa operacoes em lote para criar lancamentos, vincular anexos e marcar as linhas confirmadas.
 - Testes cobrem parsing do CSV, matching historico, precedencia de defaults e confirmacao sem inserir antes da confirmacao.

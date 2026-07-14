@@ -14,6 +14,7 @@ import { ApplicationContext } from "../server/context/application-context";
 import type {
   CreateEntryData,
   CreateTransferEntryData,
+  EntryExternalId,
   EntryRepository,
   ListEntriesFilters,
   UpdateEntryData,
@@ -104,6 +105,16 @@ class FakeEntryRepository implements EntryRepository {
     this.entries.set(id, entry);
 
     return entry;
+  }
+
+  async createMany(
+    context: ApplicationContext,
+    data: Parameters<EntryRepository["createMany"]>[1],
+  ) {
+    const entries = await Promise.all(
+      data.map((entry) => this.create(context, entry)),
+    );
+    return entries.map(({ id }) => ({ id }));
   }
 
   async createWithTransfer(
@@ -239,6 +250,21 @@ class FakeEntryRepository implements EntryRepository {
         entry.userId === userId &&
         entry.externalId === externalId &&
         entry.walletId === walletId,
+    );
+  }
+
+  async findExistingExternalIds(
+    context: ApplicationContext,
+    candidates: readonly EntryExternalId[],
+  ): Promise<EntryExternalId[]> {
+    const userId = context.requireUserPrincipal().id;
+    return candidates.filter((candidate) =>
+      [...this.entries.values()].some(
+        (entry) =>
+          entry.userId === userId &&
+          entry.walletId === candidate.walletId &&
+          entry.externalId === candidate.externalId,
+      ),
     );
   }
 }

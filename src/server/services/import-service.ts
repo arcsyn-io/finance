@@ -177,18 +177,8 @@ export class ImportService {
         throw new InvalidImportError("Importacao nao possui linhas para confirmar");
       }
 
-      let importedCount = 0;
       let skippedCount = 0;
-      let startDate: string | null = null;
-      let endDate: string | null = null;
-      const globalAttachments =
-        await this.dependencies.importAttachmentRepository.listByImportRequestId(
-          txContext,
-          request.id,
-          { importRowId: null },
-        );
-
-      for (const row of activeRows) {
+      const rowsToResolve = activeRows.map((row) => {
         const walletId = row.walletId ?? request.defaultWalletId;
         const categoryId = row.categoryId ?? request.defaultCategoryId;
         const nature = row.nature ?? request.nature;
@@ -198,23 +188,50 @@ export class ImportService {
         if (!nature) throw new InvalidImportError(`Natureza obrigatoria: ${row.description ?? "linha sem descricao"}`);
         if (!row.valid) throw new InvalidImportError(`Linha invalida: ${row.validationErrors ?? row.description ?? row.id}`);
 
-        if (
-          row.externalId &&
-          (await this.dependencies.entryRepository.existsByExternalIdAndWallet(
-            txContext,
-            row.externalId,
-            walletId,
-          ))
-        ) {
+        return { row, walletId, categoryId, nature };
+      });
+      const existingExternalIds = await this.dependencies.entryRepository.findExistingExternalIds(
+        txContext,
+        rowsToResolve.flatMap(({ row, walletId }) =>
+          row.externalId ? [{ walletId, externalId: row.externalId }] : [],
+        ),
+      );
+      const existingExternalIdKeys = new Set(
+        existingExternalIds.map(({ walletId, externalId }) =>
+          externalIdKey(walletId, externalId),
+        ),
+      );
+      const externalIdKeysInImport = new Set<string>();
+      const rowsToImport = rowsToResolve.filter(({ row, walletId }) => {
+        if (!row.externalId) return true;
+
+        const key = externalIdKey(walletId, row.externalId);
+        if (existingExternalIdKeys.has(key) || externalIdKeysInImport.has(key)) {
           skippedCount += 1;
-          continue;
+          return false;
         }
 
-        const wallet = await this.dependencies.walletRepository.findById(txContext, walletId);
+        externalIdKeysInImport.add(key);
+        return true;
+      });
+      const [wallets, categories, importAttachments] = await Promise.all([
+        this.dependencies.walletRepository.list(txContext, { includeInactive: true }),
+        this.dependencies.categoryRepository.list(txContext, { includeInactive: true }),
+        this.dependencies.importAttachmentRepository.listAllByImportRequestId(
+          txContext,
+          request.id,
+        ),
+      ]);
+      const walletsById = new Map(wallets.map((wallet) => [wallet.id, wallet]));
+      const categoriesById = new Map(
+        categories.map((category) => [category.id, category]),
+      );
+      const entriesToCreate = rowsToImport.map(({ row, walletId, categoryId, nature }) => {
+        const wallet = walletsById.get(walletId);
         if (!wallet) throw new WalletNotFoundError();
         if (!wallet.active) throw new InvalidImportError("Carteira inativa nao pode receber importacoes");
 
-        const category = await this.dependencies.categoryRepository.findById(txContext, categoryId);
+        const category = categoriesById.get(categoryId);
         if (!category) throw new CategoryNotFoundError();
 
         const direction = inferDirection(category);
@@ -228,36 +245,77 @@ export class ImportService {
             walletType: wallet.type,
           });
 
-        const entry = await this.dependencies.entryRepository.create(txContext, {
-          walletId,
-          categoryId,
-          nature,
-          direction,
-          economicEvent: economicEvent as EconomicEvent,
-          amountCents: row.amountCents,
-          occurredOn: row.occurredOn,
-          description: row.description,
-          externalId: row.externalId,
-        });
-        const rowAttachments =
-          await this.dependencies.importAttachmentRepository.listByImportRequestId(
-            txContext,
-            request.id,
-            { importRowId: row.id },
-          );
+        return {
+          row,
+          entry: {
+            walletId,
+            categoryId,
+            nature,
+            direction,
+            economicEvent: economicEvent as EconomicEvent,
+            amountCents: row.amountCents,
+            occurredOn: row.occurredOn,
+            description: row.description,
+            externalId: row.externalId,
+          },
+        };
+      });
+      const createdEntries = await this.dependencies.entryRepository.createMany(
+        txContext,
+        entriesToCreate.map(({ entry }) => entry),
+      );
 
-        for (const attachment of [...globalAttachments, ...rowAttachments]) {
-          await this.dependencies.entryAttachmentRepository.create(txContext, {
-            entryId: entry.id,
+      if (createdEntries.length !== entriesToCreate.length) {
+        throw new Error("Quantidade de lancamentos criados diferente da importacao");
+      }
+
+      const rowEntryIds = entriesToCreate.map(({ row }, index) => ({
+        rowId: row.id,
+        entryId: createdEntries[index]?.id ?? "",
+      }));
+      const globalAttachments = importAttachments.filter(
+        (attachment) => attachment.importRowId === null,
+      );
+      const attachmentsByRowId = new Map<string, typeof importAttachments>();
+
+      for (const attachment of importAttachments) {
+        if (!attachment.importRowId) continue;
+        const rowAttachments = attachmentsByRowId.get(attachment.importRowId) ?? [];
+        attachmentsByRowId.set(attachment.importRowId, [
+          ...rowAttachments,
+          attachment,
+        ]);
+      }
+
+      const entryAttachments = rowEntryIds.flatMap(({ entryId, rowId }) => {
+        const attachmentPaths = new Set<string>();
+        return [
+          ...globalAttachments,
+          ...(attachmentsByRowId.get(rowId) ?? []),
+        ].flatMap((attachment) => {
+          if (attachmentPaths.has(attachment.objectPath)) return [];
+          attachmentPaths.add(attachment.objectPath);
+          return [{
+            entryId,
             bucketName: attachment.bucketName,
             objectPath: attachment.objectPath,
             originalFileName: attachment.originalFileName,
             mimeType: attachment.mimeType,
             sizeBytes: attachment.sizeBytes,
-          });
-        }
-        await this.dependencies.repository.setRowEntryId(txContext, row.id, entry.id);
-        importedCount += 1;
+          }];
+        });
+      });
+
+      await this.dependencies.entryAttachmentRepository.createMany(
+        txContext,
+        entryAttachments,
+      );
+      await this.dependencies.repository.setRowEntryIds(txContext, rowEntryIds);
+
+      const importedCount = entriesToCreate.length;
+      let startDate: string | null = null;
+      let endDate: string | null = null;
+      for (const { row } of entriesToCreate) {
         startDate = earliestDate(startDate, row.occurredOn);
         endDate = latestDate(endDate, row.occurredOn);
       }
@@ -312,6 +370,10 @@ function earliestDate(current: string | null, candidate: string): string {
 
 function latestDate(current: string | null, candidate: string): string {
   return current === null || candidate > current ? candidate : current;
+}
+
+function externalIdKey(walletId: string, externalId: string): string {
+  return `${walletId}:${externalId}`;
 }
 
 function validateRowFields(command: UpdateImportRowCommand): string[] {

@@ -46,6 +46,13 @@ class FakeAttachmentRepository implements EntryAttachmentRepository {
     return attachment;
   }
 
+  async createMany(
+    context: ApplicationContext,
+    data: Parameters<EntryAttachmentRepository["createMany"]>[1],
+  ): Promise<EntryAttachment[]> {
+    return Promise.all(data.map((attachment) => this.create(context, attachment)));
+  }
+
   async listByEntryId(
     context: ApplicationContext,
     entryId: string,

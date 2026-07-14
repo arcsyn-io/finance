@@ -46,6 +46,15 @@ export type CreateEntryData = {
   readonly externalId?: string | null;
 };
 
+export type CreatedEntry = {
+  readonly id: string;
+};
+
+export type EntryExternalId = {
+  readonly walletId: string;
+  readonly externalId: string;
+};
+
 export type UpdateEntryData = CreateEntryData;
 
 export type CreateTransferEntryData = CreateEntryData & {
@@ -63,6 +72,11 @@ export interface EntryRepository {
   ): Promise<Entry[]>;
 
   create(context: ApplicationContext, data: CreateEntryData): Promise<Entry>;
+
+  createMany(
+    context: ApplicationContext,
+    data: readonly CreateEntryData[],
+  ): Promise<readonly CreatedEntry[]>;
 
   createWithTransfer(
     context: ApplicationContext,
@@ -92,6 +106,11 @@ export interface EntryRepository {
     externalId: string,
     walletId: string,
   ): Promise<boolean>;
+
+  findExistingExternalIds(
+    context: ApplicationContext,
+    candidates: readonly EntryExternalId[],
+  ): Promise<readonly EntryExternalId[]>;
 
   listSuggestionHistory(
     context: ApplicationContext,
@@ -169,6 +188,34 @@ export class DrizzleEntryRepository implements EntryRepository {
   ): Promise<Entry> {
     const [row] = await this.insert(context, data);
     return this.requireEntry(context, row.id);
+  }
+
+  async createMany(
+    context: ApplicationContext,
+    data: readonly CreateEntryData[],
+  ): Promise<readonly CreatedEntry[]> {
+    if (data.length === 0) return [];
+
+    const userId = context.requireUserPrincipal().id;
+    const database = resolveDatabaseClient(context, db);
+    return database
+      .insert(entries)
+      .values(
+        data.map((entry) => ({
+          userId,
+          walletId: entry.walletId,
+          categoryId: entry.categoryId,
+          transferId: null,
+          nature: entry.nature,
+          direction: entry.direction,
+          economicEvent: entry.economicEvent,
+          amountCents: entry.amountCents,
+          occurredOn: entry.occurredOn,
+          description: entry.description,
+          externalId: entry.externalId ?? null,
+        })),
+      )
+      .returning({ id: entries.id });
   }
 
   async createWithTransfer(
@@ -278,6 +325,34 @@ export class DrizzleEntryRepository implements EntryRepository {
       .limit(1);
 
     return rows.length > 0;
+  }
+
+  async findExistingExternalIds(
+    context: ApplicationContext,
+    candidates: readonly EntryExternalId[],
+  ): Promise<readonly EntryExternalId[]> {
+    if (candidates.length === 0) return [];
+
+    const userId = context.requireUserPrincipal().id;
+    const database = resolveDatabaseClient(context, db);
+    const walletIds = [...new Set(candidates.map((candidate) => candidate.walletId))];
+    const externalIds = [...new Set(candidates.map((candidate) => candidate.externalId))];
+    const rows = await database
+      .select({ walletId: entries.walletId, externalId: entries.externalId })
+      .from(entries)
+      .where(
+        and(
+          eq(entries.userId, userId),
+          inArray(entries.walletId, walletIds),
+          inArray(entries.externalId, externalIds),
+        ),
+      );
+
+    return rows.flatMap((row) =>
+      row.externalId
+        ? [{ walletId: row.walletId, externalId: row.externalId }]
+        : [],
+    );
   }
 
   async listSuggestionHistory(

@@ -22,6 +22,11 @@ export interface EntryAttachmentRepository {
     data: CreateEntryAttachmentData,
   ): Promise<EntryAttachment>;
 
+  createMany(
+    context: ApplicationContext,
+    data: readonly CreateEntryAttachmentData[],
+  ): Promise<readonly EntryAttachment[]>;
+
   listByEntryId(
     context: ApplicationContext,
     entryId: string,
@@ -51,6 +56,22 @@ export class DrizzleEntryAttachmentRepository
       .returning();
 
     return mapRow(row);
+  }
+
+  async createMany(
+    context: ApplicationContext,
+    data: readonly CreateEntryAttachmentData[],
+  ): Promise<readonly EntryAttachment[]> {
+    if (data.length === 0) return [];
+
+    const userId = context.requireUserPrincipal().id;
+    const database = resolveDatabaseClient(context, db);
+    const rows = await database
+      .insert(entryAttachments)
+      .values(data.map((attachment) => ({ userId, ...attachment })))
+      .returning();
+
+    return rows.map(mapRow);
   }
 
   async listByEntryId(

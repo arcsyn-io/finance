@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { Entry } from "../domain/entry/entry";
 import type { ImportAttachment } from "../domain/import/import-attachment";
 import type {
   ImportRequest,
@@ -214,55 +213,53 @@ test("criacao mantem campos vazios quando o historico nao atinge o score minimo"
 });
 
 test("confirmacao vincula anexo global a cada entry e anexo de linha somente ao seu entry", async () => {
-  const entryAttachments: Array<Parameters<EntryAttachmentRepository["create"]>[1]> = [];
-  let entrySequence = 0;
+  const entryAttachments: Array<Parameters<EntryAttachmentRepository["createMany"]>[1][number]> = [];
+  const rowEntryIds: Array<{ readonly rowId: string; readonly entryId: string }> = [];
   const request = makeRequest();
 
   const service = new ImportService({
     repository: {
       async findById() { return request; },
-      async setRowEntryId() {},
+      async setRowEntryIds(
+        _context: ApplicationContext,
+        entries: readonly { readonly rowId: string; readonly entryId: string }[],
+      ) { rowEntryIds.push(...entries); },
       async confirmRequest() {},
     } as unknown as ImportRepository,
     entryRepository: {
-      async existsByExternalIdAndWallet() { return false; },
-      async create(
+      async findExistingExternalIds() { return []; },
+      async createMany(
         _context: ApplicationContext,
-        data: Parameters<EntryRepository["create"]>[1],
+        data: Parameters<EntryRepository["createMany"]>[1],
       ) {
-        entrySequence += 1;
-        return makeEntry(`entry-${entrySequence}`, data);
+        return data.map((_, index) => ({ id: `entry-${index + 1}` }));
       },
     } as unknown as EntryRepository,
     importAttachmentRepository: {
-      async listByImportRequestId(
-        _context: ApplicationContext,
-        _importRequestId: string,
-        options: { readonly importRowId: string | null },
-      ) {
+      async listAllByImportRequestId() {
         return [
           makeAttachment("global", null),
           makeAttachment("row-1-file", "row-1"),
-        ].filter((attachment) => attachment.importRowId === options.importRowId);
+        ];
       },
     } as unknown as ImportAttachmentRepository,
     entryAttachmentRepository: {
-      async create(
+      async createMany(
         _context: ApplicationContext,
-        data: Parameters<EntryAttachmentRepository["create"]>[1],
+        data: Parameters<EntryAttachmentRepository["createMany"]>[1],
       ) {
-        entryAttachments.push(data);
-        return { ...data, id: `link-${entryAttachments.length}`, userId: "user-1", createdAt: now, updatedAt: now };
+        entryAttachments.push(...data);
+        return [];
       },
     } as unknown as EntryAttachmentRepository,
     walletRepository: {
-      async findById() {
-        return { id: "wallet-1", userId: "user-1", name: "Cartao", type: "CREDIT_CARD", initialBalanceCents: 0, active: true, archivedAt: null, createdAt: now, updatedAt: now };
+      async list() {
+        return [{ id: "wallet-1", userId: "user-1", name: "Cartao", type: "CREDIT_CARD", initialBalanceCents: 0, active: true, archivedAt: null, createdAt: now, updatedAt: now }];
       },
     } as unknown as WalletRepository,
     categoryRepository: {
-      async findById() {
-        return { id: "category-1", userId: "user-1", name: "Compras", type: "EXPENSE", icon: "tag", color: "#000000", active: true, archivedAt: null, createdAt: now, updatedAt: now };
+      async list() {
+        return [{ id: "category-1", userId: "user-1", name: "Compras", type: "EXPENSE", icon: "tag", color: "#000000", active: true, archivedAt: null, createdAt: now, updatedAt: now }];
       },
     } as unknown as CategoryRepository,
     prepareImportRowsUseCase: new PrepareImportRowsUseCase(
@@ -289,6 +286,10 @@ test("confirmacao vincula anexo global a cada entry e anexo de linha somente ao 
       { entryId: "entry-2", objectPath: "imports/global.pdf" },
     ],
   );
+  assert.deepEqual(rowEntryIds, [
+    { rowId: "row-1", entryId: "entry-1" },
+    { rowId: "row-2", entryId: "entry-2" },
+  ]);
 });
 
 test("remocao em lote permite importacoes confirmadas sem tocar nos lancamentos", async () => {
@@ -448,8 +449,4 @@ function makeRequest(patch: Partial<ImportRequest> = {}): ImportRequest {
 
 function makeAttachment(id: string, importRowId: string | null): ImportAttachment {
   return { id, userId: "user-1", importRequestId: "import-1", importRowId, bucketName: "receipts", objectPath: `imports/${id}.pdf`, originalFileName: `${id}.pdf`, mimeType: "application/pdf", sizeBytes: 10, createdAt: now, updatedAt: now };
-}
-
-function makeEntry(id: string, data: Parameters<EntryRepository["create"]>[1]): Entry {
-  return { ...data, id, userId: "user-1", categoryId: data.categoryId, transferId: null, economicEventId: null, externalId: data.externalId ?? null, receiptPath: null, deletedAt: null, createdAt: now, updatedAt: now, walletName: "Cartao", categoryName: "Compras", categoryColor: "#000000", categoryIcon: "tag" };
 }
