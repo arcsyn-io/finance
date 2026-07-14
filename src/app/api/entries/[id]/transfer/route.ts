@@ -34,6 +34,7 @@ export async function POST(
 
   if (response.status < 400) {
     revalidatePath("/transactions");
+    revalidatePath("/wallets");
   }
 
   return NextResponse.json(response.body, { status: response.status });
@@ -61,6 +62,7 @@ export async function DELETE(
 
   if (response.status < 400) {
     revalidatePath("/transactions");
+    revalidatePath("/wallets");
   }
 
   return NextResponse.json(response.body, { status: response.status });

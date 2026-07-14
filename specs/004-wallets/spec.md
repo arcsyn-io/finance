@@ -61,3 +61,54 @@ Como frontend, quero enviar e receber JSON para todas as operacoes de carteira, 
 - **SC-002**: `pnpm typecheck` passa.
 - **SC-003**: `pnpm lint` passa.
 - **SC-004**: A UI de carteiras nao importa Server Actions.
+
+## Extension 2026-07-14 - Saldo e detalhamento de lançamentos
+
+### Problema
+
+A lista de carteiras exibe somente o saldo inicial persistido. Isso faz com que
+carteiras com movimentações apareçam zeradas e obriga a pessoa usuária a trocar
+de tela para conferir os fatos que compõem o saldo.
+
+### User Story 3 - Conferir saldo e lançamentos de uma carteira (Priority: P1)
+
+Como pessoa usuária autenticada, quero ver o saldo calculado de cada carteira e
+abrir seus lançamentos na própria tela, para conferir a origem de cada valor sem
+perder o contexto das minhas carteiras.
+
+**Independent Test**: o modelo de lista de carteiras soma o saldo inicial aos
+lançamentos ativos, considerando `IN` positivo e `OUT` negativo.
+
+### Acceptance Scenarios
+
+1. **Given** uma carteira com saldo inicial e lançamentos ativos, **When** acesso
+   `/wallets`, **Then** vejo o saldo calculado pela soma do saldo inicial e dos
+   lançamentos `IN` e `OUT` da carteira.
+2. **Given** um lançamento excluído, **When** o saldo da carteira é calculado,
+   **Then** ele não altera o valor exibido.
+3. **Given** uma carteira na lista, **When** clico nela, **Then** a tela abre a
+   lista de lançamentos daquela carteira com ocorrido em, categoria, descrição,
+   natureza, evento econômico, valor, vínculo de transferência, anexos e edição.
+4. **Given** o detalhamento da carteira está sendo consultado, **When** a
+   requisição ainda não terminou, **Then** vejo skeletons e estado acessível de
+   carregamento em vez de uma área vazia.
+5. **Given** abro o detalhamento de uma carteira, **When** edito, excluo,
+   restauro ou altero o vínculo de um lançamento, **Then** o saldo exibido da
+   carteira é atualizado sem recarregar a página inteira.
+
+### Requirements
+
+- **FR-011**: A UI deve usar um view model de carteira que mantenha separados o
+  `Wallet` persistido, o total dos lançamentos e o saldo calculado em centavos.
+- **FR-012**: O saldo calculado deve incluir somente lançamentos não excluídos;
+  `IN` soma e `OUT` subtrai `amountCents`.
+- **FR-013**: A lista de transações deve ser reutilizável nas telas `/transactions`
+  e `/wallets`, com um modo contextual que omite controles globais da tela de
+  transações, mas preserva as ações JSON existentes.
+- **FR-014**: A consulta sob demanda dos lançamentos de uma carteira deve ter
+  `aria-busy`, rótulo em português e skeleton proporcional à lista.
+
+### Out of Scope
+
+- Alterar persistência de carteiras ou lançamentos.
+- Alterar regras de fluxo de caixa operacional, liquidez ou patrimônio líquido.

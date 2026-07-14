@@ -44,6 +44,7 @@ export async function POST(request: Request) {
 
   if (response.status < 400) {
     revalidatePath("/transactions");
+    revalidatePath("/wallets");
     revalidatePath("/analysis/cash-flow");
   }
 

@@ -30,6 +30,7 @@ import { createMobileEntryViewModel } from "@/modules/entries/view-models/entry-
 
 type EntriesMobileListProps = {
   readonly adding: boolean;
+  readonly allowCreate: boolean;
   readonly categories: readonly Category[];
   readonly editingId: string | null;
   readonly entries: readonly Entry[];
@@ -52,6 +53,7 @@ type EntriesMobileListProps = {
 
 export function EntriesMobileList({
   adding,
+  allowCreate,
   categories,
   editingId,
   entries,
@@ -137,7 +139,7 @@ export function EntriesMobileList({
           ) : null}
         </div>
 
-        {!adding ? (
+        {!adding && allowCreate ? (
           <button
             className="flex min-h-11 w-full items-center justify-center gap-2 border-t border-dashed border-border px-4 py-3 text-xs font-semibold text-muted transition hover:bg-surface-elevated hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
             onClick={onStartAdd}

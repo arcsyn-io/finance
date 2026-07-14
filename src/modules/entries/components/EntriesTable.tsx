@@ -59,6 +59,8 @@ import { EntriesMobileList } from "@/modules/entries/components/EntriesMobileLis
 import { TransactionImportButton } from "@/modules/entries/components/TransactionImportButton";
 import type { EntryForm } from "@/modules/entries/view-models/entry-form";
 
+export type EntriesTableMode = "transactions" | "wallet";
+
 type EntriesTableProps = {
   readonly initialEntries: readonly Entry[];
   readonly wallets: readonly Wallet[];
@@ -66,6 +68,10 @@ type EntriesTableProps = {
   readonly initialStartDate: string;
   readonly initialEndDate: string;
   readonly initialToastMessage?: string;
+  readonly mode?: EntriesTableMode;
+  readonly onEntriesChanged?: () => void;
+  readonly transferEntries?: readonly Entry[];
+  readonly walletId?: string;
 };
 
 type EntryApiResponse = {
@@ -106,6 +112,10 @@ export function EntriesTable({
   initialEntries,
   initialStartDate,
   initialToastMessage,
+  mode = "transactions",
+  onEntriesChanged,
+  transferEntries,
+  walletId,
   wallets,
 }: EntriesTableProps) {
   const [entries, setEntries] = useState(() => [...initialEntries]);
@@ -146,6 +156,11 @@ export function EntriesTable({
   const [pending, startTransition] = useTransition();
   const addButtonRef = useRef<HTMLButtonElement | null>(null);
   const filtersInitializedRef = useRef(false);
+  const walletListMode = mode === "wallet";
+
+  useEffect(() => {
+    setEntries([...initialEntries]);
+  }, [initialEntries]);
 
   const categoriesById = useMemo(
     () => new Map(categories.map((category) => [category.id, category])),
@@ -174,6 +189,16 @@ export function EntriesTable({
 
   function showToast(tone: "success" | "error", message: string) {
     setToast({ id: Date.now(), message, tone });
+  }
+
+  function notifyEntriesChanged() {
+    onEntriesChanged?.();
+  }
+
+  function entriesInScope(items: readonly Entry[]): Entry[] {
+    return walletId
+      ? items.filter((entry) => entry.walletId === walletId)
+      : [...items];
   }
 
   function successMessage(status: string | undefined) {
@@ -275,8 +300,12 @@ export function EntriesTable({
     }
 
     if (response.body.entry) {
-      setEntries((current) => [response.body.entry as Entry, ...current]);
+      setEntries((current) =>
+        entriesInScope([response.body.entry as Entry, ...current]),
+      );
     }
+
+    notifyEntriesChanged();
 
     setAdding(false);
     setSavingRow(null);
@@ -311,11 +340,15 @@ export function EntriesTable({
 
     if (response.body.entry) {
       setEntries((current) =>
-        current.map((entry) =>
-          entry.id === editingId ? (response.body.entry as Entry) : entry,
+        entriesInScope(
+          current.map((entry) =>
+            entry.id === editingId ? (response.body.entry as Entry) : entry,
+          ),
         ),
       );
     }
+
+    notifyEntriesChanged();
 
     setEditingId(null);
     setSavingRow(null);
@@ -341,6 +374,7 @@ export function EntriesTable({
       setEntries((current) => current.filter((item) => item.id !== entry.id));
     }
 
+    notifyEntriesChanged();
     showToast("success", successMessage(response.body.status));
     setDeleteCandidate(null);
   }
@@ -365,6 +399,7 @@ export function EntriesTable({
       );
     }
 
+    notifyEntriesChanged();
     showToast("success", successMessage(response.body.status));
   }
 
@@ -374,7 +409,7 @@ export function EntriesTable({
       return;
     }
 
-    const candidates = transferCandidates(entries, entry);
+    const candidates = transferCandidates(transferEntries ?? entries, entry);
 
     setTransferSource(entry);
     setTransferMode(candidates.length > 0 ? "existing" : "create");
@@ -409,7 +444,10 @@ export function EntriesTable({
       }
 
       setTransferSource(null);
-      setEntries((current) => mergeEntries(current, response.body.entries ?? []));
+      setEntries((current) =>
+        entriesInScope(mergeEntries(current, response.body.entries ?? [])),
+      );
+      notifyEntriesChanged();
       showToast("success", successMessage(response.body.status));
     } finally {
       setTransferSaving(false);
@@ -435,7 +473,10 @@ export function EntriesTable({
       }
 
       setUnlinkCandidate(null);
-      setEntries((current) => mergeEntries(current, response.body.entries ?? []));
+      setEntries((current) =>
+        entriesInScope(mergeEntries(current, response.body.entries ?? [])),
+      );
+      notifyEntriesChanged();
       showToast("success", successMessage(response.body.status));
     } finally {
       setTransferSaving(false);
@@ -522,7 +563,7 @@ export function EntriesTable({
       {transferSource ? (
         <LinkTransferDialog
           categories={categories}
-          entries={entries}
+          entries={transferEntries ?? entries}
           form={transferForm}
           mode={transferMode}
           onCancel={() => setTransferSource(null)}
@@ -555,6 +596,7 @@ export function EntriesTable({
         />
       ) : null}
 
+      {!walletListMode ? (
       <div className="flex flex-wrap items-end gap-2">
         <PeriodFilter
           initialEndDate={initialEndDate}
@@ -610,7 +652,9 @@ export function EntriesTable({
         </button>
         <TransactionImportButton categories={categories} wallets={wallets} />
       </div>
+      ) : null}
 
+      {!walletListMode ? (
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard label="Transacoes" value={String(totals.count)} />
         <KpiCard label="Receitas" tone="positive" value={formatMoney(totals.incomeCents)} />
@@ -621,9 +665,11 @@ export function EntriesTable({
           value={`${totals.netCents >= 0 ? "+" : ""}${formatMoney(totals.netCents)}`}
         />
       </div>
+      ) : null}
 
       <EntriesMobileList
         adding={adding}
+        allowCreate={!walletListMode}
         categories={categories}
         editingId={editingId}
         entries={entries}
@@ -735,7 +781,7 @@ export function EntriesTable({
           </table>
         </div>
 
-        {!adding ? (
+        {!adding && !walletListMode ? (
           <button
             className="flex w-full items-center justify-center gap-1.5 border-t border-dashed border-border py-3 text-xs font-medium text-muted transition hover:bg-surface-elevated/60 hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
             onClick={startAdd}

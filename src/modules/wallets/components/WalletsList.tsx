@@ -2,6 +2,7 @@
 
 import {
   FormEvent,
+  Fragment,
   ReactNode,
   useMemo,
   useRef,
@@ -9,6 +10,9 @@ import {
   useTransition,
 } from "react";
 import { Check, Pencil, Plus, RotateCcw, Search, Trash2, X } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { Category } from "@/domain/category/category";
+import type { Entry } from "@/domain/entry/entry";
 import type { Wallet, WalletType } from "@/domain/wallet/wallet";
 import { walletTypeLabels, walletTypes } from "@/domain/wallet/wallet";
 import { FilterSelect } from "@/components/ui/FilterSelect";
@@ -16,10 +20,16 @@ import {
   SystemToast,
   type SystemToastMessage,
 } from "@/components/ui/system-toast";
+import { EntriesTable } from "@/modules/entries/components/EntriesTable";
+import {
+  createWalletListItems,
+  type WalletListItem,
+} from "@/modules/wallets/view-models/wallet-list-item";
 import { WalletTypeBadge } from "./WalletTypeBadge";
 
 type WalletsListProps = {
-  readonly initialWallets: readonly Wallet[];
+  readonly categories: readonly Category[];
+  readonly initialWallets: readonly WalletListItem[];
 };
 
 type WalletForm = {
@@ -35,6 +45,11 @@ type WalletApiResponse = {
   readonly error?: string;
 };
 
+type EntriesApiResponse = {
+  readonly entries?: readonly Entry[];
+  readonly error?: string;
+};
+
 const statusOptions = ["Ativo", "Inativo"] as const;
 type StatusOption = (typeof statusOptions)[number];
 
@@ -45,10 +60,14 @@ const walletStatusMessages: Record<string, string> = {
   deactivated: "Carteira inativada com sucesso",
 };
 
-export function WalletsList({ initialWallets }: WalletsListProps) {
-  const [wallets, setWallets] = useState(() => [...initialWallets]);
+export function WalletsList({ categories, initialWallets }: WalletsListProps) {
+  const [walletItems, setWalletItems] = useState(() => [...initialWallets]);
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
+  const [walletEntries, setWalletEntries] = useState<readonly Entry[]>([]);
+  const [transferEntries, setTransferEntries] = useState<readonly Entry[]>([]);
+  const [walletEntriesLoading, setWalletEntriesLoading] = useState(false);
   const [form, setForm] = useState<WalletForm>({
     name: "",
     type: "CASH",
@@ -63,6 +82,8 @@ export function WalletsList({ initialWallets }: WalletsListProps) {
   const [toast, setToast] = useState<SystemToastMessage | null>(null);
   const [pending, startTransition] = useTransition();
   const addButtonRef = useRef<HTMLButtonElement | null>(null);
+  const walletEntriesRequestRef = useRef(0);
+  const wallets = walletItems.map((item) => item.wallet);
 
   const filtered = useMemo(
     () =>
@@ -93,6 +114,10 @@ export function WalletsList({ initialWallets }: WalletsListProps) {
 
   const hasFilters =
     search !== "" || typeFilters.size > 0 || statusFilters.size > 0;
+  const walletItemById = useMemo(
+    () => new Map(walletItems.map((item) => [item.wallet.id, item])),
+    [walletItems],
+  );
 
   function showToast(tone: "success" | "error", message: string) {
     setToast({
@@ -114,7 +139,68 @@ export function WalletsList({ initialWallets }: WalletsListProps) {
     setStatusFilters(new Set());
   }
 
+  async function loadWalletEntries(walletId: string) {
+    const requestId = ++walletEntriesRequestRef.current;
+    setWalletEntriesLoading(true);
+
+    try {
+      const [walletResponse, allEntriesResponse] = await Promise.all([
+        fetch(`/api/entries?walletIds=${encodeURIComponent(walletId)}`),
+        fetch("/api/entries?includeDeleted=false"),
+      ]);
+      const walletBody = (await walletResponse.json()) as EntriesApiResponse;
+      const allEntriesBody = (await allEntriesResponse.json()) as EntriesApiResponse;
+
+      if (requestId !== walletEntriesRequestRef.current) return;
+
+      if (!walletResponse.ok || !allEntriesResponse.ok) {
+        showToast(
+          "error",
+          walletBody.error ??
+            allEntriesBody.error ??
+            "Nao foi possivel carregar os lancamentos da carteira",
+        );
+        return;
+      }
+
+      const allEntries = allEntriesBody.entries ?? [];
+      setWalletEntries(walletBody.entries ?? []);
+      setTransferEntries(allEntries);
+      setWalletItems((current) =>
+        createWalletListItems(
+          current.map((item) => item.wallet),
+          allEntries,
+        ),
+      );
+    } catch {
+      if (requestId === walletEntriesRequestRef.current) {
+        showToast("error", "Nao foi possivel carregar os lancamentos da carteira");
+      }
+    } finally {
+      if (requestId === walletEntriesRequestRef.current) {
+        setWalletEntriesLoading(false);
+      }
+    }
+  }
+
+  function toggleWalletEntries(walletId: string) {
+    if (selectedWalletId === walletId) {
+      walletEntriesRequestRef.current += 1;
+      setSelectedWalletId(null);
+      setWalletEntries([]);
+      setTransferEntries([]);
+      setWalletEntriesLoading(false);
+      return;
+    }
+
+    setSelectedWalletId(walletId);
+    setWalletEntries([]);
+    setTransferEntries([]);
+    void loadWalletEntries(walletId);
+  }
+
   function startAdd() {
+    setSelectedWalletId(null);
     setEditingId(null);
     setAdding(true);
     setForm({
@@ -131,6 +217,7 @@ export function WalletsList({ initialWallets }: WalletsListProps) {
   }
 
   function startEdit(wallet: Wallet) {
+    setSelectedWalletId(null);
     setAdding(false);
     setEditingId(wallet.id);
     setForm({
@@ -160,7 +247,15 @@ export function WalletsList({ initialWallets }: WalletsListProps) {
     }
 
     if (response.body.wallet) {
-      setWallets((current) => [...current, response.body.wallet as Wallet]);
+      const wallet = response.body.wallet as Wallet;
+      setWalletItems((current) => [
+        ...current,
+        {
+          wallet,
+          entryBalanceCents: 0,
+          balanceCents: wallet.initialBalanceCents,
+        },
+      ]);
     }
 
     setAdding(false);
@@ -187,9 +282,16 @@ export function WalletsList({ initialWallets }: WalletsListProps) {
     }
 
     if (response.body.wallet) {
-      setWallets((current) =>
-        current.map((wallet) =>
-          wallet.id === editingId ? (response.body.wallet as Wallet) : wallet,
+      const wallet = response.body.wallet as Wallet;
+      setWalletItems((current) =>
+        current.map((item) =>
+          item.wallet.id === editingId
+            ? {
+                ...item,
+                wallet,
+                balanceCents: item.entryBalanceCents + wallet.initialBalanceCents,
+              }
+            : item,
         ),
       );
     }
@@ -212,9 +314,10 @@ export function WalletsList({ initialWallets }: WalletsListProps) {
     }
 
     if (response.body.wallet) {
-      setWallets((current) =>
+      const updatedWallet = response.body.wallet as Wallet;
+      setWalletItems((current) =>
         current.map((item) =>
-          item.id === wallet.id ? (response.body.wallet as Wallet) : item,
+          item.wallet.id === wallet.id ? { ...item, wallet: updatedWallet } : item,
         ),
       );
     }
@@ -294,7 +397,7 @@ export function WalletsList({ initialWallets }: WalletsListProps) {
             Tipo
           </span>
           <span className="w-28 text-right text-[10px] font-semibold uppercase tracking-wider text-muted">
-            Saldo inicial
+            Saldo atual
           </span>
           <span className="w-12 text-center text-[10px] font-semibold uppercase tracking-wider text-muted">
             Status
@@ -311,29 +414,51 @@ export function WalletsList({ initialWallets }: WalletsListProps) {
             </p>
           ) : null}
 
-          {filtered.map((wallet) =>
-            editingId === wallet.id ? (
-              <WalletFormRow
-                form={form}
-                key={wallet.id}
-                onCancel={cancelEdit}
-                onChange={setForm}
-                onSave={(event) => startTransition(() => void saveEdit(event))}
-                pending={pending}
-                submitLabel="Salvar carteira"
-              />
-            ) : (
-              <WalletDisplayRow
-                key={wallet.id}
-                onEdit={() => startEdit(wallet)}
-                onToggle={() =>
-                  startTransition(() => void toggleWallet(wallet))
-                }
-                pending={pending}
-                wallet={wallet}
-              />
-            ),
-          )}
+          {filtered.map((wallet) => {
+            const walletItem = walletItemById.get(wallet.id);
+            const selected = selectedWalletId === wallet.id;
+
+            return (
+              <Fragment key={wallet.id}>
+                {editingId === wallet.id ? (
+                  <WalletFormRow
+                    form={form}
+                    onCancel={cancelEdit}
+                    onChange={setForm}
+                    onSave={(event) =>
+                      startTransition(() => void saveEdit(event))
+                    }
+                    pending={pending}
+                    submitLabel="Salvar carteira"
+                  />
+                ) : (
+                  <WalletDisplayRow
+                    balanceCents={walletItem?.balanceCents ?? wallet.initialBalanceCents}
+                    expanded={selected}
+                    onEdit={() => startEdit(wallet)}
+                    onSelect={() => toggleWalletEntries(wallet.id)}
+                    onToggle={() =>
+                      startTransition(() => void toggleWallet(wallet))
+                    }
+                    pending={pending}
+                    wallet={wallet}
+                  />
+                )}
+
+                {selected ? (
+                  <WalletEntriesPanel
+                    categories={categories}
+                    entries={walletEntries}
+                    loading={walletEntriesLoading}
+                    onEntriesChanged={() => void loadWalletEntries(wallet.id)}
+                    transferEntries={transferEntries}
+                    wallet={wallet}
+                    wallets={wallets.filter((item) => item.active)}
+                  />
+                ) : null}
+              </Fragment>
+            );
+          })}
 
           {adding ? (
             <WalletFormRow
@@ -361,19 +486,129 @@ export function WalletsList({ initialWallets }: WalletsListProps) {
   );
 }
 
+function WalletEntriesPanel({
+  categories,
+  entries,
+  loading,
+  onEntriesChanged,
+  transferEntries,
+  wallet,
+  wallets,
+}: {
+  readonly categories: readonly Category[];
+  readonly entries: readonly Entry[];
+  readonly loading: boolean;
+  readonly onEntriesChanged: () => void;
+  readonly transferEntries: readonly Entry[];
+  readonly wallet: Wallet;
+  readonly wallets: readonly Wallet[];
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+
+  return (
+    <section
+      aria-busy={loading}
+      aria-label={`Lançamentos da carteira ${wallet.name}`}
+      className="border-t border-border bg-surface/30 px-3 py-4 sm:px-4"
+    >
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <div>
+          <h2 className="text-xs font-semibold text-foreground">
+            Lançamentos de {wallet.name}
+          </h2>
+          <p className="mt-1 text-[11px] text-muted">
+            Histórico da carteira com ações de edição, transferência e anexos.
+          </p>
+        </div>
+      </div>
+
+      {loading ? (
+        <WalletEntriesSkeleton />
+      ) : (
+        <EntriesTable
+          categories={categories}
+          initialEndDate={today}
+          initialEntries={entries}
+          initialStartDate={today}
+          mode="wallet"
+          onEntriesChanged={onEntriesChanged}
+          transferEntries={transferEntries}
+          walletId={wallet.id}
+          wallets={wallets}
+        />
+      )}
+    </section>
+  );
+}
+
+function WalletEntriesSkeleton() {
+  return (
+    <div
+      aria-label="Carregando lançamentos da carteira"
+      className="overflow-hidden rounded-xl border border-border bg-panel"
+      role="status"
+    >
+      <div className="hidden grid-cols-[110px_130px_1fr_110px_130px_110px_80px] gap-4 border-b border-border px-4 py-3 md:grid">
+        {Array.from({ length: 7 }).map((_, index) => (
+          <Skeleton className="h-3" key={index} />
+        ))}
+      </div>
+      <div className="divide-y divide-border">
+        {Array.from({ length: 5 }).map((_, rowIndex) => (
+          <div
+            className="grid gap-3 px-4 py-4 md:grid-cols-[110px_130px_1fr_110px_130px_110px_80px]"
+            key={rowIndex}
+          >
+            {Array.from({ length: 7 }).map((__, columnIndex) => (
+              <Skeleton className="h-4" key={columnIndex} />
+            ))}
+          </div>
+        ))}
+      </div>
+      <span className="sr-only">Carregando lançamentos da carteira...</span>
+    </div>
+  );
+}
+
 function WalletDisplayRow({
+  balanceCents,
+  expanded,
   onEdit,
+  onSelect,
   onToggle,
   pending,
   wallet,
 }: {
+  readonly balanceCents: number;
+  readonly expanded: boolean;
   readonly onEdit: () => void;
+  readonly onSelect: () => void;
   readonly onToggle: () => void;
   readonly pending: boolean;
   readonly wallet: Wallet;
 }) {
   return (
-    <div className="group grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 px-4 py-3 transition hover:bg-surface-elevated/50 sm:grid-cols-[1fr_auto_auto_auto_auto]">
+    <div
+      aria-expanded={expanded}
+      className={`group grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 px-4 py-3 transition hover:bg-surface-elevated/50 sm:grid-cols-[1fr_auto_auto_auto_auto] ${
+        expanded ? "bg-surface-elevated/50" : ""
+      }`}
+      onClick={(event) => {
+        if (event.target instanceof Element && event.target.closest("button")) {
+          return;
+        }
+
+        onSelect();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
       <div className="min-w-0">
         <span className="block truncate text-xs font-medium text-foreground">
           {wallet.name}
@@ -387,10 +622,10 @@ function WalletDisplayRow({
       </div>
       <span
         className={`hidden w-28 text-right text-xs font-medium tabular-nums sm:block ${
-          wallet.initialBalanceCents < 0 ? "text-negative" : "text-foreground"
+          balanceCents < 0 ? "text-negative" : "text-foreground"
         }`}
       >
-        {formatMoney(wallet.initialBalanceCents)}
+        {formatMoney(balanceCents)}
       </span>
       <div className="hidden w-12 justify-center sm:flex">
         <Switch active={wallet.active} disabled={pending} onToggle={onToggle} />
@@ -415,10 +650,10 @@ function WalletDisplayRow({
       <div className="col-span-2 flex items-center justify-between pt-0.5 sm:hidden">
         <span
           className={`text-xs font-medium tabular-nums ${
-            wallet.initialBalanceCents < 0 ? "text-negative" : "text-foreground"
+            balanceCents < 0 ? "text-negative" : "text-foreground"
           }`}
         >
-          {formatMoney(wallet.initialBalanceCents)}
+          {formatMoney(balanceCents)}
         </span>
         <Switch active={wallet.active} disabled={pending} onToggle={onToggle} />
       </div>

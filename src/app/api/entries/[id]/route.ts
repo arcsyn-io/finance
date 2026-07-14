@@ -32,6 +32,7 @@ export async function PUT(request: Request, { params }: EntryRouteContext) {
 
   if (response.status < 400) {
     revalidatePath("/transactions");
+    revalidatePath("/wallets");
     revalidatePath("/analysis/consumption");
     revalidatePath("/analysis/cash-flow");
   }
@@ -58,6 +59,7 @@ export async function DELETE(_request: Request, { params }: EntryRouteContext) {
 
   if (response.status < 400) {
     revalidatePath("/transactions");
+    revalidatePath("/wallets");
     revalidatePath("/analysis/cash-flow");
   }
 
@@ -92,6 +94,7 @@ export async function PATCH(request: Request, { params }: EntryRouteContext) {
 
   if (response.status < 400) {
     revalidatePath("/transactions");
+    revalidatePath("/wallets");
     revalidatePath("/analysis/cash-flow");
   }
 
