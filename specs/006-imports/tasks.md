@@ -12,3 +12,4 @@
 - [x] Implementar consulta de historico isolada por usuario, direcao e carteira opcional.
 - [x] Implementar o use case de sugestao e persistir os campos previstos em `import_rows`.
 - [x] Validar a mudanca com testes, lint e typecheck.
+- [x] Enviar a edicao em massa da revisao em uma unica requisicao e atualiza-la atomicamente.

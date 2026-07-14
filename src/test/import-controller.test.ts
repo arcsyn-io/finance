@@ -1,13 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { DeleteImportRowCommand, DeleteImportsCommand } from "../server/commands/import-commands";
+import type {
+  BulkUpdateImportRowsCommand,
+  DeleteImportRowCommand,
+  DeleteImportsCommand,
+} from "../server/commands/import-commands";
 import { ApplicationContext } from "../server/context/application-context";
-import { deleteImportRowJson, deleteImportsJson } from "../server/controllers/import-controller";
+import {
+  bulkUpdateImportRowsJson,
+  deleteImportRowJson,
+  deleteImportsJson,
+} from "../server/controllers/import-controller";
 
 class FakeImportService {
   deleteCommand: DeleteImportRowCommand | null = null;
   deleteImportsCommand: DeleteImportsCommand | null = null;
+  bulkUpdateCommand: BulkUpdateImportRowsCommand | null = null;
 
   async list() {
     return [];
@@ -23,6 +32,14 @@ class FakeImportService {
 
   async updateRow(): Promise<never> {
     throw new Error("Nao implementado no teste");
+  }
+
+  async bulkUpdateRows(
+    _context: ApplicationContext,
+    command: BulkUpdateImportRowsCommand,
+  ) {
+    this.bulkUpdateCommand = command;
+    return [];
   }
 
   async setRowIgnored(): Promise<never> {
@@ -80,6 +97,33 @@ test("controller remove importacoes selecionadas, inclusive confirmadas", async 
       "00000000-0000-0000-0000-000000000001",
       "00000000-0000-0000-0000-000000000002",
     ],
+  });
+});
+
+test("controller atualiza em lote as linhas selecionadas em uma unica chamada", async () => {
+  const service = new FakeImportService();
+  const response = await bulkUpdateImportRowsJson({
+    context: makeContext(),
+    service,
+    importRequestId: "00000000-0000-0000-0000-000000000001",
+    body: {
+      rowIds: [
+        "00000000-0000-0000-0000-000000000002",
+        "00000000-0000-0000-0000-000000000003",
+      ],
+      patch: { categoryId: "00000000-0000-0000-0000-000000000004" },
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.status, "updated");
+  assert.deepEqual(service.bulkUpdateCommand, {
+    importRequestId: "00000000-0000-0000-0000-000000000001",
+    rowIds: [
+      "00000000-0000-0000-0000-000000000002",
+      "00000000-0000-0000-0000-000000000003",
+    ],
+    patch: { categoryId: "00000000-0000-0000-0000-000000000004" },
   });
 });
 

@@ -49,6 +49,7 @@ O usuario precisa importar lancamentos exportados do Nubank sem gravar fatos fin
 - A tela segue o prototipo `docs/finance-prototipo.zip` adaptado ao design atual.
 - A listagem mostra arquivo, origem, status, total, pendentes, ignoradas e confirmadas.
 - O modal de nova importacao coleta arquivo, origem, carteira, categoria, natureza e evento economico default.
+- Durante o envio do arquivo, o modal informa que a importacao esta sendo preparada e bloqueia fechamento, reenvio e edicao dos campos.
 - A revisao exibe linhas editaveis com data, descricao, carteira, categoria, natureza, evento, valor e status.
 - A revisao exibe os valores sugeridos como valores especificos da linha e permite que o usuario os substitua antes da confirmacao.
 - A revisao permite anexar documentos na importacao inteira e em cada linha.
@@ -57,6 +58,7 @@ O usuario precisa importar lancamentos exportados do Nubank sem gravar fatos fin
 - Na visualizacao por status, as linhas sao agrupadas em Pendente, Concluido e Ignorada, com contagem por grupo.
 - Ao selecionar linhas, a revisao exibe acoes em lote para editar, concluir, ignorar e remover as linhas selecionadas.
 - A edicao em lote exibe uma linha de campos editaveis no formato `Nome do campo: valor selecionado`.
+- A edicao em lote envia uma unica requisicao com todos os ids selecionados e o patch comum, sem disparar uma requisicao por linha.
 - Cada importacao da listagem possui um checkbox. Ao haver selecao, a tela exibe a acao para remover as importacoes selecionadas.
 
 ## Criterios de Aceite
@@ -72,8 +74,10 @@ O usuario precisa importar lancamentos exportados do Nubank sem gravar fatos fin
 - Operacoes concluidas exibem um toaster de sucesso.
 - Apos uma confirmacao que cria lancamentos, o usuario e redirecionado para `/transactions`, filtrado entre a menor e a maior data dos lancamentos criados, e visualiza o toaster de sucesso na tela de destino.
 - Durante a confirmacao, o botao deve permanecer desabilitado e exibir indicador de carregamento ate ocorrer erro, conclusao sem redirecionamento ou navegacao para Transacoes.
+- Durante o envio de uma nova importacao, o modal exibe um indicador de carregamento e permanece bloqueado ate a requisicao terminar.
 - Erros de validacao retornam mensagens em portugues.
 - A tela funciona com dados reais de carteiras, categorias e importacoes do usuario autenticado.
 - O usuario consegue anexar uma fatura global e tambem anexos individuais em linhas da mesma importacao.
 - O usuario consegue remover em lote importacoes pendentes e confirmadas sem remover os lancamentos financeiros ja criados.
+- Uma edicao em lote atualiza atomicamente todas as linhas selecionadas que pertencem a importacao aberta.
 - Testes cobrem parsing do CSV, matching historico, precedencia de defaults e confirmacao sem inserir antes da confirmacao.

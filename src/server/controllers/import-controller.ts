@@ -4,6 +4,7 @@ import { WalletNotFoundError } from "../../domain/wallet/wallet-errors";
 import type { ApplicationContext } from "../context/application-context";
 import type { HttpJsonResponse } from "../responses/http-json-response";
 import {
+  bulkUpdateImportRowsRequestSchema,
   createImportRequestSchema,
   importIdRequestSchema,
   deleteImportsRequestSchema,
@@ -17,7 +18,7 @@ type ImportControllerDependencies = {
   readonly context: ApplicationContext;
   readonly service: Pick<
     ImportService,
-    "list" | "findById" | "create" | "updateRow" | "setRowIgnored" | "deleteRow" | "confirm" | "cancel" | "deleteMany"
+    "list" | "findById" | "create" | "updateRow" | "bulkUpdateRows" | "setRowIgnored" | "deleteRow" | "confirm" | "cancel" | "deleteMany"
   >;
 };
 
@@ -25,6 +26,7 @@ type ImportResponse = HttpJsonResponse<{
   readonly imports?: Awaited<ReturnType<ImportService["list"]>>;
   readonly importRequest?: Awaited<ReturnType<ImportService["findById"]>>;
   readonly row?: Awaited<ReturnType<ImportService["setRowIgnored"]>>;
+  readonly rows?: Awaited<ReturnType<ImportService["bulkUpdateRows"]>>;
   readonly deletedRowId?: string;
   readonly deletedImportIds?: readonly string[];
   readonly result?: Awaited<ReturnType<ImportService["confirm"]>>;
@@ -113,6 +115,35 @@ export async function updateImportRowJson({
       body: {
         status: "updated",
         row: await service.updateRow(context, result.data),
+      },
+    };
+  } catch (error) {
+    return importError(error);
+  }
+}
+
+export async function bulkUpdateImportRowsJson({
+  body,
+  context,
+  importRequestId,
+  service,
+}: ImportControllerDependencies & {
+  readonly body: unknown;
+  readonly importRequestId: string;
+}): Promise<ImportResponse> {
+  const request =
+    typeof body === "object" && body !== null
+      ? { ...body, importRequestId }
+      : { importRequestId };
+  const result = bulkUpdateImportRowsRequestSchema.safeParse(request);
+  if (!result.success) return validationError(result.error.issues[0]?.message);
+
+  try {
+    return {
+      status: 200,
+      body: {
+        status: "updated",
+        rows: await service.bulkUpdateRows(context, result.data),
       },
     };
   } catch (error) {

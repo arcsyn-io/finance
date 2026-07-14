@@ -309,6 +309,57 @@ test("remocao em lote permite importacoes confirmadas sem tocar nos lancamentos"
   assert.deepEqual(deletedIds, ["pending-import", "confirmed-import"]);
 });
 
+test("edicao em lote atualiza todas as linhas selecionadas em uma unica operacao transacional", async () => {
+  const request = makeRequest();
+  let updateCalls = 0;
+  let receivedIds: readonly string[] = [];
+  let receivedPatch: unknown = null;
+  const service = new ImportService({
+    repository: {
+      async findById() { return request; },
+      async updateRows(
+        _context: ApplicationContext,
+        rowIds: readonly string[],
+        patch: unknown,
+      ) {
+        updateCalls += 1;
+        receivedIds = rowIds;
+        receivedPatch = patch;
+        return request.rows;
+      },
+    } as unknown as ImportRepository,
+    entryRepository: {} as EntryRepository,
+    importAttachmentRepository: {} as ImportAttachmentRepository,
+    entryAttachmentRepository: {} as EntryAttachmentRepository,
+    walletRepository: {} as WalletRepository,
+    categoryRepository: {
+      async findById() {
+        return {
+          id: "category-2", userId: "user-1", name: "Moradia",
+          type: "EXPENSE", icon: "home", color: "#000000", active: true,
+          archivedAt: null, createdAt: now, updatedAt: now,
+        };
+      },
+    } as unknown as CategoryRepository,
+    prepareImportRowsUseCase: new PrepareImportRowsUseCase({} as EntryRepository),
+    unitOfWork: {
+      async execute(context, work) {
+        return work(context.withTransaction({ client: "tx" }));
+      },
+    } as UnitOfWork,
+  });
+
+  await service.bulkUpdateRows(makeContext(), {
+    importRequestId: "import-1",
+    rowIds: ["row-1", "row-2"],
+    patch: { categoryId: "category-2" },
+  });
+
+  assert.equal(updateCalls, 1);
+  assert.deepEqual(receivedIds, ["row-1", "row-2"]);
+  assert.deepEqual(receivedPatch, { categoryId: "category-2" });
+});
+
 function makeContext() {
   return ApplicationContext.user({ principalId: "user-1", now });
 }

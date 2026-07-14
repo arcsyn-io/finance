@@ -4,6 +4,7 @@ import { InvalidImportError, ImportNotFoundError } from "../../domain/import/imp
 import { parseImportCsv } from "../../domain/import/import-csv-parser";
 import { WalletNotFoundError } from "../../domain/wallet/wallet-errors";
 import type {
+  BulkUpdateImportRowsCommand,
   ConfirmImportCommand,
   CreateImportCommand,
   DeleteImportRowCommand,
@@ -106,6 +107,32 @@ export class ImportService {
         valid: errors.length === 0,
         validationErrors: errors.length > 0 ? errors.join("; ") : null,
       });
+    });
+  }
+
+  async bulkUpdateRows(
+    context: ApplicationContext,
+    command: BulkUpdateImportRowsCommand,
+  ) {
+    return this.dependencies.unitOfWork.execute(context, async (txContext) => {
+      const request = await this.findEditable(txContext, command.importRequestId);
+      const selectedRows = request.rows.filter((row) => command.rowIds.includes(row.id));
+
+      if (selectedRows.length !== command.rowIds.length) {
+        throw new InvalidImportError("Uma ou mais linhas nao pertencem a esta importacao");
+      }
+
+      await this.validateDefaults(
+        txContext,
+        command.patch.walletId ?? null,
+        command.patch.categoryId ?? null,
+      );
+
+      return this.dependencies.repository.updateRows(
+        txContext,
+        command.rowIds,
+        command.patch,
+      );
     });
   }
 

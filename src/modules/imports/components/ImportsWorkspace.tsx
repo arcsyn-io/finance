@@ -8,7 +8,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useTransition,
 } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -73,6 +72,7 @@ type ImportApiResponse = {
   readonly imports?: ImportRequest[];
   readonly importRequest?: ImportRequest;
   readonly row?: ImportRow;
+  readonly rows?: ImportRow[];
   readonly deletedRowId?: string;
   readonly deletedImportIds?: readonly string[];
   readonly status?: string;
@@ -164,7 +164,7 @@ export function ImportsWorkspace({
   const [selectedImportIds, setSelectedImportIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
-  const [pending, startTransition] = useTransition();
+  const [uploadingImport, setUploadingImport] = useState(false);
 
   function showToast(tone: "success" | "error", message: string) {
     setToast({ id: Date.now(), tone, message });
@@ -250,22 +250,29 @@ export function ImportsWorkspace({
   }
 
   async function createImport(formData: FormData) {
-    const response = await fetch("/api/imports", {
-      method: "POST",
-      body: formData,
-    });
-    const body = (await response.json()) as ImportApiResponse;
+    setUploadingImport(true);
+    try {
+      const response = await fetch("/api/imports", {
+        method: "POST",
+        body: formData,
+      });
+      const body = (await response.json()) as ImportApiResponse;
 
-    if (!response.ok || !body.importRequest) {
-      showToast("error", body.error ?? "Nao foi possivel importar arquivo");
-      return;
+      if (!response.ok || !body.importRequest) {
+        showToast("error", body.error ?? "Nao foi possivel importar arquivo");
+        return;
+      }
+
+      const importRequest = body.importRequest as ImportRequest;
+      setImports((current) => [toImportRequestSummaryView(importRequest), ...current]);
+      setSelected(importRequest);
+      setShowUpload(false);
+      showToast("success", "Arquivo enviado para revisao");
+    } catch {
+      showToast("error", "Nao foi possivel importar arquivo");
+    } finally {
+      setUploadingImport(false);
     }
-
-    const importRequest = body.importRequest as ImportRequest;
-    setImports((current) => [toImportRequestSummaryView(importRequest), ...current]);
-    setSelected(importRequest);
-    setShowUpload(false);
-    showToast("success", "Arquivo enviado para revisao");
   }
 
   async function confirmImport(id: string) {
@@ -376,8 +383,8 @@ export function ImportsWorkspace({
         <UploadImportDialog
           categories={categories}
           onClose={() => setShowUpload(false)}
-          onSubmit={(formData) => startTransition(() => void createImport(formData))}
-          pending={pending}
+          onSubmit={(formData) => void createImport(formData)}
+          pending={uploadingImport}
           wallets={wallets}
         />
       ) : null}
@@ -770,7 +777,30 @@ function ImportReview({
 
   async function applyBulkEdit(patch: Partial<RowPatch>) {
     const rows = selectedRows();
-    await Promise.all(rows.map((row) => patchRow(row, patch)));
+    const fields = getSavingFieldsFromPatch(patch);
+
+    for (const row of rows) {
+      onPatchRow(row.id, { ...patch, updatedAt: new Date() });
+      setSavingFields((current) => addSavingFields(current, row.id, fields));
+    }
+
+    const response = await sendImportJson(
+      `/api/imports/${importRequest.id}/rows`,
+      { rowIds: rows.map((row) => row.id), patch },
+      "PATCH",
+    );
+
+    for (const row of rows) {
+      setSavingFields((current) => removeSavingFields(current, row.id, fields));
+    }
+
+    if (!response.ok || !response.body.rows) {
+      onRefresh();
+      onToast("error", response.body.error ?? "Nao foi possivel atualizar linhas");
+      return;
+    }
+
+    response.body.rows.forEach(onReplaceRow);
     setShowBulkEdit(false);
     onToast("success", "Linhas selecionadas atualizadas");
   }
@@ -1694,7 +1724,7 @@ export function UploadImportDialog({
             <h2 className="text-sm font-bold">Nova importacao</h2>
             <p className="mt-1 text-xs text-muted">Selecione o CSV e os defaults de revisao.</p>
           </div>
-          <button className={iconButtonClass} onClick={onClose} type="button">
+          <button className={iconButtonClass} disabled={pending} onClick={onClose} type="button">
             <X className="size-3.5" />
           </button>
         </div>
@@ -1703,7 +1733,7 @@ export function UploadImportDialog({
             {error}
           </p>
         ) : null}
-        <div className="grid gap-4 px-5 py-4">
+        <fieldset className="grid gap-4 px-5 py-4 disabled:cursor-wait disabled:opacity-60" disabled={pending}>
           <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border px-4 py-7 text-center transition hover:border-accent/60 hover:bg-surface">
             {fileName ? <FileText className="size-6 text-accent" /> : <Upload className="size-6 text-muted" />}
             <span className="text-xs font-semibold">{fileName || "Clique para selecionar o CSV"}</span>
@@ -1740,14 +1770,20 @@ export function UploadImportDialog({
             <LabeledSelect label="Natureza" name="nature" options={entryNatures.map((nature) => ({ label: entryNatureLabels[nature], value: nature }))} />
             <LabeledSelect label="Evento" name="economicEvent" options={economicEvents.map((event) => ({ label: economicEventLabels[event], value: event }))} />
           </div>
-        </div>
+        </fieldset>
+        {pending ? (
+          <div aria-live="polite" className="flex items-center gap-2 border-t border-border bg-accent/5 px-5 py-3 text-xs font-medium text-accent">
+            <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+            Enviando arquivo e preparando importacao...
+          </div>
+        ) : null}
         <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
           <button className="h-9 rounded-lg border border-border px-4 text-xs font-semibold text-foreground" disabled={pending} onClick={onClose} type="button">
             Cancelar
           </button>
           <button className="flex h-9 items-center gap-2 rounded-lg bg-accent px-4 text-xs font-bold text-accent-foreground disabled:opacity-60" disabled={pending} type="submit">
             {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />}
-            Enviar
+            {pending ? "Enviando..." : "Enviar"}
           </button>
         </div>
       </form>

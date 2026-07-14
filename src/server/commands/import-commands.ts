@@ -31,6 +31,19 @@ export type UpdateImportRowCommand = {
   readonly economicEvent: EconomicEvent | null;
 };
 
+export type BulkUpdateImportRowsPatch = Partial<
+  Pick<
+    UpdateImportRowCommand,
+    "walletId" | "categoryId" | "nature" | "economicEvent"
+  >
+>;
+
+export type BulkUpdateImportRowsCommand = {
+  readonly importRequestId: string;
+  readonly rowIds: readonly string[];
+  readonly patch: BulkUpdateImportRowsPatch;
+};
+
 export type SetImportRowIgnoredCommand = {
   readonly importRequestId: string;
   readonly rowId: string;

@@ -46,6 +46,13 @@ export type UpdateImportRowData = {
   readonly validationErrors: string | null;
 };
 
+export type BulkUpdateImportRowsData = Partial<
+  Pick<
+    UpdateImportRowData,
+    "walletId" | "categoryId" | "nature" | "economicEvent"
+  >
+>;
+
 export interface ImportRepository {
   list(
     context: ApplicationContext,
@@ -70,6 +77,11 @@ export interface ImportRepository {
     rowId: string,
     data: UpdateImportRowData,
   ): Promise<ImportRow>;
+  updateRows(
+    context: ApplicationContext,
+    rowIds: readonly string[],
+    data: BulkUpdateImportRowsData,
+  ): Promise<ImportRow[]>;
   setRowIgnored(
     context: ApplicationContext,
     rowId: string,
@@ -284,6 +296,29 @@ export class DrizzleImportRepository implements ImportRepository {
       .returning({ id: importRows.id });
 
     return this.requireRow(context, row.id);
+  }
+
+  async updateRows(
+    context: ApplicationContext,
+    rowIds: readonly string[],
+    data: BulkUpdateImportRowsData,
+  ): Promise<ImportRow[]> {
+    if (rowIds.length === 0) return [];
+
+    const userId = context.requireUserPrincipal().id;
+    const database = resolveDatabaseClient(context, db);
+    const rows = await database
+      .update(importRows)
+      .set({ ...data, updatedAt: context.now })
+      .where(
+        and(
+          eq(importRows.userId, userId),
+          inArray(importRows.id, [...rowIds]),
+        ),
+      )
+      .returning({ id: importRows.id });
+
+    return Promise.all(rows.map((row) => this.requireRow(context, row.id)));
   }
 
   async setRowIgnored(

@@ -29,6 +29,28 @@ export const updateImportRowRequestSchema = z.object({
   economicEvent: z.enum(economicEvents).nullable(),
 });
 
+const bulkUpdateImportRowsPatchSchema = z
+  .object({
+    walletId: z.string().uuid().nullable().optional(),
+    categoryId: z.string().uuid().nullable().optional(),
+    nature: z.enum(entryNatures).nullable().optional(),
+    economicEvent: z.enum(economicEvents).nullable().optional(),
+  })
+  .refine((patch) => Object.keys(patch).length > 0, {
+    message: "Informe ao menos um campo para editar",
+  });
+
+export const bulkUpdateImportRowsRequestSchema = z.object({
+  importRequestId: z.string().uuid(),
+  rowIds: z
+    .array(z.string().uuid())
+    .min(1, "Selecione ao menos uma linha")
+    .refine((ids) => new Set(ids).size === ids.length, {
+      message: "As linhas selecionadas devem ser distintas",
+    }),
+  patch: bulkUpdateImportRowsPatchSchema,
+});
+
 export const setImportRowIgnoredRequestSchema = z.object({
   importRequestId: z.string().uuid(),
   rowId: z.string().uuid(),
