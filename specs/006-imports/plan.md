@@ -8,3 +8,4 @@
 6. Adicionar anexos de importacao com tabela `import_attachments`, storage privado e rotas para anexo global e por linha.
 7. Adicionar link no shell e validar com testes, lint e typecheck.
 8. Na confirmacao, reutilizar os objetos dos anexos da importacao e criar os respectivos vinculos em `entry_attachments` para cada lancamento criado.
+9. Exibir e editar a natureza individual de cada linha na tabela de detalhe da importacao, reutilizando o patch ja suportado pela API.

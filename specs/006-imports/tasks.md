@@ -13,3 +13,4 @@
 - [x] Implementar o use case de sugestao e persistir os campos previstos em `import_rows`.
 - [x] Validar a mudanca com testes, lint e typecheck.
 - [x] Enviar a edicao em massa da revisao em uma unica requisicao e atualiza-la atomicamente.
+- [x] Exibir e editar a natureza individual na tabela de detalhe da importacao.

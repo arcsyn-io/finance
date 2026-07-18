@@ -61,6 +61,11 @@ import {
   type ImportRowsViewMode,
   type ImportRowViewStatus,
 } from "@/modules/imports/view-models/import-row-view";
+import {
+  importReviewTableHeadings,
+  importRowNavigationFields,
+  type ImportRowNavigationField,
+} from "@/modules/imports/view-models/import-review-table";
 import { toImportRequestSummaryView } from "@/modules/imports/view-models/import-request-summary-view";
 
 type ImportsWorkspaceProps = {
@@ -122,23 +127,6 @@ type ImportRowSavingField =
   | "nature"
   | "occurredOn"
   | "walletId";
-
-type ImportRowNavigationField =
-  | "amountCents"
-  | "categoryId"
-  | "description"
-  | "economicEvent"
-  | "occurredOn"
-  | "walletId";
-
-const importRowNavigationFields: readonly ImportRowNavigationField[] = [
-  "occurredOn",
-  "categoryId",
-  "description",
-  "walletId",
-  "economicEvent",
-  "amountCents",
-];
 
 type ImportRowOptimisticPatch = Partial<RowPatch> &
   Partial<
@@ -1025,6 +1013,29 @@ function ImportReview({
         </td>
         <td
           className="px-3 py-3"
+          data-import-field="nature"
+          data-import-nav-cell="true"
+          data-import-row-id={row.id}
+        >
+          <FieldLoading loading={saving("nature")}>
+            <InlineDropdown
+              disabled={confirmed}
+              emptyLabel="A definir"
+              onChange={(nature) =>
+                void patchRow(row, {
+                  nature: nature as EntryNature | null,
+                })
+              }
+              options={entryNatures.map((option) => ({
+                label: entryNatureLabels[option],
+                value: option,
+              }))}
+              value={row.nature}
+            />
+          </FieldLoading>
+        </td>
+        <td
+          className="px-3 py-3"
           data-import-field="economicEvent"
           data-import-nav-cell="true"
           data-import-row-id={row.id}
@@ -1264,7 +1275,7 @@ function ImportReview({
       <div className="overflow-hidden rounded-xl border border-border">
         <div className="overflow-x-auto">
           <table
-            className="w-full min-w-[1356px] table-fixed text-xs"
+            className="w-full min-w-[1516px] table-fixed text-xs"
             onKeyDown={handleImportTableKeyDown}
             ref={tableRef}
           >
@@ -1274,6 +1285,7 @@ function ImportReview({
               <col className="w-[200px]" />
               <col className="w-[340px]" />
               <col className="w-[160px]" />
+              <col className="w-[160px]" />
               <col className="w-[170px]" />
               <col className="w-[148px]" />
               <col className="w-[100px]" />
@@ -1281,7 +1293,7 @@ function ImportReview({
             </colgroup>
             <thead>
               <tr className="border-b border-border bg-panel">
-                {["", "Data", "Categoria", "Descricao", "Carteira", "Evento", "Valor", "Status", ""].map((heading, index) => (
+                {importReviewTableHeadings.map((heading, index) => (
                   <th
                     className={`px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted ${
                       heading === "Valor" ? "text-right" : "text-left"
@@ -1297,7 +1309,7 @@ function ImportReview({
               {viewMode === "status"
                 ? statusGroups.flatMap((group) => [
                     <tr className="border-t border-border first:border-t-0" key={`group-${group.key}`}>
-                      <td className="bg-surface/70 px-3 py-2" colSpan={9}>
+                      <td className="bg-surface/70 px-3 py-2" colSpan={10}>
                         <button
                           className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted transition hover:text-foreground"
                           onClick={() => toggleGroup(group.key)}
